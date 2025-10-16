@@ -163,6 +163,35 @@ export default function StoreDashboardPage() {
     }));
   };
 
+  const approvePendingReports = async () => {
+    if (!todayData?.reports) return;
+    
+    const pendingReports = todayData.reports.filter(
+      (r: any) => r.reconciliationStatus === 'pending'
+    );
+    
+    if (pendingReports.length === 0) return;
+    
+    try {
+      // Approve all pending reports for this date
+      await Promise.all(
+        pendingReports.map((report: any) =>
+          api.put(`/api/admin/reports/${report._id}`, {
+            reconciliationStatus: 'included',
+            notes: 'Approved from store dashboard'
+          })
+        )
+      );
+      
+      // Reload the data
+      await loadDailyReports();
+      alert(`✅ Approved ${pendingReports.length} report(s) for ${selectedDate.toLocaleDateString()}`);
+    } catch (err) {
+      console.error('Failed to approve reports:', err);
+      alert('Failed to approve reports. Please try again.');
+    }
+  };
+
   if (loading) {
     return (
       <AdminLayout>
@@ -277,7 +306,7 @@ export default function StoreDashboardPage() {
           </Card>
         </div>
 
-        {/* Info Banner */}
+        {/* Info Banner - No Data */}
         {totals.reportCount === 0 && totals.pendingCount === 0 && (
           <Card className="p-4 bg-blue-900/20 border-blue-500/30 mb-6">
             <div className="flex items-start gap-3">
@@ -285,27 +314,35 @@ export default function StoreDashboardPage() {
               <div>
                 <h3 className="text-blue-300 font-semibold mb-1">No Data for This Date</h3>
                 <p className="text-blue-200 text-sm">
-                  No reports found for {selectedDate.toLocaleDateString()}. 
-                  Data appears after the daily report button is pressed on the Mutha Goose. 
-                  Reports must be marked as "Included" to count toward totals.
+                  No reports found for {selectedDate.toLocaleDateString()}. Reports are automatically created when you press the "Daily Report" button on the Mutha Goose at the end of each day.
                 </p>
               </div>
             </div>
           </Card>
         )}
 
+        {/* Pending Reports Banner with Approve Button */}
         {totals.pendingCount > 0 && (
           <Card className="p-4 bg-yellow-900/20 border-yellow-500/30 mb-6">
-            <div className="flex items-start gap-3">
-              <div className="text-2xl">⏳</div>
-              <div>
-                <h3 className="text-yellow-300 font-semibold mb-1">
-                  {totals.pendingCount} Pending Report{totals.pendingCount !== 1 ? 's' : ''}
-                </h3>
-                <p className="text-yellow-200 text-sm">
-                  Showing data from pending reports. Go to the <strong>Reports</strong> tab to mark them as "Included" for official totals.
-                </p>
+            <div className="flex items-start justify-between gap-3">
+              <div className="flex items-start gap-3">
+                <div className="text-2xl">⏳</div>
+                <div>
+                  <h3 className="text-yellow-300 font-semibold mb-1">
+                    {totals.pendingCount} Pending Report{totals.pendingCount !== 1 ? 's' : ''}
+                  </h3>
+                  <p className="text-yellow-200 text-sm">
+                    These reports came from the Mutha Goose but haven't been approved yet. 
+                    The data is showing above but won't count in official totals until you approve it.
+                  </p>
+                </div>
               </div>
+              <Button 
+                onClick={approvePendingReports}
+                className="bg-green-600 hover:bg-green-700 shrink-0"
+              >
+                ✓ Approve All
+              </Button>
             </div>
           </Card>
         )}
