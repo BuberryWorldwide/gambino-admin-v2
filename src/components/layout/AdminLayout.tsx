@@ -1,93 +1,156 @@
+// src/components/layout/AdminLayout.tsx
 'use client';
 
-import { useEffect, useState } from 'react';
+import { useState, ReactNode } from 'react';
+import { useTheme } from 'next-themes';
 import { useRouter, usePathname } from 'next/navigation';
-import Link from 'next/link';
-import { getUser, clearToken } from '@/lib/auth';
+import { 
+  LayoutDashboard, 
+  Activity, 
+  Store, 
+  Users, 
+  Settings, 
+  LogOut,
+  Sun,
+  Moon,
+  Menu,
+  X,
+  LucideIcon
+} from 'lucide-react';
 import { Button } from '@/components/ui/button';
 
-export default function AdminLayout({ children }: { children: React.ReactNode }) {
+interface User {
+  firstName?: string;
+  lastName?: string;
+  email?: string;
+  role?: string;
+}
+
+interface AdminLayoutProps {
+  children: ReactNode;
+  user?: User | null;
+}
+
+interface NavItem {
+  href: string;
+  label: string;
+  icon: LucideIcon;
+}
+
+export default function AdminLayout({ children, user }: AdminLayoutProps) {
   const router = useRouter();
   const pathname = usePathname();
-  const [user, setUser] = useState<any>(null);
+  const { theme, setTheme } = useTheme();
+  const [sidebarOpen, setSidebarOpen] = useState(true);
 
-  useEffect(() => {
-    const userData = getUser();
-    if (!userData) {
+  const handleLogout = async () => {
+    try {
+      await fetch('/api/auth/logout', { method: 'POST' });
       router.push('/login');
-    } else {
-      setUser(userData);
+    } catch (error) {
+      console.error('Logout failed:', error);
     }
-  }, [router]);
-
-  const handleLogout = () => {
-    clearToken();
-    router.push('/login');
   };
 
-  const navItems = [
-    { href: '/dashboard', label: 'Dashboard', roles: ['super_admin', 'gambino_ops', 'venue_manager', 'venue_staff'] },
-    { href: '/users', label: 'Users', roles: ['super_admin', 'gambino_ops'] },
-    { href: '/stores', label: 'Stores', roles: ['super_admin', 'gambino_ops', 'venue_manager', 'venue_staff'] },
+  const navItems: NavItem[] = [
+    { href: '/admin/dashboard', label: 'Dashboard', icon: LayoutDashboard },
+    { href: '/admin/hubs', label: 'Pi Hubs', icon: Activity },
+    { href: '/admin/machines', label: 'Machines', icon: Activity },
+    { href: '/admin/stores', label: 'Venues', icon: Store },
+    { href: '/admin/users', label: 'Users', icon: Users },
+    { href: '/admin/settings', label: 'Settings', icon: Settings },
   ];
 
-  const canAccess = (roles: string[]) => {
-    return user && roles.includes(user.role);
-  };
-
-  if (!user) return null;
-
   return (
-    <div className="flex min-h-screen bg-gray-950">
-      {/* Sidebar */}
-      <div className="w-64 bg-gray-900 border-r border-gray-800 flex flex-col">
-        {/* Logo */}
-        <div className="p-6 border-b border-gray-800">
-          <h1 className="text-2xl font-bold text-yellow-400">Gambino</h1>
-          <p className="text-xs text-gray-400 mt-1">Admin Dashboard</p>
-        </div>
-
-        {/* Navigation */}
-        <nav className="flex-1 p-4 space-y-2">
-          {navItems.map((item) => 
-            canAccess(item.roles) && (
-              <Link
-                key={item.href}
-                href={item.href}
-                className={`block px-4 py-3 rounded-lg transition-colors ${
-                  pathname === item.href
-                    ? 'bg-yellow-600 text-white'
-                    : 'text-gray-300 hover:bg-gray-800'
-                }`}
+    <div className="min-h-screen bg-white dark:bg-gray-950 text-gray-900 dark:text-gray-100">
+      {/* Top Nav */}
+      <nav className="bg-white dark:bg-gray-900 border-b border-gray-200 dark:border-gray-800 sticky top-0 z-50">
+        <div className="px-6 py-4">
+          <div className="flex items-center justify-between">
+            {/* Left: Logo & Menu Toggle */}
+            <div className="flex items-center gap-4">
+              <Button
+                variant="ghost"
+                size="sm"
+                onClick={() => setSidebarOpen(!sidebarOpen)}
+                className="h-9 w-9 p-0"
               >
-                {item.label}
-              </Link>
-            )
-          )}
-        </nav>
-
-        {/* User Info */}
-        <div className="p-4 border-t border-gray-800">
-          <div className="flex items-center gap-3 mb-3">
-            <div className="w-10 h-10 rounded-full bg-gray-700 flex items-center justify-center text-white font-medium">
-              {user.firstName?.charAt(0) || user.email?.charAt(0) || 'U'}
+                {sidebarOpen ? <X className="w-5 h-5" /> : <Menu className="w-5 h-5" />}
+              </Button>
+              
+              <div className="font-bold text-lg">Gambino Admin</div>
             </div>
-            <div className="flex-1 min-w-0">
-              <p className="text-sm font-medium text-white truncate">
-                {user.firstName} {user.lastName}
-              </p>
-              <p className="text-xs text-gray-400 truncate">{user.role}</p>
+
+            {/* Right: Theme Toggle & User */}
+            <div className="flex items-center gap-4">
+              <Button
+                variant="ghost"
+                size="sm"
+                onClick={() => setTheme(theme === 'dark' ? 'light' : 'dark')}
+                className="h-9 w-9 p-0"
+              >
+                <Sun className="h-5 w-5 rotate-0 scale-100 transition-all dark:-rotate-90 dark:scale-0" />
+                <Moon className="absolute h-5 w-5 rotate-90 scale-0 transition-all dark:rotate-0 dark:scale-100" />
+              </Button>
+
+              <div className="h-6 w-px bg-gray-200 dark:bg-gray-800"></div>
+
+              <div className="flex items-center gap-3">
+                <div className="text-right">
+                  <div className="text-sm font-medium">
+                    {user?.firstName || 'Admin'} {user?.lastName || 'User'}
+                  </div>
+                  <div className="text-xs text-gray-500 dark:text-gray-400 capitalize">
+                    {user?.role?.replace('_', ' ') || 'Super Admin'}
+                  </div>
+                </div>
+                
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  onClick={handleLogout}
+                  className="h-9 w-9 p-0 text-red-600 dark:text-red-400 hover:text-red-700 hover:bg-red-50 dark:hover:bg-red-950"
+                >
+                  <LogOut className="w-5 h-5" />
+                </Button>
+              </div>
             </div>
           </div>
-          <Button onClick={handleLogout} variant="outline" className="w-full" size="sm">
-            Logout
-          </Button>
         </div>
-      </div>
+      </nav>
 
-      {/* Main Content */}
-      <div className="flex-1 overflow-auto">
-        {children}
+      <div className="flex">
+        {/* Sidebar */}
+        {sidebarOpen && (
+          <aside className="w-64 bg-white dark:bg-gray-900 border-r border-gray-200 dark:border-gray-800 h-[calc(100vh-73px)] sticky top-[73px]">
+            <nav className="p-4 space-y-1">
+              {navItems.map((item) => {
+                const Icon = item.icon;
+                const isActive = pathname === item.href;
+                
+                return (
+                  <a
+                    key={item.href}
+                    href={item.href}
+                    className={`flex items-center gap-3 px-4 py-3 rounded-lg text-sm font-medium transition-colors ${
+                      isActive
+                        ? 'bg-gray-900 dark:bg-gray-100 text-white dark:text-gray-900'
+                        : 'text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-800'
+                    }`}
+                  >
+                    <Icon className="w-5 h-5" />
+                    {item.label}
+                  </a>
+                );
+              })}
+            </nav>
+          </aside>
+        )}
+
+        {/* Main Content */}
+        <main className="flex-1">
+          {children}
+        </main>
       </div>
     </div>
   );
