@@ -2,6 +2,7 @@
 
 import { useEffect, useState } from 'react';
 import { useRouter } from 'next/navigation';
+import { Search, UserPlus, Mail, Shield, Building, DollarSign, Edit } from 'lucide-react';
 import api from '@/lib/api';
 import { Button } from '@/components/ui/button';
 import { Card } from '@/components/ui/card';
@@ -17,9 +18,21 @@ import {
 } from '@/components/ui/table';
 import AdminLayout from '@/components/layout/AdminLayout';
 
+interface User {
+  _id: string;
+  email: string;
+  firstName?: string;
+  lastName?: string;
+  role: string;
+  isActive?: boolean;
+  assignedVenues?: string[];
+  gambinoBalance?: number;
+  createdAt?: string;
+}
+
 export default function UsersPage() {
   const router = useRouter();
-  const [users, setUsers] = useState<any[]>([]);
+  const [users, setUsers] = useState<User[]>([]);
   const [loading, setLoading] = useState(true);
   const [searchTerm, setSearchTerm] = useState('');
 
@@ -32,7 +45,7 @@ export default function UsersPage() {
       const { data } = await api.get('/api/admin/users');
       setUsers(data.users || []);
     } catch (err) {
-      console.error(err);
+      console.error('Failed to load users:', err);
     } finally {
       setLoading(false);
     }
@@ -41,16 +54,17 @@ export default function UsersPage() {
   const filteredUsers = users.filter(user =>
     user.email?.toLowerCase().includes(searchTerm.toLowerCase()) ||
     user.firstName?.toLowerCase().includes(searchTerm.toLowerCase()) ||
-    user.lastName?.toLowerCase().includes(searchTerm.toLowerCase())
+    user.lastName?.toLowerCase().includes(searchTerm.toLowerCase()) ||
+    user.role?.toLowerCase().includes(searchTerm.toLowerCase())
   );
 
-  const getRoleBadge = (role: string) => {
+  const getRoleBadgeColor = (role: string) => {
     const colors: Record<string, string> = {
-      super_admin: 'bg-purple-900/30 text-purple-300 border-purple-700',
-      gambino_ops: 'bg-blue-900/30 text-blue-300 border-blue-700',
-      venue_manager: 'bg-green-900/30 text-green-300 border-green-700',
-      venue_staff: 'bg-gray-700/30 text-gray-300 border-gray-600',
-      user: 'bg-slate-700/30 text-slate-300 border-slate-600',
+      super_admin: 'bg-purple-500/10 text-purple-600 dark:bg-purple-500/20 dark:text-purple-400 border-purple-500/20',
+      gambino_ops: 'bg-blue-500/10 text-blue-600 dark:bg-blue-500/20 dark:text-blue-400 border-blue-500/20',
+      venue_manager: 'bg-green-500/10 text-green-600 dark:bg-green-500/20 dark:text-green-400 border-green-500/20',
+      venue_staff: 'bg-yellow-500/10 text-yellow-600 dark:bg-yellow-500/20 dark:text-yellow-400 border-yellow-500/20',
+      user: 'bg-gray-500/10 text-gray-600 dark:bg-gray-500/20 dark:text-gray-400 border-gray-500/20',
     };
     return colors[role] || colors.user;
   };
@@ -66,11 +80,27 @@ export default function UsersPage() {
     return labels[role] || role;
   };
 
+  const getRoleIcon = (role: string) => {
+    switch (role) {
+      case 'super_admin':
+      case 'gambino_ops':
+        return <Shield className="w-3.5 h-3.5" />;
+      case 'venue_manager':
+      case 'venue_staff':
+        return <Building className="w-3.5 h-3.5" />;
+      default:
+        return null;
+    }
+  };
+
   if (loading) {
     return (
       <AdminLayout>
-        <div className="flex items-center justify-center h-full">
-          <div className="text-white">Loading users...</div>
+        <div className="flex items-center justify-center min-h-[60vh]">
+          <div className="text-center">
+            <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-yellow-500 dark:border-yellow-400 mx-auto mb-4"></div>
+            <p className="text-gray-600 dark:text-gray-400">Loading users...</p>
+          </div>
         </div>
       </AdminLayout>
     );
@@ -78,91 +108,196 @@ export default function UsersPage() {
 
   return (
     <AdminLayout>
-      <div className="p-8">
+      <div className="p-4 sm:p-6 lg:p-8 bg-gray-50 dark:bg-gray-950 min-h-screen">
         {/* Header */}
-        <div className="flex items-center justify-between mb-6">
-          <div>
-            <h1 className="text-3xl font-bold text-white">Users</h1>
-            <p className="text-gray-400 mt-1">{filteredUsers.length} total users</p>
+        <div className="mb-8">
+          <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
+            <div>
+              <h1 className="text-3xl lg:text-4xl font-bold text-gray-900 dark:text-white mb-2">
+                User Management
+              </h1>
+              <p className="text-gray-600 dark:text-gray-400 flex items-center gap-2">
+                <span className="inline-flex items-center justify-center w-6 h-6 rounded-full bg-yellow-500/10 dark:bg-yellow-400/10 text-yellow-600 dark:text-yellow-400 text-sm font-semibold">
+                  {filteredUsers.length}
+                </span>
+                total users
+              </p>
+            </div>
+            <Button 
+              onClick={() => router.push('/admin/users/new')}
+              className="bg-yellow-500 hover:bg-yellow-600 dark:bg-yellow-400 dark:hover:bg-yellow-500 text-gray-900 dark:text-gray-900 shadow-md"
+            >
+              <UserPlus className="w-4 h-4 mr-2" />
+              Create User
+            </Button>
           </div>
-          <Button onClick={() => router.push('/users/new')} className="bg-yellow-600 hover:bg-yellow-700">
-            Create User
-          </Button>
         </div>
 
         {/* Search */}
-        <Card className="p-4 bg-gray-900 border-gray-800 mb-6">
-          <Input
-            placeholder="Search by name or email..."
-            value={searchTerm}
-            onChange={(e) => setSearchTerm(e.target.value)}
-            className="bg-gray-800 border-gray-700 text-white"
-          />
+        <Card className="p-4 mb-6 bg-white dark:bg-gray-900 border-gray-200 dark:border-gray-800 shadow-sm">
+          <div className="relative">
+            <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-5 h-5 text-gray-400 dark:text-gray-500" />
+            <Input
+              placeholder="Search by name, email, or role..."
+              value={searchTerm}
+              onChange={(e: React.ChangeEvent<HTMLInputElement>) => setSearchTerm(e.target.value)}
+              className="pl-10 bg-gray-50 dark:bg-gray-800 border-gray-300 dark:border-gray-700 text-gray-900 dark:text-white focus:ring-yellow-500 dark:focus:ring-yellow-400"
+            />
+          </div>
         </Card>
 
+        {/* Stats Cards */}
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 mb-6">
+          <Card className="p-4 bg-white dark:bg-gray-900 border-gray-200 dark:border-gray-800">
+            <div className="flex items-center gap-3">
+              <div className="p-2 rounded-lg bg-purple-500/10 dark:bg-purple-500/20">
+                <Shield className="w-5 h-5 text-purple-600 dark:text-purple-400" />
+              </div>
+              <div>
+                <p className="text-sm text-gray-600 dark:text-gray-400">Admins</p>
+                <p className="text-2xl font-bold text-gray-900 dark:text-white">
+                  {users.filter((u: User) => ['super_admin', 'gambino_ops'].includes(u.role)).length}
+                </p>
+              </div>
+            </div>
+          </Card>
+
+          <Card className="p-4 bg-white dark:bg-gray-900 border-gray-200 dark:border-gray-800">
+            <div className="flex items-center gap-3">
+              <div className="p-2 rounded-lg bg-green-500/10 dark:bg-green-500/20">
+                <Building className="w-5 h-5 text-green-600 dark:text-green-400" />
+              </div>
+              <div>
+                <p className="text-sm text-gray-600 dark:text-gray-400">Managers</p>
+                <p className="text-2xl font-bold text-gray-900 dark:text-white">
+                  {users.filter((u: User) => u.role === 'venue_manager').length}
+                </p>
+              </div>
+            </div>
+          </Card>
+
+          <Card className="p-4 bg-white dark:bg-gray-900 border-gray-200 dark:border-gray-800">
+            <div className="flex items-center gap-3">
+              <div className="p-2 rounded-lg bg-blue-500/10 dark:bg-blue-500/20">
+                <Mail className="w-5 h-5 text-blue-600 dark:text-blue-400" />
+              </div>
+              <div>
+                <p className="text-sm text-gray-600 dark:text-gray-400">Active</p>
+                <p className="text-2xl font-bold text-gray-900 dark:text-white">
+                  {users.filter((u: User) => u.isActive !== false).length}
+                </p>
+              </div>
+            </div>
+          </Card>
+
+          <Card className="p-4 bg-white dark:bg-gray-900 border-gray-200 dark:border-gray-800">
+            <div className="flex items-center gap-3">
+              <div className="p-2 rounded-lg bg-yellow-500/10 dark:bg-yellow-500/20">
+                <DollarSign className="w-5 h-5 text-yellow-600 dark:text-yellow-400" />
+              </div>
+              <div>
+                <p className="text-sm text-gray-600 dark:text-gray-400">Total Balance</p>
+                <p className="text-2xl font-bold text-gray-900 dark:text-white">
+                  {users.reduce((sum: number, u: User) => sum + (u.gambinoBalance || 0), 0).toLocaleString()}
+                </p>
+              </div>
+            </div>
+          </Card>
+        </div>
+
         {/* Table */}
-        <Card className="bg-gray-900 border-gray-800">
-          <Table>
-            <TableHeader>
-              <TableRow className="border-gray-800 hover:bg-gray-800/50">
-                <TableHead className="text-gray-400">User</TableHead>
-                <TableHead className="text-gray-400">Role</TableHead>
-                <TableHead className="text-gray-400">Stores</TableHead>
-                <TableHead className="text-gray-400">Status</TableHead>
-                <TableHead className="text-gray-400">Balance</TableHead>
-                <TableHead className="text-gray-400 text-right">Actions</TableHead>
-              </TableRow>
-            </TableHeader>
-            <TableBody>
-              {filteredUsers.map((user) => (
-                <TableRow key={user._id} className="border-gray-800 hover:bg-gray-800/50">
-                  <TableCell>
-                    <div className="flex items-center gap-3">
-                      <div className="w-10 h-10 rounded-full bg-gray-700 flex items-center justify-center text-white font-medium">
-                        {user.firstName?.charAt(0) || user.email?.charAt(0) || 'U'}
-                      </div>
-                      <div>
-                        <div className="text-white font-medium">
-                          {user.firstName} {user.lastName}
-                        </div>
-                        <div className="text-sm text-gray-400">{user.email}</div>
-                      </div>
-                    </div>
-                  </TableCell>
-                  <TableCell>
-                    <Badge className={getRoleBadge(user.role)}>
-                      {getRoleLabel(user.role)}
-                    </Badge>
-                  </TableCell>
-                  <TableCell className="text-gray-300">
-                    {user.assignedVenues?.length > 0 ? (
-                      <span>{user.assignedVenues.length} stores</span>
-                    ) : (
-                      <span className="text-gray-500">—</span>
-                    )}
-                  </TableCell>
-                  <TableCell>
-                    <Badge className={user.isActive !== false ? 'bg-green-900/30 text-green-300' : 'bg-red-900/30 text-red-300'}>
-                      {user.isActive !== false ? 'Active' : 'Inactive'}
-                    </Badge>
-                  </TableCell>
-                  <TableCell className="text-gray-300">
-                    {user.gambinoBalance?.toLocaleString() || '0'}
-                  </TableCell>
-                  <TableCell className="text-right">
-                    <Button
-                      onClick={() => router.push(`/users/${user._id}`)}
-                      variant="outline"
-                      size="sm"
-                      className="border-gray-700 text-gray-300 hover:bg-gray-800"
-                    >
-                      Edit
-                    </Button>
-                  </TableCell>
+        <Card className="bg-white dark:bg-gray-900 border-gray-200 dark:border-gray-800 shadow-sm overflow-hidden">
+          <div className="overflow-x-auto">
+            <Table>
+              <TableHeader>
+                <TableRow className="border-gray-200 dark:border-gray-800 hover:bg-gray-50 dark:hover:bg-gray-800/50">
+                  <TableHead className="text-gray-700 dark:text-gray-300 font-semibold">User</TableHead>
+                  <TableHead className="text-gray-700 dark:text-gray-300 font-semibold">Role</TableHead>
+                  <TableHead className="text-gray-700 dark:text-gray-300 font-semibold">Venues</TableHead>
+                  <TableHead className="text-gray-700 dark:text-gray-300 font-semibold">Status</TableHead>
+                  <TableHead className="text-gray-700 dark:text-gray-300 font-semibold">Balance</TableHead>
+                  <TableHead className="text-gray-700 dark:text-gray-300 font-semibold text-right">Actions</TableHead>
                 </TableRow>
-              ))}
-            </TableBody>
-          </Table>
+              </TableHeader>
+              <TableBody>
+                {filteredUsers.length === 0 ? (
+                  <TableRow>
+                    <TableCell colSpan={6} className="text-center py-12">
+                      <div className="text-gray-500 dark:text-gray-400">
+                        {searchTerm ? 'No users found matching your search' : 'No users found'}
+                      </div>
+                    </TableCell>
+                  </TableRow>
+                ) : (
+                  filteredUsers.map((user: User) => (
+                    <TableRow 
+                      key={user._id} 
+                      className="border-gray-200 dark:border-gray-800 hover:bg-gray-50 dark:hover:bg-gray-800/50 transition-colors"
+                    >
+                      <TableCell>
+                        <div className="flex items-center gap-3">
+                          <div className="w-10 h-10 rounded-full bg-gradient-to-br from-yellow-400 to-yellow-600 dark:from-yellow-300 dark:to-yellow-500 flex items-center justify-center text-gray-900 font-semibold text-sm shadow-md">
+                            {user.firstName?.charAt(0) || user.email?.charAt(0) || 'U'}
+                          </div>
+                          <div>
+                            <div className="text-gray-900 dark:text-white font-medium">
+                              {user.firstName} {user.lastName}
+                            </div>
+                            <div className="text-sm text-gray-500 dark:text-gray-400 flex items-center gap-1">
+                              <Mail className="w-3 h-3" />
+                              {user.email}
+                            </div>
+                          </div>
+                        </div>
+                      </TableCell>
+                      <TableCell>
+                        <Badge className={`${getRoleBadgeColor(user.role)} border flex items-center gap-1.5 w-fit`}>
+                          {getRoleIcon(user.role)}
+                          {getRoleLabel(user.role)}
+                        </Badge>
+                      </TableCell>
+                      <TableCell className="text-gray-700 dark:text-gray-300">
+                        {user.assignedVenues && user.assignedVenues.length > 0 ? (
+                          <div className="flex items-center gap-1.5">
+                            <Building className="w-4 h-4 text-gray-400" />
+                            <span className="font-medium">{user.assignedVenues.length}</span>
+                            <span className="text-gray-500 dark:text-gray-400 text-sm">
+                              {user.assignedVenues.length === 1 ? 'venue' : 'venues'}
+                            </span>
+                          </div>
+                        ) : (
+                          <span className="text-gray-400 dark:text-gray-500">—</span>
+                        )}
+                      </TableCell>
+                      <TableCell>
+                        <Badge className={
+                          user.isActive !== false
+                            ? 'bg-green-500/10 text-green-600 dark:bg-green-500/20 dark:text-green-400 border border-green-500/20'
+                            : 'bg-red-500/10 text-red-600 dark:bg-red-500/20 dark:text-red-400 border border-red-500/20'
+                        }>
+                          {user.isActive !== false ? 'Active' : 'Inactive'}
+                        </Badge>
+                      </TableCell>
+                      <TableCell className="text-gray-900 dark:text-white font-mono">
+                        {user.gambinoBalance?.toLocaleString() || '0'}
+                      </TableCell>
+                      <TableCell className="text-right">
+                        <Button
+                          onClick={() => router.push(`/admin/users/${user._id}`)}
+                          variant="outline"
+                          size="sm"
+                          className="border-gray-300 dark:border-gray-700 text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-800 hover:border-yellow-500 dark:hover:border-yellow-400"
+                        >
+                          <Edit className="w-4 h-4 mr-1.5" />
+                          Edit
+                        </Button>
+                      </TableCell>
+                    </TableRow>
+                  ))
+                )}
+              </TableBody>
+            </Table>
+          </div>
         </Card>
       </div>
     </AdminLayout>
