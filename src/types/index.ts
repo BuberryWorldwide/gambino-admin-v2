@@ -6,8 +6,12 @@ export type MachineStatus = 'online' | 'offline' | 'maintenance' | 'error';
 
 export interface User {
   _id: string;
+  id?: string; // Alias for _id
   email: string;
   username?: string;
+  firstName?: string; // ✅ ADDED
+  lastName?: string;  // ✅ ADDED
+  phone?: string;     // ✅ ADDED
   role: UserRole;
   assignedVenues?: string[];
   permissions?: string[];
