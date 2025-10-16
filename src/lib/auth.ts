@@ -3,20 +3,64 @@ import type { User } from '@/types';
 
 const isBrowser = typeof window !== 'undefined';
 
+const AUTH_KEYS = {
+  TOKEN: 'gambino_token',
+  USER: 'gambino_user',
+} as const;
+
+/**
+ * Set cookie (for server-side middleware access)
+ */
+function setCookie(name: string, value: string, days: number = 7): void {
+  if (!isBrowser) return;
+  
+  const expires = new Date();
+  expires.setTime(expires.getTime() + days * 24 * 60 * 60 * 1000);
+  
+  // Set cookie with security flags
+  const cookieString = `${name}=${value}; expires=${expires.toUTCString()}; path=/; SameSite=Strict${
+    process.env.NODE_ENV === 'production' ? '; Secure' : ''
+  }`;
+  
+  document.cookie = cookieString;
+}
+
+/**
+ * Delete cookie
+ */
+function deleteCookie(name: string): void {
+  if (!isBrowser) return;
+  document.cookie = `${name}=; expires=Thu, 01 Jan 1970 00:00:00 UTC; path=/;`;
+}
+
+/**
+ * Store authentication token and user data
+ */
 export function setToken(token: string, userData: User): void {
   if (!isBrowser) return;
-  localStorage.setItem('gambino_token', token);
-  localStorage.setItem('gambino_user', JSON.stringify(userData));
+  
+  // Store in localStorage for client-side access
+  localStorage.setItem(AUTH_KEYS.TOKEN, token);
+  localStorage.setItem(AUTH_KEYS.USER, JSON.stringify(userData));
+  
+  // ALSO store in cookie for server-side middleware
+  setCookie(AUTH_KEYS.TOKEN, token, 7);
 }
 
+/**
+ * Get authentication token
+ */
 export function getToken(): string | null {
   if (!isBrowser) return null;
-  return localStorage.getItem('gambino_token');
+  return localStorage.getItem(AUTH_KEYS.TOKEN);
 }
 
+/**
+ * Get stored user data
+ */
 export function getUser(): User | null {
   if (!isBrowser) return null;
-  const user = localStorage.getItem('gambino_user');
+  const user = localStorage.getItem(AUTH_KEYS.USER);
   if (!user) return null;
   
   try {
@@ -27,16 +71,33 @@ export function getUser(): User | null {
   }
 }
 
+/**
+ * Clear all authentication data
+ */
 export function clearToken(): void {
   if (!isBrowser) return;
-  localStorage.removeItem('gambino_token');
-  localStorage.removeItem('gambino_user');
+  
+  // Clear localStorage
+  localStorage.removeItem(AUTH_KEYS.TOKEN);
+  localStorage.removeItem(AUTH_KEYS.USER);
+  
+  // Clear cookie
+  deleteCookie(AUTH_KEYS.TOKEN);
+  
+  // Clear any legacy auth data
+  document.cookie = 'token=; Max-Age=0; path=/';
 }
 
+/**
+ * Check if user is authenticated
+ */
 export function isAuthenticated(): boolean {
   return !!(getToken() && getUser());
 }
 
+/**
+ * Get user's redirect URL based on role
+ */
 export function getUserRedirectUrl(userData: User | null): string {
   if (!userData) return '/login';
   
@@ -49,21 +110,27 @@ export function getUserRedirectUrl(userData: User | null): string {
     case 'gambino_ops':
       return '/admin/dashboard';
     case 'venue_manager':
-      return '/stores';
+      return '/admin/venues';
     case 'venue_staff':
-      return '/stores';
+      return '/admin/reports';
     case 'user':
     default:
       return '/dashboard';
   }
 }
 
+/**
+ * Check if user can access admin area
+ */
 export function canAccessAdmin(userData: User | null = null): boolean {
   const user = userData || getUser();
   if (!user) return false;
   return ['super_admin', 'gambino_ops', 'venue_manager', 'venue_staff'].includes(user.role);
 }
 
+/**
+ * Check if user can access specific venue
+ */
 export function canAccessVenue(storeId: string, userData: User | null = null): boolean {
   const user = userData || getUser();
   if (!user) return false;
@@ -86,6 +153,9 @@ export function canAccessVenue(storeId: string, userData: User | null = null): b
   return false;
 }
 
+/**
+ * Check if user can manage specific venue
+ */
 export function canManageVenue(storeId: string, userData: User | null = null): boolean {
   const user = userData || getUser();
   if (!user) return false;
