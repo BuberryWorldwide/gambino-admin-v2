@@ -2,8 +2,9 @@
 'use client';
 
 import { useState, ReactNode } from 'react';
-import { useTheme } from 'next-themes';
 import { useRouter, usePathname } from 'next/navigation';
+import ThemeSwitcher from '@/components/ThemeSwitcher';
+
 import { 
   LayoutDashboard, 
   Activity, 
@@ -11,8 +12,6 @@ import {
   Users, 
   Settings, 
   LogOut,
-  Sun,
-  Moon,
   Menu,
   X,
   LucideIcon
@@ -40,7 +39,6 @@ interface NavItem {
 export default function AdminLayout({ children, user }: AdminLayoutProps) {
   const router = useRouter();
   const pathname = usePathname();
-  const { theme, setTheme } = useTheme();
   const [sidebarOpen, setSidebarOpen] = useState(true);
 
   const handleLogout = async () => {
@@ -81,17 +79,9 @@ export default function AdminLayout({ children, user }: AdminLayoutProps) {
               <div className="font-bold text-lg">Gambino Admin</div>
             </div>
 
-            {/* Right: Theme Toggle & User */}
+            {/* Right: Theme Switcher & User */}
             <div className="flex items-center gap-4">
-              <Button
-                variant="ghost"
-                size="sm"
-                onClick={() => setTheme(theme === 'dark' ? 'light' : 'dark')}
-                className="h-9 w-9 p-0"
-              >
-                <Sun className="h-5 w-5 rotate-0 scale-100 transition-all dark:-rotate-90 dark:scale-0" />
-                <Moon className="absolute h-5 w-5 rotate-90 scale-0 transition-all dark:rotate-0 dark:scale-100" />
-              </Button>
+              <ThemeSwitcher />
 
               <div className="h-6 w-px bg-gray-200 dark:bg-gray-800"></div>
 
