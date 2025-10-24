@@ -8,6 +8,8 @@ import AdminLayout from '@/components/layout/AdminLayout';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Badge } from '@/components/ui/badge';
+import axios from 'axios';
+import { getToken, clearToken } from '@/lib/auth';
 import {
   Table,
   TableBody,
@@ -65,50 +67,81 @@ export default function HubsPage() {
   const [user, setUser] = useState<User | null>(null);
 
   useEffect(() => {
-    loadUser();
-    loadData();
-  }, []);
+  // Check token first - prevents unauthorized API calls
+  const token = getToken();
+  
+  if (!token) {
+    console.log('No token found, redirecting to login');
+    window.location.href = '/login';
+    return;
+  }
 
-  const loadUser = async () => {
-    try {
-      const res = await api.get('/api/users/profile');
-      setUser(res.data.user);
-    } catch (err) {
-      // Not logged in or auth failed - continue without user data
-      console.log('Failed to load user profile, continuing without user data');
-      setUser(null);
+  loadUser();
+  loadData();
+}, []);
+
+const loadUser = async () => {
+  try {
+    const res = await api.get('/api/users/profile');
+    setUser(res.data.user);
+  } catch (err) {
+    console.log('Failed to load user profile');
+    
+    // Handle 401 errors - redirect to login
+    if (axios.isAxiosError(err) && err.response?.status === 401) {
+      console.log('Unauthorized - clearing token and redirecting');
+      clearToken();
+      window.location.href = '/login';
+      return;
     }
-  };
+    
+    setUser(null);
+  }
+};
 
   const loadData = async () => {
-    try {
-      setLoading(true);
-      setError(null);
+  try {
+    setLoading(true);
+    setError(null);
 
-      const hubsRes = await api.get('/api/admin/hubs');
-      const hubsList: Hub[] = hubsRes.data.hubs || [];
-      setHubs(hubsList);
+    const hubsRes = await api.get('/api/admin/hubs');
+    const hubsList: Hub[] = hubsRes.data.hubs || [];
+    setHubs(hubsList);
 
-      const machinesData: Record<string, Machine[]> = {};
-      await Promise.all(
-        hubsList.map(async (hub) => {
-          try {
-            const res = await api.get(`/api/admin/hubs/${hub.hubId}/discovered-machines`);
-            machinesData[hub.hubId] = res.data.machines || [];
-          } catch (err) {
-            console.error(`Failed to load machines for ${hub.hubId}:`, err);
-            machinesData[hub.hubId] = [];
-          }
-        })
-      );
-      setDiscoveredMachines(machinesData);
-    } catch (err: any) {
-      console.error('Failed to load hubs:', err);
-      setError(err.response?.data?.error || 'Failed to load hubs');
-    } finally {
-      setLoading(false);
+    const machinesData: Record<string, Machine[]> = {};
+    await Promise.all(
+      hubsList.map(async (hub) => {
+        try {
+          const res = await api.get(`/api/admin/hubs/${hub.hubId}/discovered-machines`);
+          machinesData[hub.hubId] = res.data.machines || [];
+        } catch (machineErr: unknown) {
+          console.error(`Failed to load machines for ${hub.hubId}:`, machineErr);
+          machinesData[hub.hubId] = [];
+        }
+      })
+    );
+    setDiscoveredMachines(machinesData);
+  } catch (err: unknown) {
+    console.error('Failed to load hubs:', err);
+    
+    // Handle 401 errors
+    if (axios.isAxiosError(err) && err.response?.status === 401) {
+      console.log('Unauthorized - redirecting to login');
+      clearToken();
+      window.location.href = '/login';
+      return;
     }
-  };
+    
+    if (axios.isAxiosError(err)) {
+      setError(err.response?.data?.error || 'Failed to load hubs');
+    } else {
+      setError('Failed to load hubs');
+    }
+  } finally {
+    // CRITICAL: Always set loading to false!
+    setLoading(false);
+  }
+};
 
   const handleRefresh = async () => {
     setRefreshing(true);

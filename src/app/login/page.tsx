@@ -6,6 +6,7 @@ import { useRouter } from 'next/navigation';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Card } from '@/components/ui/card';
+import axios from 'axios';
 import api from '@/lib/api';
 import { setToken, getToken, getUserRedirectUrl } from '@/lib/auth';
 
@@ -41,12 +42,16 @@ export default function LoginPage() {
         // Continue anyway - localStorage auth will still work
       }
       
-      // Step 4: Redirect based on user role
+// Step 4: Redirect based on user role
       const redirectUrl = getUserRedirectUrl(data.user);
       router.push(redirectUrl);
       
-    } catch (err: any) {
-      setError(err.response?.data?.error || 'Login failed');
+    } catch (err: unknown) {
+      if (axios.isAxiosError(err)) {
+        setError(err.response?.data?.error || 'Login failed');
+      } else {
+        setError('Login failed');
+      }
     } finally {
       setLoading(false);
     }

@@ -11,12 +11,7 @@ import {
   TrendingDown,
   DollarSign,
   Activity,
-  CheckCircle,
-  Clock,
-  AlertCircle,
   MapPin,
-  Phone,
-  Mail,
   Edit,
   RefreshCw,
   Download
@@ -25,7 +20,6 @@ import api from '@/lib/api';
 import { Button } from '@/components/ui/button';
 import { Card } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
-import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import {
   Table,
   TableBody,
@@ -46,32 +40,29 @@ interface Store {
   phone?: string;
   status: string;
   feePercentage?: number;
-  ownerUserId?: string;
 }
 
-interface MachineData {
-  machineId: string;
+interface VenueStats {
+  totalMachines: number;
   moneyIn: number;
-  collect: number;  // Backend uses 'collect' not 'moneyOut'
+  moneyOut: number;
+  voucherCount: number;
+  voucherTotal: number;
   netRevenue: number;
-  transactionCount?: number;
-  lastSeen?: string;
 }
 
-interface MachineBreakdown {
+interface MachineRevenue {
   machineId: string;
   moneyIn: number;
-  moneyOut: number;  // Calculated frontend value
-  net: number;
+  moneyOut: number;
+  netRevenue: number;
 }
 
-interface DailyReport {
-  _id: string;
-  date: string;
-  reconciliationStatus: 'included' | 'pending' | 'excluded';
-  machineData: MachineData[];
-  submittedAt?: string;
-  notes?: string;
+interface EventData {
+  eventType: string;
+  gamingMachineId?: string;
+  machineId?: string;
+  amount?: number;
 }
 
 export default function StoreDashboardPage() {
@@ -80,27 +71,18 @@ export default function StoreDashboardPage() {
   const storeId = params.id as string;
   
   const [store, setStore] = useState<Store | null>(null);
-  const [todayData, setTodayData] = useState<any>(null);
+  const [todayStats, setTodayStats] = useState<VenueStats | null>(null);
+  const [machineRevenue, setMachineRevenue] = useState<MachineRevenue[]>([]);
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
   
   // Date navigation
   const [selectedDate, setSelectedDate] = useState(new Date());
-  const dateString = selectedDate.toISOString().split('T')[0];
-
-  // Stats comparison
-  const [weekStats, setWeekStats] = useState<any>(null);
-  const [monthStats, setMonthStats] = useState<any>(null);
 
   useEffect(() => {
     loadAllData();
-  }, [storeId]);
-
-  useEffect(() => {
-    if (store) {
-      loadDailyReports();
-    }
-  }, [selectedDate, store]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [storeId, selectedDate]);
 
   const loadAllData = async () => {
     setLoading(true);
@@ -109,11 +91,8 @@ export default function StoreDashboardPage() {
       const storeRes = await api.get(`/api/admin/stores/${storeId}`);
       setStore(storeRes.data.store);
       
-      // Load daily reports
-      await loadDailyReports();
-      
-      // Load week/month stats
-      await loadStats();
+      // Load venue events for selected date
+      await loadVenueStats();
     } catch (err) {
       console.error('Failed to load store data:', err);
     } finally {
@@ -121,33 +100,63 @@ export default function StoreDashboardPage() {
     }
   };
 
-  const loadDailyReports = async () => {
+  const loadVenueStats = async () => {
     try {
-      const reportsRes = await api.get(`/api/admin/reports/daily/${storeId}`, {
-        params: { date: dateString }
-      });
-      setTodayData(reportsRes.data);
-    } catch (err) {
-      console.error('Failed to load reports:', err);
-      setTodayData(null);
-    }
-  };
+      // Calculate start and end of selected day
+      const startDate = new Date(selectedDate);
+      startDate.setHours(0, 0, 0, 0);
+      
+      const endDate = new Date(selectedDate);
+      endDate.setHours(23, 59, 59, 999);
 
-  const loadStats = async () => {
-    try {
-      // Load week stats (last 7 days)
-      const weekRes = await api.get(`/api/admin/stores/${storeId}/stats`, {
-        params: { period: 'week' }
+      const response = await api.get(`/api/admin/venues/${storeId}/events`, {
+        params: {
+          startDate: startDate.toISOString(),
+          endDate: endDate.toISOString()
+        }
       });
-      setWeekStats(weekRes.data);
 
-      // Load month stats (last 30 days)
-      const monthRes = await api.get(`/api/admin/stores/${storeId}/stats`, {
-        params: { period: 'month' }
-      });
-      setMonthStats(monthRes.data);
+      if (response.data.success) {
+        setTodayStats(response.data.stats);
+        
+        // Calculate per-machine revenue
+        const events = response.data.events || [];
+        const machineMap = new Map<string, MachineRevenue>();
+        
+        events.forEach((event: EventData) => {
+          const machineId = event.gamingMachineId || event.machineId;
+          if (!machineId) return;
+          
+          if (!machineMap.has(machineId)) {
+            machineMap.set(machineId, {
+              machineId,
+              moneyIn: 0,
+              moneyOut: 0,
+              netRevenue: 0
+            });
+          }
+          
+          const machine = machineMap.get(machineId)!;
+          
+          if (event.eventType === 'money_in') {
+            machine.moneyIn += event.amount || 0;
+          } else if (event.eventType === 'money_out' || event.eventType === 'voucher_print') {
+            machine.moneyOut += event.amount || 0;
+          }
+          
+          machine.netRevenue = machine.moneyIn - machine.moneyOut;
+        });
+        
+        // Sort by revenue descending
+        const sortedMachines = Array.from(machineMap.values())
+          .sort((a, b) => b.netRevenue - a.netRevenue);
+        
+        setMachineRevenue(sortedMachines);
+      }
     } catch (err) {
-      console.error('Failed to load stats:', err);
+      console.error('Failed to load venue stats:', err);
+      setTodayStats(null);
+      setMachineRevenue([]);
     }
   };
 
@@ -179,106 +188,11 @@ export default function StoreDashboardPage() {
     return selectedDate.toDateString() === today.toDateString();
   };
 
-  const calculateTotals = () => {
-    if (!todayData?.reports || todayData.reports.length === 0) {
-      return { moneyIn: 0, moneyOut: 0, net: 0, machineCount: 0, reportCount: 0, pendingCount: 0 };
-    }
-    
-    const activeReports = todayData.reports.filter(
-      (r: DailyReport) => r.reconciliationStatus === 'included' || r.reconciliationStatus === 'pending'
-    );
-    
-    const includedCount = todayData.reports.filter(
-      (r: DailyReport) => r.reconciliationStatus === 'included'
-    ).length;
-    
-    const pendingCount = todayData.reports.filter(
-      (r: DailyReport) => r.reconciliationStatus === 'pending'
-    ).length;
-    
-    const machines = new Set();
-    let totalMoneyIn = 0;
-    let totalNet = 0;
-    
-    activeReports.forEach((report: DailyReport) => {
-      report.machineData?.forEach((machine) => {
-        machines.add(machine.machineId);
-        totalMoneyIn += machine.moneyIn || 0;
-        totalNet += machine.netRevenue || 0;
-      });
-    });
-    
-    // Calculate moneyOut as moneyIn - netRevenue (same as old code)
-    const totalMoneyOut = totalMoneyIn - totalNet;
-    
-    return {
-      moneyIn: totalMoneyIn,
-      moneyOut: totalMoneyOut,
-      net: totalNet,
-      machineCount: machines.size,
-      reportCount: includedCount,
-      pendingCount: pendingCount
-    };
-  };
-
-  const getMachineBreakdown = () => {
-    if (!todayData?.reports) return [];
-    
-    const machineMap = new Map();
-    
-    todayData.reports
-      .filter((r: DailyReport) => r.reconciliationStatus === 'included' || r.reconciliationStatus === 'pending')
-      .forEach((report: DailyReport) => {
-        report.machineData?.forEach((machine) => {
-          if (!machineMap.has(machine.machineId)) {
-            machineMap.set(machine.machineId, {
-              machineId: machine.machineId,
-              moneyIn: 0,
-              net: 0,
-              moneyOut: 0
-            });
-          }
-          const m = machineMap.get(machine.machineId);
-          m.moneyIn += machine.moneyIn || 0;
-          m.net += machine.netRevenue || 0;
-        });
-      });
-    
-    // Calculate moneyOut for each machine (same as old code)
-    return Array.from(machineMap.values()).map(m => ({
-      ...m,
-      moneyOut: m.moneyIn - m.net
-    }));
-  };
-
-  const approvePendingReports = async () => {
-    if (!todayData?.reports) return;
-    
-    const pendingReports = todayData.reports.filter(
-      (r: DailyReport) => r.reconciliationStatus === 'pending'
-    );
-    
-    if (pendingReports.length === 0) return;
-    
-    try {
-      await Promise.all(
-        pendingReports.map((report: DailyReport) =>
-          api.put(`/api/admin/reports/${report._id}`, {
-            reconciliationStatus: 'included',
-            notes: 'Approved from store dashboard'
-          })
-        )
-      );
-      
-      await loadDailyReports();
-    } catch (err) {
-      console.error('Failed to approve reports:', err);
-    }
-  };
-
-  const exportData = () => {
-    // TODO: Implement CSV export
-    console.log('Exporting data...');
+  const formatCurrency = (amount: number) => {
+    return new Intl.NumberFormat('en-US', {
+      style: 'currency',
+      currency: 'USD'
+    }).format(amount);
   };
 
   if (loading) {
@@ -297,95 +211,84 @@ export default function StoreDashboardPage() {
   if (!store) {
     return (
       <AdminLayout>
-        <div className="flex items-center justify-center min-h-[60vh]">
-          <div className="text-center">
-            <AlertCircle className="w-16 h-16 text-red-500 mx-auto mb-4" />
-            <p className="text-gray-600 dark:text-gray-400 text-lg mb-4">Store not found</p>
-            <Button onClick={() => router.push('/admin/stores')}>
-              Back to Stores
-            </Button>
-          </div>
+        <div className="p-6 text-center">
+          <p className="text-red-500">Store not found</p>
         </div>
       </AdminLayout>
     );
   }
 
-  const totals = calculateTotals();
-  const machineBreakdown = getMachineBreakdown();
+  const feePercentage = store.feePercentage || 25;
+  const netRevenue = todayStats?.netRevenue || 0;
+  const storeFee = netRevenue * (feePercentage / 100);
+  const venueShare = netRevenue - storeFee;
 
   return (
     <AdminLayout>
       <div className="p-4 sm:p-6 lg:p-8 bg-gray-50 dark:bg-gray-950 min-h-screen">
         {/* Header */}
-        <div className="mb-8">
-          <div className="flex flex-col sm:flex-row sm:items-start sm:justify-between gap-4 mb-6">
-            <div className="flex items-start gap-4">
-              <Button
-                onClick={() => router.push('/admin/stores')}
-                variant="outline"
-                size="sm"
-                className="mt-1 border-gray-300 dark:border-gray-700"
-              >
-                <ArrowLeft className="w-4 h-4 mr-1.5" />
-                Back
-              </Button>
-              <div>
-                <h1 className="text-3xl lg:text-4xl font-bold text-gray-900 dark:text-white mb-2">
-                  {store.storeName}
-                </h1>
-                <div className="flex flex-wrap items-center gap-3 text-sm text-gray-600 dark:text-gray-400">
-                  <div className="flex items-center gap-1.5">
-                    <MapPin className="w-4 h-4" />
-                    {store.address}, {store.city}, {store.state}
-                  </div>
-                  {store.phone && (
-                    <div className="flex items-center gap-1.5">
-                      <Phone className="w-4 h-4" />
-                      {store.phone}
-                    </div>
-                  )}
-                  <Badge className={
-                    store.status === 'active'
-                      ? 'bg-green-500/10 text-green-600 dark:bg-green-500/20 dark:text-green-400 border border-green-500/20'
-                      : 'bg-red-500/10 text-red-600 dark:bg-red-500/20 dark:text-red-400 border border-red-500/20'
-                  }>
-                    {store.status}
-                  </Badge>
+        <div className="mb-6">
+          <div className="flex items-center gap-3 mb-4">
+            <Button
+              onClick={() => router.push('/admin/stores')}
+              variant="outline"
+              size="sm"
+              className="border-gray-300 dark:border-gray-700"
+            >
+              <ArrowLeft className="w-4 h-4 mr-1" />
+              Back
+            </Button>
+          </div>
+
+          <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
+            <div>
+              <h1 className="text-3xl lg:text-4xl font-bold text-gray-900 dark:text-white mb-2">
+                {store.storeName}
+              </h1>
+              <div className="flex items-center gap-4 text-gray-600 dark:text-gray-400">
+                <div className="flex items-center gap-1.5">
+                  <MapPin className="w-4 h-4" />
+                  <span>{store.city}, {store.state}</span>
                 </div>
+                <Badge className="bg-green-500/10 text-green-600 dark:bg-green-500/20 dark:text-green-400 border-green-500/20">
+                  {store.status}
+                </Badge>
               </div>
             </div>
-            <div className="flex gap-2">
+
+            <div className="flex items-center gap-3">
               <Button
                 onClick={handleRefresh}
+                disabled={refreshing}
                 variant="outline"
                 size="sm"
-                disabled={refreshing}
                 className="border-gray-300 dark:border-gray-700"
               >
-                <RefreshCw className={`w-4 h-4 mr-1.5 ${refreshing ? 'animate-spin' : ''}`} />
+                <RefreshCw className={`w-4 h-4 mr-2 ${refreshing ? 'animate-spin' : ''}`} />
                 Refresh
               </Button>
               <Button
-                onClick={exportData}
+                onClick={() => router.push(`/admin/stores/${storeId}/export`)}
                 variant="outline"
                 size="sm"
                 className="border-gray-300 dark:border-gray-700"
               >
-                <Download className="w-4 h-4 mr-1.5" />
+                <Download className="w-4 h-4 mr-2" />
                 Export
               </Button>
               <Button
                 onClick={() => router.push(`/admin/stores/${storeId}/edit`)}
-                className="bg-yellow-500 hover:bg-yellow-600 dark:bg-yellow-400 dark:hover:bg-yellow-500 text-gray-900"
+                size="sm"
+                className="bg-yellow-500 hover:bg-yellow-600 text-gray-900"
               >
-                <Edit className="w-4 h-4 mr-1.5" />
+                <Edit className="w-4 h-4 mr-2" />
                 Edit Store
               </Button>
             </div>
           </div>
         </div>
 
-        {/* Date Navigator */}
+        {/* Date Selector */}
         <Card className="p-4 mb-6 bg-white dark:bg-gray-900 border-gray-200 dark:border-gray-800">
           <div className="flex items-center justify-between">
             <Button
@@ -398,22 +301,20 @@ export default function StoreDashboardPage() {
               Previous
             </Button>
 
-            <div className="text-center">
-              <div className="flex items-center gap-2 justify-center mb-1">
-                <Calendar className="w-5 h-5 text-gray-400" />
-                <h2 className="text-xl font-bold text-gray-900 dark:text-white">
-                  {selectedDate.toLocaleDateString('en-US', {
-                    weekday: 'long',
-                    month: 'long',
-                    day: 'numeric',
-                    year: 'numeric'
-                  })}
-                </h2>
-              </div>
+            <div className="flex items-center gap-3">
+              <Calendar className="w-5 h-5 text-gray-400" />
+              <span className="text-lg font-semibold text-gray-900 dark:text-white">
+                {selectedDate.toLocaleDateString('en-US', { 
+                  weekday: 'long', 
+                  year: 'numeric', 
+                  month: 'long', 
+                  day: 'numeric' 
+                })}
+              </span>
               {!isToday() && (
                 <button
                   onClick={goToToday}
-                  className="text-sm text-blue-600 dark:text-blue-400 hover:underline"
+                  className="text-sm text-yellow-600 dark:text-yellow-400 hover:underline"
                 >
                   Jump to Today
                 </button>
@@ -443,7 +344,7 @@ export default function StoreDashboardPage() {
               </div>
             </div>
             <p className="text-3xl font-bold text-gray-900 dark:text-white">
-              ${totals.moneyIn.toFixed(2)}
+              {formatCurrency(todayStats?.moneyIn || 0)}
             </p>
             <p className="text-xs text-gray-500 dark:text-gray-400 mt-1">Cash inserted today</p>
           </Card>
@@ -456,9 +357,11 @@ export default function StoreDashboardPage() {
               </div>
             </div>
             <p className="text-3xl font-bold text-gray-900 dark:text-white">
-              ${totals.moneyOut.toFixed(2)}
+              {formatCurrency(todayStats?.moneyOut || 0)}
             </p>
-            <p className="text-xs text-gray-500 dark:text-gray-400 mt-1">Vouchers paid out</p>
+            <p className="text-xs text-gray-500 dark:text-gray-400 mt-1">
+              {todayStats?.voucherCount || 0} vouchers paid out
+            </p>
           </Card>
 
           <Card className="p-6 bg-white dark:bg-gray-900 border-gray-200 dark:border-gray-800">
@@ -469,10 +372,10 @@ export default function StoreDashboardPage() {
               </div>
             </div>
             <p className="text-3xl font-bold text-gray-900 dark:text-white">
-              ${totals.net.toFixed(2)}
+              {formatCurrency(netRevenue)}
             </p>
             <p className="text-xs text-gray-500 dark:text-gray-400 mt-1">
-              {store.feePercentage}% fee = ${(totals.net * (store.feePercentage || 5) / 100).toFixed(2)}
+              {feePercentage}% fee = {formatCurrency(storeFee)}
             </p>
           </Card>
 
@@ -483,53 +386,14 @@ export default function StoreDashboardPage() {
                 <Activity className="w-4 h-4 text-blue-600 dark:text-blue-400" />
               </div>
             </div>
-            <p className="text-3xl font-bold text-gray-900 dark:text-white">{totals.machineCount}</p>
+            <p className="text-3xl font-bold text-gray-900 dark:text-white">
+              {todayStats?.totalMachines || 0}
+            </p>
             <p className="text-xs text-gray-500 dark:text-gray-400 mt-1">
-              {totals.reportCount} approved, {totals.pendingCount} pending
+              {machineRevenue.length} active today
             </p>
           </Card>
         </div>
-
-        {/* Alerts & Notifications */}
-        {totals.reportCount === 0 && totals.pendingCount === 0 && (
-          <Card className="p-4 mb-6 bg-blue-500/10 border-blue-500/20">
-            <div className="flex items-start gap-3">
-              <AlertCircle className="w-5 h-5 text-blue-600 dark:text-blue-400 flex-shrink-0 mt-0.5" />
-              <div>
-                <h3 className="font-semibold text-blue-900 dark:text-blue-300 mb-1">No Data for This Date</h3>
-                <p className="text-sm text-blue-800 dark:text-blue-200">
-                  No reports found for {selectedDate.toLocaleDateString()}. Reports are automatically created when the daily report button is pressed on the Mutha Goose.
-                </p>
-              </div>
-            </div>
-          </Card>
-        )}
-
-        {totals.pendingCount > 0 && (
-          <Card className="p-4 mb-6 bg-yellow-500/10 border-yellow-500/20">
-            <div className="flex items-start justify-between gap-3">
-              <div className="flex items-start gap-3">
-                <Clock className="w-5 h-5 text-yellow-600 dark:text-yellow-400 flex-shrink-0 mt-0.5" />
-                <div>
-                  <h3 className="font-semibold text-yellow-900 dark:text-yellow-300 mb-1">
-                    {totals.pendingCount} Pending Report{totals.pendingCount !== 1 ? 's' : ''}
-                  </h3>
-                  <p className="text-sm text-yellow-800 dark:text-yellow-200">
-                    These reports are from the Mutha Goose but haven't been approved yet. They're shown above but won't count in official totals until approved.
-                  </p>
-                </div>
-              </div>
-              <Button
-                onClick={approvePendingReports}
-                size="sm"
-                className="bg-green-600 hover:bg-green-700 text-white shrink-0"
-              >
-                <CheckCircle className="w-4 h-4 mr-1.5" />
-                Approve All
-              </Button>
-            </div>
-          </Card>
-        )}
 
         {/* Machine Breakdown Table */}
         <Card className="bg-white dark:bg-gray-900 border-gray-200 dark:border-gray-800">
@@ -540,12 +404,12 @@ export default function StoreDashboardPage() {
             </p>
           </div>
 
-          {machineBreakdown.length === 0 ? (
+          {machineRevenue.length === 0 ? (
             <div className="p-12 text-center">
               <Activity className="w-16 h-16 text-gray-300 dark:text-gray-700 mx-auto mb-4" />
               <h3 className="font-medium text-gray-900 dark:text-white mb-2">No Machine Data</h3>
               <p className="text-sm text-gray-600 dark:text-gray-400">
-                No machine data available for this date. Press the daily report button on the Mutha Goose to generate data.
+                No events recorded for this date. Data is automatically collected from your Pi devices.
               </p>
             </div>
           ) : (
@@ -557,14 +421,14 @@ export default function StoreDashboardPage() {
                     <TableHead className="text-gray-700 dark:text-gray-300 font-semibold text-right">Money IN</TableHead>
                     <TableHead className="text-gray-700 dark:text-gray-300 font-semibold text-right">Money OUT</TableHead>
                     <TableHead className="text-gray-700 dark:text-gray-300 font-semibold text-right">Net Revenue</TableHead>
-                    <TableHead className="text-gray-700 dark:text-gray-300 font-semibold text-right">Store Fee ({store.feePercentage}%)</TableHead>
+                    <TableHead className="text-gray-700 dark:text-gray-300 font-semibold text-right">Store Fee ({feePercentage}%)</TableHead>
                     <TableHead className="text-gray-700 dark:text-gray-300 font-semibold text-right">Venue Share</TableHead>
                   </TableRow>
                 </TableHeader>
                 <TableBody>
-                  {machineBreakdown.map((machine) => {
-                    const storeFee = machine.net * (store.feePercentage || 5) / 100;
-                    const venueShare = machine.net - storeFee;
+                  {machineRevenue.map((machine) => {
+                    const machineFee = machine.netRevenue * (feePercentage / 100);
+                    const machineShare = machine.netRevenue - machineFee;
                     return (
                       <TableRow
                         key={machine.machineId}
@@ -574,19 +438,19 @@ export default function StoreDashboardPage() {
                           {machine.machineId}
                         </TableCell>
                         <TableCell className="text-right text-green-600 dark:text-green-400 font-medium">
-                          ${machine.moneyIn.toFixed(2)}
+                          {formatCurrency(machine.moneyIn)}
                         </TableCell>
                         <TableCell className="text-right text-red-600 dark:text-red-400 font-medium">
-                          ${machine.moneyOut.toFixed(2)}
+                          {formatCurrency(machine.moneyOut)}
                         </TableCell>
                         <TableCell className="text-right text-yellow-600 dark:text-yellow-400 font-bold">
-                          ${machine.net.toFixed(2)}
+                          {formatCurrency(machine.netRevenue)}
                         </TableCell>
                         <TableCell className="text-right text-purple-600 dark:text-purple-400 font-medium">
-                          ${storeFee.toFixed(2)}
+                          {formatCurrency(machineFee)}
                         </TableCell>
                         <TableCell className="text-right text-blue-600 dark:text-blue-400 font-medium">
-                          ${venueShare.toFixed(2)}
+                          {formatCurrency(machineShare)}
                         </TableCell>
                       </TableRow>
                     );
@@ -596,19 +460,19 @@ export default function StoreDashboardPage() {
                   <TableRow className="border-t-2 border-gray-300 dark:border-gray-700 bg-gray-100 dark:bg-gray-800">
                     <TableCell className="font-bold text-gray-900 dark:text-white">TOTALS</TableCell>
                     <TableCell className="text-right text-green-600 dark:text-green-400 font-bold">
-                      ${totals.moneyIn.toFixed(2)}
+                      {formatCurrency(todayStats?.moneyIn || 0)}
                     </TableCell>
                     <TableCell className="text-right text-red-600 dark:text-red-400 font-bold">
-                      ${totals.moneyOut.toFixed(2)}
+                      {formatCurrency(todayStats?.moneyOut || 0)}
                     </TableCell>
                     <TableCell className="text-right text-yellow-600 dark:text-yellow-400 font-bold text-lg">
-                      ${totals.net.toFixed(2)}
+                      {formatCurrency(netRevenue)}
                     </TableCell>
                     <TableCell className="text-right text-purple-600 dark:text-purple-400 font-bold">
-                      ${(totals.net * (store.feePercentage || 5) / 100).toFixed(2)}
+                      {formatCurrency(storeFee)}
                     </TableCell>
                     <TableCell className="text-right text-blue-600 dark:text-blue-400 font-bold">
-                      ${(totals.net - (totals.net * (store.feePercentage || 5) / 100)).toFixed(2)}
+                      {formatCurrency(venueShare)}
                     </TableCell>
                   </TableRow>
                 </TableBody>

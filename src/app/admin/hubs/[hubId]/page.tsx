@@ -8,6 +8,11 @@ import AdminLayout from '@/components/layout/AdminLayout';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
+import axios from 'axios';
+import InlineEditableName from '@/components/InlineEditableName';
+import MachineQRModal from '@/components/MachineQRModal';
+import { QrCode } from 'lucide-react';
+
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import {
   Table,
@@ -73,13 +78,16 @@ interface Hub {
 }
 
 interface Machine {
+  _id: string;
   machineId: string;
+  name?: string;
+  storeId: string;
   isRegistered: boolean;
-  lastSeen?: string | Date;
   totalDays?: number;
   totalMoneyIn?: number;
   totalMoneyOut?: number;
   totalRevenue?: number;
+  lastSeen?: string | Date;
 }
 
 interface Event {
@@ -107,6 +115,7 @@ export default function HubDetailsPage({ params }: { params: Promise<{ hubId: st
   const [copied, setCopied] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [activeTab, setActiveTab] = useState('overview');
+  const [selectedMachineForQR, setSelectedMachineForQR] = useState<Machine | null>(null);
 
   // Configuration editing
   const [editingConfig, setEditingConfig] = useState(false);
@@ -155,11 +164,15 @@ export default function HubDetailsPage({ params }: { params: Promise<{ hubId: st
       const machinesRes = await api.get(`/api/admin/hubs/${hubId}/discovered-machines`);
       setMachines(machinesRes.data.machines || []);
 
-      // Load recent events
+   // Load recent events
       await loadEvents();
-    } catch (err: any) {
+    } catch (err: unknown) {
       console.error('Failed to load hub details:', err);
-      setError(err.response?.data?.error || 'Failed to load hub details');
+      if (axios.isAxiosError(err)) {
+        setError(err.response?.data?.error || 'Failed to load hub details');
+      } else {
+        setError('Failed to load hub details');
+      }
     } finally {
       setLoading(false);
     }
@@ -195,9 +208,13 @@ export default function HubDetailsPage({ params }: { params: Promise<{ hubId: st
       setShowToken(true);
       
       await loadHubDetails();
-    } catch (err: any) {
+    } catch (err: unknown) {
       console.error('Failed to regenerate token:', err);
-      alert(err.response?.data?.error || 'Failed to regenerate token');
+      if (axios.isAxiosError(err)) {
+        alert(err.response?.data?.error || 'Failed to regenerate token');
+      } else {
+        alert('Failed to regenerate token');
+      }
     } finally {
       setRegeneratingToken(false);
     }
@@ -227,8 +244,12 @@ export default function HubDetailsPage({ params }: { params: Promise<{ hubId: st
       
       setEditingConfig(false);
       await loadHubDetails();
-    } catch (err: any) {
-      alert(err.response?.data?.error || 'Failed to update configuration');
+    } catch (err: unknown) {
+      if (axios.isAxiosError(err)) {
+        alert(err.response?.data?.error || 'Failed to update configuration');
+      } else {
+        alert('Failed to update configuration');
+      }
     }
   };
 
@@ -527,18 +548,31 @@ export default function HubDetailsPage({ params }: { params: Promise<{ hubId: st
                     <TableBody>
                       {machines.map((machine) => (
                         <TableRow key={machine.machineId}>
-                          <TableCell className="font-mono font-medium">
-                            {machine.machineId}
+                          <TableCell>
+                            <Button
+                              size="sm"
+                              variant="outline"
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                setSelectedMachineForQR(machine);
+                              }}
+                            >
+                              <QrCode className="w-4 h-4" />
+                            </Button>
                           </TableCell>
                           <TableCell>
-                            {machine.isRegistered ? (
-                              <Badge variant="default" className="gap-1">
-                                <CheckCircle className="w-3 h-3" />
-                                Registered
-                              </Badge>
-                            ) : (
-                              <Badge variant="secondary">Unknown</Badge>
-                            )}
+                            <InlineEditableName
+                              machineId={machine.machineId}
+                              mongoId={machine._id}
+                              currentName={machine.name}
+                              fallbackName={machine.machineId}
+                              onUpdate={loadHubDetails}
+                            />
+                          </TableCell>
+                          <TableCell>
+                            <Badge variant={machine.isRegistered ? 'default' : 'secondary'}>
+                              {machine.isRegistered ? 'Registered' : 'Unknown'}
+                            </Badge>
                           </TableCell>
                           <TableCell>{machine.totalDays || 0}</TableCell>
                           <TableCell className="text-right font-mono">
@@ -552,6 +586,18 @@ export default function HubDetailsPage({ params }: { params: Promise<{ hubId: st
                           </TableCell>
                           <TableCell className="text-sm text-muted-foreground">
                             {machine.lastSeen ? new Date(machine.lastSeen).toLocaleDateString() : 'N/A'}
+                          </TableCell>
+                          <TableCell>
+                            <Button
+                              size="sm"
+                              variant="outline"
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                setSelectedMachineForQR(machine);
+                              }}
+                            >
+                              <QrCode className="w-4 h-4" />
+                            </Button>
                           </TableCell>
                           <TableCell className="text-right">
                             <Button
@@ -767,6 +813,15 @@ export default function HubDetailsPage({ params }: { params: Promise<{ hubId: st
           </TabsContent>
         </Tabs>
       </div>
+      
+      {/* QR Modal */}
+      {selectedMachineForQR && (
+        <MachineQRModal
+          machine={selectedMachineForQR}
+          onClose={() => setSelectedMachineForQR(null)}
+          onRefresh={loadHubDetails}
+        />
+      )}
     </AdminLayout>
   );
 }

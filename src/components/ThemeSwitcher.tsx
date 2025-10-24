@@ -32,8 +32,6 @@ export default function ThemeSwitcher() {
   const themes = [
     { value: 'light', label: 'Light', icon: Sun, description: 'Clean & bright' },
     { value: 'dark', label: 'Dark', icon: Moon, description: 'Easy on eyes' },
-    { value: 'gold', label: 'Gold', icon: Zap, description: 'Casino vibes' },
-    { value: 'midnight', label: 'Midnight', icon: Moon, description: 'Deep blue' },
   ];
 
   const currentTheme = themes.find(t => t.value === theme) || themes[1];
@@ -51,8 +49,8 @@ export default function ThemeSwitcher() {
           <span className="sr-only">Toggle theme</span>
         </Button>
       </DropdownMenuTrigger>
-      <DropdownMenuContent align="end" className="w-56">
-        <div className="px-2 py-1.5 text-sm font-semibold">Choose Theme</div>
+      <DropdownMenuContent align="end" side="bottom" className="w-56 z-50">
+        <div className="px-2 py-1.5 text-sm font-semibold text-gray-900 dark:text-white">Choose Theme</div>
         <DropdownMenuSeparator />
         {themes.map((t) => {
           const ThemeIcon = t.icon;

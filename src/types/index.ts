@@ -88,5 +88,5 @@ export interface EdgeEvent {
   userId?: string;
   amount?: number;
   timestamp: string;
-  metadata?: Record<string, any>;
+  metadata?: Record<string, unknown>;
 }

@@ -9,6 +9,7 @@ import { Input } from '@/components/ui/input';
 import { Card } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Switch } from '@/components/ui/switch';
+import axios from 'axios';
 import { Label } from '@/components/ui/label';
 import {
   Select,
@@ -119,12 +120,16 @@ export default function UserEditPage() {
       return;
     }
     
-    setSaving(true);
+setSaving(true);
     try {
       await api.put(`/api/admin/users/${userId}`, formData);
       router.push('/admin/users');
-    } catch (err: any) {
-      setError(err.response?.data?.error || 'Failed to update user');
+    } catch (err: unknown) {
+      if (axios.isAxiosError(err)) {
+        setError(err.response?.data?.error || 'Failed to update user');
+      } else {
+        setError('Failed to update user');
+      }
     } finally {
       setSaving(false);
     }

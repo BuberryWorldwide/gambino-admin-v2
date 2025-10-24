@@ -10,20 +10,19 @@ export function middleware(request: NextRequest) {
   const isPublicRoute = publicRoutes.some(route => pathname.startsWith(route));
   const isAdminRoute = pathname.startsWith('/admin');
   
+  // Allow root to pass through
   if (pathname === '/') {
     return NextResponse.next();
   }
   
+  // Protect admin routes - redirect to login if no token
   if (isAdminRoute && !token) {
     const loginUrl = new URL('/login', request.url);
     loginUrl.searchParams.set('redirect', pathname);
     return NextResponse.redirect(loginUrl);
   }
   
-  if (pathname === '/login' && token) {
-    return NextResponse.redirect(new URL('/admin/dashboard', request.url));
-  }
-  
+
   return NextResponse.next();
 }
 

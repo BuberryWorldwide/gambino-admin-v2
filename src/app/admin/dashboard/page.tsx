@@ -6,6 +6,9 @@ import { Activity, Server, Cpu, Store, AlertCircle, RefreshCw, ArrowRight } from
 import api from '@/lib/api';
 import AdminLayout from '@/components/layout/AdminLayout';
 import { Button } from '@/components/ui/button';
+import axios from 'axios';
+import { getToken, clearToken } from '@/lib/auth';
+
 import {
   Table,
   TableBody,
@@ -68,9 +71,18 @@ export default function DashboardPage() {
   const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
+    // CHECK TOKEN FIRST! This prevents the infinite loop
+    const token = getToken();
+    
+    if (!token) {
+      console.log('No token found, redirecting to login');
+      window.location.href = '/login';
+      return;
+    }
+
     loadUser();
     loadDashboard();
-  }, []);
+  }, []); // Keep empty dependency array
 
   const loadUser = async () => {
     try {
@@ -78,6 +90,15 @@ export default function DashboardPage() {
       setUser(res.data.user);
     } catch (err) {
       console.log('Failed to load user profile');
+      
+      // CRITICAL: Handle 401 errors
+      if (axios.isAxiosError(err) && err.response?.status === 401) {
+        console.log('Unauthorized - clearing token and redirecting');
+        clearToken();
+        window.location.href = '/login';
+        return;
+      }
+      
       setUser(null);
     }
   };
@@ -137,9 +158,21 @@ export default function DashboardPage() {
         }));
 
       setRecentActivity(activity);
-    } catch (err: any) {
+    } catch (err: unknown) {
       console.error('Failed to load dashboard:', err);
-      setError(err.response?.data?.error || 'Failed to load dashboard');
+      
+      // CRITICAL: Handle 401 errors
+      if (axios.isAxiosError(err)) {
+        if (err.response?.status === 401) {
+          console.log('Unauthorized - clearing token and redirecting');
+          clearToken();
+          window.location.href = '/login';
+          return;
+        }
+        setError(err.response?.data?.error || 'Failed to load dashboard');
+      } else {
+        setError('Failed to load dashboard');
+      }
     } finally {
       setLoading(false);
     }
@@ -342,10 +375,9 @@ interface QuickLinkProps {
   description: string;
   icon: React.ReactNode;
 }
-
 function QuickLink({ href, title, description, icon }: QuickLinkProps) {
   return (
-    <a
+    <a                    // ← YOU'RE MISSING THIS LINE!!!
       href={href}
       className="group bg-white dark:bg-gray-900 border border-gray-200 dark:border-gray-800 rounded-lg p-6 hover:border-gray-900 dark:hover:border-gray-100 transition-colors"
     >

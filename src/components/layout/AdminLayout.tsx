@@ -4,6 +4,9 @@
 import { useState, ReactNode } from 'react';
 import { useRouter, usePathname } from 'next/navigation';
 import ThemeSwitcher from '@/components/ThemeSwitcher';
+import api from '@/lib/api';
+import { clearToken } from '@/lib/auth';
+
 
 import { 
   LayoutDashboard, 
@@ -42,13 +45,26 @@ export default function AdminLayout({ children, user }: AdminLayoutProps) {
   const [sidebarOpen, setSidebarOpen] = useState(true);
 
   const handleLogout = async () => {
+  try {
+    // Clear the token first
+    clearToken();
+    
+    // Try to call logout endpoint (optional)
     try {
       await fetch('/api/auth/logout', { method: 'POST' });
-      router.push('/login');
-    } catch (error) {
-      console.error('Logout failed:', error);
+    } catch (err) {
+      console.warn('Logout API failed:', err);
     }
-  };
+    
+    // Force redirect to login
+    window.location.href = '/login';
+  } catch (error) {
+    console.error('Logout failed:', error);
+    // Still clear token and redirect even if error
+    clearToken();
+    window.location.href = '/login';
+  }
+};
 
   const navItems: NavItem[] = [
     { href: '/admin/dashboard', label: 'Dashboard', icon: LayoutDashboard },
