@@ -109,47 +109,35 @@ export default function StoreDashboardPage() {
       const endDate = new Date(selectedDate);
       endDate.setHours(23, 59, 59, 999);
 
-      const response = await api.get(`/api/admin/venues/${storeId}/events`, {
+      const response = await api.get(`/api/admin/stores/${storeId}/daily/${selectedDate.toISOString().split('T')[0]}`, {
         params: {
           startDate: startDate.toISOString(),
           endDate: endDate.toISOString()
         }
       });
 
-      if (response.data.success) {
-        setTodayStats(response.data.stats);
-        
-        // Calculate per-machine revenue
-        const events = response.data.events || [];
-        const machineMap = new Map<string, MachineRevenue>();
-        
-        events.forEach((event: EventData) => {
-          const machineId = event.gamingMachineId || event.machineId;
-          if (!machineId) return;
-          
-          if (!machineMap.has(machineId)) {
-            machineMap.set(machineId, {
-              machineId,
-              moneyIn: 0,
-              moneyOut: 0,
-              netRevenue: 0
-            });
-          }
-          
-          const machine = machineMap.get(machineId)!;
-          
-          if (event.eventType === 'money_in') {
-            machine.moneyIn += event.amount || 0;
-          } else if (event.eventType === 'money_out' || event.eventType === 'voucher_print') {
-            machine.moneyOut += event.amount || 0;
-          }
-          
-          machine.netRevenue = machine.moneyIn - machine.moneyOut;
+      if (response.data) {
+        // Count vouchers from machines
+        let voucherCount = 0;
+        let voucherTotal = 0;
+            
+        setTodayStats({
+          totalMachines: response.data.machines?.length || 0,
+          moneyIn: response.data.totalMoneyIn || 0,
+          moneyOut: response.data.totalMoneyOut || 0,
+          voucherCount: voucherCount,
+          voucherTotal: voucherTotal,
+          netRevenue: response.data.netRevenue || 0
         });
         
-        // Sort by revenue descending
-        const sortedMachines = Array.from(machineMap.values())
-          .sort((a, b) => b.netRevenue - a.netRevenue);
+        const sortedMachines = (response.data.machines || [])
+          .map((m: any) => ({
+            machineId: m.machineId,
+            moneyIn: m.moneyIn,
+            moneyOut: m.moneyOut,
+            netRevenue: m.moneyIn - m.moneyOut
+          }))
+          .sort((a: MachineRevenue, b: MachineRevenue) => b.netRevenue - a.netRevenue);
         
         setMachineRevenue(sortedMachines);
       }

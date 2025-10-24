@@ -7,10 +7,12 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 
 interface Machine {
-  _id: string;
+  _id?: string;  // Optional now - discovered machines don't have this
   machineId: string;
   name?: string;
-  storeId: string;
+  storeId?: string;
+  isRegistered?: boolean;
+  hubId?: string;  // For discovered machines
 }
 
 interface MachineQRModalProps {
@@ -23,36 +25,122 @@ export default function MachineQRModal({ machine, onClose, onRefresh }: MachineQ
   const [qrCode, setQRCode] = useState<string | null>(null);
   const [bindUrl, setBindUrl] = useState<string>('');
   const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
   const [copied, setCopied] = useState(false);
+  const [isRegistering, setIsRegistering] = useState(false);
 
   useEffect(() => {
     loadQRCode();
-  }, [machine._id]);
+  }, [machine.machineId]);
 
   const loadQRCode = async () => {
     try {
       setLoading(true);
-      const res = await api.get(`/api/machines/${machine._id}/qr-code`);
-      setQRCode(res.data.qrCode);
-      setBindUrl(res.data.bindUrl);
-    } catch (err) {
+      setError(null);
+
+      // If machine is not registered yet, we need to register it first
+      if (!machine._id && !machine.isRegistered) {
+        console.log('📝 Machine not registered, registering first...');
+        await registerMachine();
+        return; // registerMachine will call loadQRCode again after success
+      }
+
+      // Choose endpoint based on whether we have MongoDB _id or just machineId
+      const endpoint = machine._id 
+        ? `/api/machines/${machine._id}/qr-code`
+        : `/api/machines/by-machine-id/${machine.machineId}/qr-code`;
+
+      console.log('🔍 Loading QR code from:', endpoint);
+      
+      const res = await api.get(endpoint);
+      
+      if (res.data.success) {
+        setQRCode(res.data.qrCode);
+        setBindUrl(res.data.bindUrl);
+      } else {
+        setError('Failed to load QR code');
+      }
+    } catch (err: any) {
       console.error('Failed to load QR code:', err);
+      
+      if (err.response?.status === 404) {
+        setError('Machine not registered. Attempting to register...');
+        // Try to register the machine
+        await registerMachine();
+      } else {
+        setError(err.response?.data?.error || 'Failed to load QR code');
+      }
     } finally {
       setLoading(false);
+    }
+  };
+
+  const registerMachine = async () => {
+    try {
+      setIsRegistering(true);
+      setError(null);
+
+      if (!machine.hubId && !machine.storeId) {
+        setError('Cannot register: missing hub or store information');
+        return;
+      }
+
+      console.log('📝 Registering machine:', machine.machineId);
+
+      // Register via hub endpoint
+      const registerEndpoint = machine.hubId 
+        ? `/api/admin/hubs/${machine.hubId}/register-machine`
+        : `/api/machines/register`;
+
+      const res = await api.post(registerEndpoint, {
+        machineId: machine.machineId,
+        name: machine.name || machine.machineId,
+        storeId: machine.storeId,
+        gameType: 'slot'
+      });
+
+      if (res.data.success) {
+        console.log('✅ Machine registered successfully');
+        
+        // Update machine object with _id
+        machine._id = res.data.machine._id;
+        machine.isRegistered = true;
+        
+        // Now load QR code
+        await loadQRCode();
+        
+        if (onRefresh) {
+          onRefresh(); // Refresh the parent component to show updated status
+        }
+      }
+    } catch (err: any) {
+      console.error('Failed to register machine:', err);
+      setError(err.response?.data?.error || 'Failed to register machine');
+    } finally {
+      setIsRegistering(false);
     }
   };
 
   const regenerateQR = async () => {
     try {
       setLoading(true);
-      const res = await api.post(`/api/machines/${machine._id}/regenerate-qr`);
-      setQRCode(res.data.qrCode);
-      setBindUrl(res.data.bindUrl);
-      if (onRefresh) onRefresh();
-      alert('QR code regenerated successfully!');
-    } catch (err) {
+      setError(null);
+
+      const endpoint = machine._id
+        ? `/api/machines/${machine._id}/regenerate-qr`
+        : `/api/machines/by-machine-id/${machine.machineId}/regenerate-qr`;
+
+      const res = await api.post(endpoint);
+      
+      if (res.data.success) {
+        setQRCode(res.data.qrCode);
+        setBindUrl(res.data.bindUrl);
+        if (onRefresh) onRefresh();
+        alert('QR code regenerated successfully!');
+      }
+    } catch (err: any) {
       console.error('Failed to regenerate QR:', err);
-      alert('Failed to regenerate QR code');
+      alert(err.response?.data?.error || 'Failed to regenerate QR code');
     } finally {
       setLoading(false);
     }
@@ -121,6 +209,11 @@ export default function MachineQRModal({ machine, onClose, onRefresh }: MachineQ
             <p className="text-sm text-gray-500 dark:text-gray-400 mt-1">
               {machine.name || machine.machineId}
             </p>
+            {!machine.isRegistered && !machine._id && (
+              <p className="text-xs text-yellow-600 dark:text-yellow-400 mt-1">
+                ⚠️ Discovered machine (not registered yet)
+              </p>
+            )}
           </div>
           <button
             onClick={onClose}
@@ -130,12 +223,34 @@ export default function MachineQRModal({ machine, onClose, onRefresh }: MachineQ
           </button>
         </div>
 
+        {/* Error State */}
+        {error && (
+          <div className="mb-4 p-4 bg-red-50 dark:bg-red-950 border border-red-200 dark:border-red-900 rounded-lg">
+            <p className="text-sm text-red-800 dark:text-red-200">
+              {error}
+            </p>
+            {error.includes('register') && (
+              <Button 
+                onClick={registerMachine} 
+                size="sm" 
+                className="mt-2"
+                disabled={isRegistering}
+              >
+                {isRegistering ? 'Registering...' : 'Register Machine'}
+              </Button>
+            )}
+          </div>
+        )}
+
         <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
           {/* QR Code Display */}
           <div className="flex flex-col items-center">
-            {loading ? (
-              <div className="w-64 h-64 bg-gray-100 dark:bg-gray-800 rounded flex items-center justify-center">
-                <RefreshCw className="w-8 h-8 animate-spin text-gray-400" />
+            {loading || isRegistering ? (
+              <div className="w-64 h-64 bg-gray-100 dark:bg-gray-800 rounded flex flex-col items-center justify-center">
+                <RefreshCw className="w-8 h-8 animate-spin text-gray-400 mb-2" />
+                <p className="text-xs text-gray-500">
+                  {isRegistering ? 'Registering machine...' : 'Loading QR code...'}
+                </p>
               </div>
             ) : qrCode ? (
               <img 
@@ -150,15 +265,29 @@ export default function MachineQRModal({ machine, onClose, onRefresh }: MachineQ
             )}
             
             <div className="mt-4 flex gap-2">
-              <Button onClick={regenerateQR} disabled={loading} size="sm">
+              <Button 
+                onClick={regenerateQR} 
+                disabled={loading || !qrCode || isRegistering} 
+                size="sm"
+              >
                 <RefreshCw className="w-4 h-4 mr-2" />
                 Regenerate
               </Button>
-              <Button onClick={printQR} variant="outline" size="sm" disabled={!qrCode}>
+              <Button 
+                onClick={printQR} 
+                variant="outline" 
+                size="sm" 
+                disabled={!qrCode || isRegistering}
+              >
                 <Printer className="w-4 h-4 mr-2" />
                 Print
               </Button>
-              <Button onClick={downloadQR} variant="outline" size="sm" disabled={!qrCode}>
+              <Button 
+                onClick={downloadQR} 
+                variant="outline" 
+                size="sm" 
+                disabled={!qrCode || isRegistering}
+              >
                 <Download className="w-4 h-4 mr-2" />
                 Download
               </Button>
@@ -185,8 +314,14 @@ export default function MachineQRModal({ machine, onClose, onRefresh }: MachineQ
                   value={bindUrl} 
                   readOnly 
                   className="text-xs font-mono"
+                  placeholder="QR code not generated yet"
                 />
-                <Button onClick={copyUrl} size="sm" variant="outline">
+                <Button 
+                  onClick={copyUrl} 
+                  size="sm" 
+                  variant="outline"
+                  disabled={!bindUrl}
+                >
                   <Copy className="w-4 h-4" />
                 </Button>
               </div>
@@ -208,6 +343,17 @@ export default function MachineQRModal({ machine, onClose, onRefresh }: MachineQ
                 <li>All transactions tracked to player</li>
               </ol>
             </div>
+
+            {!machine.isRegistered && !machine._id && (
+              <div className="bg-yellow-50 dark:bg-yellow-950 border border-yellow-200 dark:border-yellow-900 rounded-lg p-4">
+                <h3 className="font-semibold text-sm text-yellow-900 dark:text-yellow-100 mb-2">
+                  ⚠️ Auto-Registration
+                </h3>
+                <p className="text-xs text-yellow-800 dark:text-yellow-200">
+                  This machine was discovered but not registered yet. It will be automatically registered when generating the QR code.
+                </p>
+              </div>
+            )}
           </div>
         </div>
       </div>

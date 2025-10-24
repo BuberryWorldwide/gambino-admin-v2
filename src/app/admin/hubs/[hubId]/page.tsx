@@ -548,18 +548,7 @@ export default function HubDetailsPage({ params }: { params: Promise<{ hubId: st
                     <TableBody>
                       {machines.map((machine) => (
                         <TableRow key={machine.machineId}>
-                          <TableCell>
-                            <Button
-                              size="sm"
-                              variant="outline"
-                              onClick={(e) => {
-                                e.stopPropagation();
-                                setSelectedMachineForQR(machine);
-                              }}
-                            >
-                              <QrCode className="w-4 h-4" />
-                            </Button>
-                          </TableCell>
+                          
                           <TableCell>
                             <InlineEditableName
                               machineId={machine.machineId}
