@@ -2,7 +2,7 @@
 
 import { useEffect, useState } from 'react';
 import { useRouter, useParams } from 'next/navigation';
-import { ArrowLeft, Save, X, Shield, Building, Mail, Phone, User as UserIcon, CheckCircle, XCircle, Search } from 'lucide-react';
+import { ArrowLeft, Save, X, Mail, Phone, User as UserIcon, CheckCircle, XCircle, Search } from 'lucide-react';
 import api from '@/lib/api';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';

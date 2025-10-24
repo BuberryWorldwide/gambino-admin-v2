@@ -7,7 +7,9 @@ export function middleware(request: NextRequest) {
   const token = request.cookies.get('gambino_token')?.value;
   
   const publicRoutes = ['/login', '/register', '/onboard'];
-  const isPublicRoute = publicRoutes.some(route => pathname.startsWith(route));
+  const _isPublicRoute = publicRoutes.some(route => 
+  pathname === route || pathname.startsWith(route + '/')
+);
   const isAdminRoute = pathname.startsWith('/admin');
   
   // Allow root to pass through

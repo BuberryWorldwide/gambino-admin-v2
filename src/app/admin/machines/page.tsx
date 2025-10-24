@@ -2,7 +2,7 @@
 'use client';
 
 import { useState, useEffect } from 'react';
-import { Search, RefreshCw, AlertCircle, Activity, DollarSign } from 'lucide-react';
+import { Search, RefreshCw, DollarSign } from 'lucide-react';
 import api from '@/lib/api';
 import AdminLayout from '@/components/layout/AdminLayout';
 import { Button } from '@/components/ui/button';

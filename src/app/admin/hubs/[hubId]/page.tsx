@@ -2,7 +2,7 @@
 'use client';
 
 import { use, useEffect, useState } from 'react';
-import { Wifi, WifiOff, RefreshCw, Key, ArrowLeft, AlertCircle, CheckCircle, Copy, Activity, Settings, FileText, Cpu, HardDrive, Zap } from 'lucide-react';
+import { Wifi, WifiOff, RefreshCw, Key, ArrowLeft, AlertCircle, CheckCircle, Copy, Activity, Settings, Cpu, HardDrive, Zap } from 'lucide-react';
 import api from '@/lib/api';
 import AdminLayout from '@/components/layout/AdminLayout';
 import { Button } from '@/components/ui/button';
@@ -23,11 +23,6 @@ import {
   TableRow,
 } from '@/components/ui/table';
 import {
-  Dialog,
-  DialogContent,
-  DialogDescription,
-  DialogHeader,
-  DialogTitle,
 } from '@/components/ui/dialog';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
@@ -80,6 +75,7 @@ interface Hub {
 interface Machine {
   _id: string;
   machineId: string;
+  hubMachineId: string;
   name?: string;
   storeId: string;
   isRegistered: boolean;
@@ -127,10 +123,37 @@ export default function HubDetailsPage({ params }: { params: Promise<{ hubId: st
     debugMode: false,
   });
 
+
+  const loadHubDetails = async () => {
+    try {
+      setLoading(true);
+      setError(null);
+      const hubRes = await api.get(`/api/admin/hubs/${hubId}`);
+      const hubData = hubRes.data.hub;
+      setHub(hubData);
+      setMachines(hubData.machines || []);
+      setMachineToken(hubData.machineToken || null);
+      
+      if (hubData.config) {
+        setConfigForm({
+          name: hubData.name || '',
+          serialPort: hubData.serialConfig?.port || '',
+          reportingInterval: hubData.config.reportingInterval || 30,
+          syncInterval: hubData.config.syncInterval || 30,
+          debugMode: hubData.config.debugMode || false,
+        });
+      }
+    } catch (err) {
+      console.error('Failed to load hub:', err);
+      setError('Failed to load hub details');
+    } finally {
+      setLoading(false);
+    }
+  };
   useEffect(() => {
     loadUser();
     loadHubDetails();
-  }, [hubId]);
+  }, [hubId, loadHubDetails]);
 
   const loadUser = async () => {
     try {
@@ -142,41 +165,6 @@ export default function HubDetailsPage({ params }: { params: Promise<{ hubId: st
     }
   };
 
-  const loadHubDetails = async () => {
-    try {
-      setLoading(true);
-      setError(null);
-
-      const hubRes = await api.get(`/api/admin/hubs/${hubId}`);
-      const hubData = hubRes.data.hub;
-      setHub(hubData);
-      setMachineToken(hubData.machineToken || null);
-
-      // Set config form values
-      setConfigForm({
-        name: hubData.name || '',
-        serialPort: hubData.serialConfig?.port || '/dev/ttyUSB0',
-        reportingInterval: hubData.config?.reportingInterval || 30,
-        syncInterval: hubData.config?.syncInterval || 30,
-        debugMode: hubData.config?.debugMode || false,
-      });
-
-      const machinesRes = await api.get(`/api/admin/hubs/${hubId}/discovered-machines`);
-      setMachines(machinesRes.data.machines || []);
-
-   // Load recent events
-      await loadEvents();
-    } catch (err: unknown) {
-      console.error('Failed to load hub details:', err);
-      if (axios.isAxiosError(err)) {
-        setError(err.response?.data?.error || 'Failed to load hub details');
-      } else {
-        setError('Failed to load hub details');
-      }
-    } finally {
-      setLoading(false);
-    }
-  };
 
   const loadEvents = async () => {
     try {
@@ -807,8 +795,8 @@ export default function HubDetailsPage({ params }: { params: Promise<{ hubId: st
       {selectedMachineForQR && (
         <MachineQRModal
           machine={selectedMachineForQR}
+          storeId={hub.storeId}
           onClose={() => setSelectedMachineForQR(null)}
-          onRefresh={loadHubDetails}
         />
       )}
     </AdminLayout>

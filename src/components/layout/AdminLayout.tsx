@@ -4,7 +4,6 @@
 import { useState, ReactNode } from 'react';
 import { useRouter, usePathname } from 'next/navigation';
 import ThemeSwitcher from '@/components/ThemeSwitcher';
-import api from '@/lib/api';
 import { clearToken } from '@/lib/auth';
 
 

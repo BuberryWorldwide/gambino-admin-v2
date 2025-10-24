@@ -9,7 +9,6 @@ import AdminLayout from '@/components/layout/AdminLayout';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import InlineEditableName from '@/components/InlineEditableName';
-import MachineQRModal from '@/components/MachineQRModal';
 import { QrCode } from 'lucide-react';
 import {
   Table,

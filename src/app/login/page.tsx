@@ -8,7 +8,7 @@ import { Input } from '@/components/ui/input';
 import { Card } from '@/components/ui/card';
 import axios from 'axios';
 import api from '@/lib/api';
-import { setToken, getToken, getUserRedirectUrl } from '@/lib/auth';
+import { setToken, getUserRedirectUrl } from '@/lib/auth';
 
 export default function LoginPage() {
   const router = useRouter();

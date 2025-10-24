@@ -118,8 +118,8 @@ export default function StoreDashboardPage() {
 
       if (response.data) {
         // Count vouchers from machines
-        let voucherCount = 0;
-        let voucherTotal = 0;
+        const voucherCount = 0;
+        const voucherTotal = 0;
             
         setTodayStats({
           totalMachines: response.data.machines?.length || 0,
@@ -131,7 +131,7 @@ export default function StoreDashboardPage() {
         });
         
         const sortedMachines = (response.data.machines || [])
-          .map((m: any) => ({
+          .map((m: { machineId: string; moneyIn: number; moneyOut: number }) => ({
             machineId: m.machineId,
             moneyIn: m.moneyIn,
             moneyOut: m.moneyOut,
