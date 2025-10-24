@@ -9,7 +9,6 @@ import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import axios from 'axios';
-import InlineEditableName from '@/components/InlineEditableName';
 import MachineQRModal from '@/components/MachineQRModal';
 import { QrCode } from 'lucide-react';
 
@@ -78,6 +77,7 @@ interface Machine {
   hubMachineId: string;
   name?: string;
   storeId: string;
+  hubId?: string;
   isRegistered: boolean;
   totalDays?: number;
   totalMoneyIn?: number;
@@ -233,25 +233,35 @@ export default function HubDetailsPage({ params }: { params: Promise<{ hubId: st
           debugMode: configForm.debugMode,
         },
       });
-      
       setEditingConfig(false);
       await loadHubDetails();
-    } catch (err: unknown) {
-      if (axios.isAxiosError(err)) {
-        alert(err.response?.data?.error || 'Failed to update configuration');
-      } else {
-        alert('Failed to update configuration');
-      }
+      alert('Configuration saved successfully');
+    } catch (err) {
+      console.error('Failed to save config:', err);
+      alert('Failed to save configuration');
     }
+  };
+
+  const formatLastSeen = (date: string | Date | undefined) => {
+    if (!date) return 'Never';
+    const d = new Date(date);
+    const now = new Date();
+    const diff = now.getTime() - d.getTime();
+    
+    if (diff < 60000) return 'Just now';
+    if (diff < 3600000) return Math.floor(diff / 60000) + 'm ago';
+    if (diff < 86400000) return Math.floor(diff / 3600000) + 'h ago';
+    return d.toLocaleDateString();
   };
 
   if (loading) {
     return (
       <AdminLayout user={user}>
-        <div className="flex items-center justify-center h-[calc(100vh-200px)]">
-          <div className="text-center">
-            <RefreshCw className="w-8 h-8 text-gray-400 dark:text-gray-600 animate-spin mx-auto mb-3" />
-            <p className="text-sm text-gray-600 dark:text-gray-400">Loading hub details...</p>
+        <div className="max-w-7xl mx-auto p-4 sm:p-6 lg:p-8">
+          <div className="animate-pulse space-y-4">
+            <div key="skeleton-1" className="h-8 bg-gray-200 rounded w-1/3"></div>
+            <div key="skeleton-2" className="h-32 bg-gray-200 rounded"></div>
+            <div key="skeleton-3" className="h-64 bg-gray-200 rounded"></div>
           </div>
         </div>
       </AdminLayout>
@@ -261,344 +271,468 @@ export default function HubDetailsPage({ params }: { params: Promise<{ hubId: st
   if (error || !hub) {
     return (
       <AdminLayout user={user}>
-        <Card className="max-w-md mx-auto mt-12">
-          <CardHeader>
-            <CardTitle className="flex items-center gap-2 text-red-600">
-              <AlertCircle className="w-5 h-5" />
-              Error Loading Hub
-            </CardTitle>
-          </CardHeader>
-          <CardContent>
-            <p className="text-sm text-muted-foreground mb-4">{error || 'Hub not found'}</p>
-            <div className="flex gap-3">
-              <Button onClick={() => window.location.href = '/admin/hubs'} variant="outline" className="flex-1">
-                <ArrowLeft className="w-4 h-4 mr-2" />
-                Back to Hubs
-              </Button>
-              <Button onClick={loadHubDetails} className="flex-1">
-                Retry
-              </Button>
-            </div>
-          </CardContent>
-        </Card>
+        <div className="max-w-7xl mx-auto p-4 sm:p-6 lg:p-8">
+          <div className="bg-red-50 border border-red-200 rounded-lg p-4">
+            <AlertCircle className="w-5 h-5 text-red-600 mb-2" />
+            <p className="text-red-800">{error || 'Hub not found'}</p>
+          </div>
+        </div>
       </AdminLayout>
     );
   }
 
-  const registeredMachines = machines.filter(m => m.isRegistered);
-  const unknownMachines = machines.filter(m => !m.isRegistered);
-
   return (
     <AdminLayout user={user}>
-      {/* Header */}
-      <div className="border-b bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/60 sticky top-0 z-10">
-        <div className="container flex h-16 items-center justify-between">
-          <div className="flex items-center gap-4">
+      <div className="max-w-7xl mx-auto p-4 sm:p-6 lg:p-8 space-y-6">
+        {/* Header Section - Mobile Optimized */}
+        <div className="flex flex-col gap-4">
+          {/* Back button + Hub name row */}
+          <div className="flex items-center gap-3">
             <Button
+              key="back-btn"
               variant="ghost"
-              size="icon"
+              size="sm"
               onClick={() => window.location.href = '/admin/hubs'}
+              className="shrink-0"
             >
-              <ArrowLeft className="h-5 w-5" />
+              <ArrowLeft className="w-4 h-4" />
             </Button>
-            <div>
-              <h1 className="text-2xl font-bold tracking-tight">{hub.name}</h1>
-              <p className="text-sm text-muted-foreground">{hubId}</p>
+            <div key="hub-name" className="flex-1 min-w-0">
+              <h1 className="text-2xl sm:text-3xl font-bold truncate">
+                {hub.name}
+              </h1>
+              <p className="text-sm text-muted-foreground truncate">
+                {hub.hubId}
+              </p>
             </div>
           </div>
-          <div className="flex items-center gap-3">
-            <Badge variant={hub.isOnline ? "default" : "secondary"} className="gap-1">
-              {hub.isOnline ? <Wifi className="w-3 h-3" /> : <WifiOff className="w-3 h-3" />}
-              {hub.isOnline ? 'Online' : 'Offline'}
-            </Badge>
-            <Button
-              variant="outline"
-              size="sm"
-              onClick={handleRefresh}
-              disabled={refreshing}
-            >
-              <RefreshCw className={`w-4 h-4 mr-2 ${refreshing ? 'animate-spin' : ''}`} />
-              Refresh
-            </Button>
-          </div>
-        </div>
-      </div>
 
-      <div className="container py-6 space-y-6">
-        {/* Quick Stats */}
-        <div className="grid gap-4 md:grid-cols-4">
-          <Card>
-            <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-              <CardTitle className="text-sm font-medium">Store</CardTitle>
-            </CardHeader>
-            <CardContent>
-              <div className="text-2xl font-bold">{hub.store?.storeName || hub.storeId}</div>
-              {hub.store?.city && hub.store?.state && (
-                <p className="text-xs text-muted-foreground">
-                  {hub.store.city}, {hub.store.state}
-                </p>
+          {/* Status badge + Actions - Stack on mobile */}
+          <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-2 sm:gap-4">
+            {/* Status Badge */}
+            <div key="status-badge" className="flex items-center gap-2">
+              {hub.isOnline ? (
+                <>
+                  <Wifi key="wifi-icon" className="w-5 h-5 text-green-500" />
+                  <Badge key="online-badge" variant="default" className="bg-green-500">
+                    Online
+                  </Badge>
+                </>
+              ) : (
+                <>
+                  <WifiOff key="wifi-off-icon" className="w-5 h-5 text-red-500" />
+                  <Badge key="offline-badge" variant="destructive">
+                    Offline
+                  </Badge>
+                </>
               )}
+              {hub.lastHeartbeat && (
+                <span key="last-seen" className="text-xs text-muted-foreground hidden sm:inline">
+                  Last seen: {formatLastSeen(hub.lastHeartbeat)}
+                </span>
+              )}
+            </div>
+
+            {/* Action Buttons - Stack on small screens */}
+            <div key="action-buttons" className="flex flex-col sm:flex-row gap-2 sm:ml-auto">
+              <Button
+                key="refresh"
+                onClick={handleRefresh}
+                disabled={refreshing}
+                variant="outline"
+                size="sm"
+                className="w-full sm:w-auto"
+              >
+                <RefreshCw className={`w-4 h-4 mr-2 ${refreshing ? 'animate-spin' : ''}`} />
+                Refresh
+              </Button>
+              <Button
+                key="regenerate"
+                onClick={handleRegenerateToken}
+                disabled={regeneratingToken}
+                variant="outline"
+                size="sm"
+                className="w-full sm:w-auto"
+              >
+                <Key className="w-4 h-4 mr-2" />
+                {regeneratingToken ? 'Generating...' : 'Regenerate Token'}
+              </Button>
+            </div>
+          </div>
+
+          {/* Last seen on mobile */}
+          {hub.lastHeartbeat && (
+            <span className="text-xs text-muted-foreground sm:hidden">
+              Last seen: {formatLastSeen(hub.lastHeartbeat)}
+            </span>
+          )}
+        </div>
+
+        {/* Stats Cards - Responsive grid */}
+        <div className="grid grid-cols-2 lg:grid-cols-4 gap-3 sm:gap-4">
+          <Card key="machines">
+            <CardHeader className="pb-2">
+              <CardTitle className="text-sm font-medium text-muted-foreground">
+                Machines
+              </CardTitle>
+            </CardHeader>
+            <CardContent>
+              <div className="text-2xl sm:text-3xl font-bold">
+                {machines.length}
+              </div>
             </CardContent>
           </Card>
 
-          <Card>
-            <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-              <CardTitle className="text-sm font-medium">Machines</CardTitle>
-              <Activity className="h-4 w-4 text-muted-foreground" />
+          <Card key="eventsProcessed">
+            <CardHeader className="pb-2">
+              <CardTitle className="text-sm font-medium text-muted-foreground">
+                Events Processed
+              </CardTitle>
             </CardHeader>
             <CardContent>
-              <div className="text-2xl font-bold">{machines.length}</div>
-              <p className="text-xs text-muted-foreground">
-                <span className="text-green-600">{registeredMachines.length} registered</span>
-                {unknownMachines.length > 0 && (
-                  <span className="text-amber-600 ml-2">{unknownMachines.length} unknown</span>
-                )}
-              </p>
-            </CardContent>
-          </Card>
-
-          <Card>
-            <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-              <CardTitle className="text-sm font-medium">Events Processed</CardTitle>
-              <Zap className="h-4 w-4 text-muted-foreground" />
-            </CardHeader>
-            <CardContent>
-              <div className="text-2xl font-bold">
+              <div className="text-2xl sm:text-3xl font-bold">
                 {hub.stats?.totalEventsProcessed?.toLocaleString() || '0'}
               </div>
-              <p className="text-xs text-muted-foreground">
-                {hub.stats?.totalEventsSynced?.toLocaleString() || '0'} synced
-              </p>
             </CardContent>
           </Card>
 
-          <Card>
-            <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-              <CardTitle className="text-sm font-medium">Last Seen</CardTitle>
+          <Card key="eventsSynced">
+            <CardHeader className="pb-2">
+              <CardTitle className="text-sm font-medium text-muted-foreground">
+                Events Synced
+              </CardTitle>
             </CardHeader>
             <CardContent>
-              <div className="text-2xl font-bold">
-                {hub.lastHeartbeat ? new Date(hub.lastHeartbeat).toLocaleTimeString() : 'Never'}
+              <div className="text-2xl sm:text-3xl font-bold">
+                {hub.stats?.totalEventsSynced?.toLocaleString() || '0'}
               </div>
-              <p className="text-xs text-muted-foreground">
-                {hub.lastHeartbeat ? new Date(hub.lastHeartbeat).toLocaleDateString() : ''}
-              </p>
+            </CardContent>
+          </Card>
+
+          <Card key="uptime">
+            <CardHeader className="pb-2">
+              <CardTitle className="text-sm font-medium text-muted-foreground">
+                Uptime
+              </CardTitle>
+            </CardHeader>
+            <CardContent>
+              <div className="text-2xl sm:text-3xl font-bold">
+                {hub.stats?.uptime ? Math.floor(hub.stats.uptime / 3600) : '0'}h
+              </div>
             </CardContent>
           </Card>
         </div>
 
-        {/* Tabs */}
-        <Tabs value={activeTab} onValueChange={setActiveTab} className="space-y-4">
-          <TabsList>
-            <TabsTrigger value="overview">Overview</TabsTrigger>
-            <TabsTrigger value="machines">Machines ({discoveredMachines.length})</TabsTrigger>
-            <TabsTrigger value="events">Events</TabsTrigger>
-            <TabsTrigger value="health">Health & Monitoring</TabsTrigger>
-            <TabsTrigger value="config">Configuration</TabsTrigger>
-            <TabsTrigger value="logs">Logs</TabsTrigger>
+        {/* Tabs - Scrollable on mobile */}
+        <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full">
+          <TabsList className="w-full justify-start overflow-x-auto flex-nowrap">
+            <TabsTrigger value="overview" className="whitespace-nowrap">Overview</TabsTrigger>
+            <TabsTrigger value="machines" className="whitespace-nowrap">Machines</TabsTrigger>
+            <TabsTrigger value="events" className="whitespace-nowrap">Events</TabsTrigger>
+            <TabsTrigger value="health" className="whitespace-nowrap">Health</TabsTrigger>
+            <TabsTrigger value="config" className="whitespace-nowrap">Config</TabsTrigger>
+            <TabsTrigger value="logs" className="whitespace-nowrap">Logs</TabsTrigger>
           </TabsList>
 
           {/* Overview Tab */}
           <TabsContent value="overview" className="space-y-4">
-            <div className="grid gap-4 md:grid-cols-2">
-              {/* Hub Details Card */}
-              <Card>
-                <CardHeader>
-                  <CardTitle>Hub Details</CardTitle>
-                  <CardDescription>Basic information about this hub</CardDescription>
-                </CardHeader>
-                <CardContent className="space-y-4">
-                  <div className="grid gap-2">
-                    <Label className="text-sm font-medium">Hub ID</Label>
-                    <Input value={hub.hubId} readOnly className="font-mono" />
+            <Card key="hub-info">
+              <CardHeader>
+                <CardTitle>Hub Information</CardTitle>
+              </CardHeader>
+              <CardContent className="space-y-4">
+                <div className="grid gap-3 sm:grid-cols-2">
+                  <div key="store">
+                    <p className="text-sm font-medium text-muted-foreground">Store</p>
+                    <p className="text-base font-semibold">
+                      {hub.store?.storeName || 'Unknown'}
+                    </p>
+                    <p className="text-sm text-muted-foreground">
+                      {hub.store?.city}, {hub.store?.state}
+                    </p>
                   </div>
-                  <div className="grid gap-2">
-                    <Label className="text-sm font-medium">Name</Label>
-                    <Input value={hub.name} readOnly />
+                  <div key="serial">
+                    <p className="text-sm font-medium text-muted-foreground">Serial Port</p>
+                    <p className="text-base font-mono">
+                      {hub.serialConfig?.port || 'Not configured'}
+                    </p>
                   </div>
-                  <div className="grid gap-2">
-                    <Label className="text-sm font-medium">Store ID</Label>
-                    <Input value={hub.storeId} readOnly className="font-mono" />
-                  </div>
-                  <div className="grid gap-2">
-                    <Label className="text-sm font-medium">Serial Port</Label>
-                    <Input value={hub.serialConfig?.port || '/dev/ttyUSB0'} readOnly className="font-mono" />
-                  </div>
-                  <div className="grid gap-2">
-                    <Label className="text-sm font-medium">Status</Label>
-                    <Badge variant={hub.status === 'online' ? 'default' : 'secondary'}>
-                      {hub.status || 'offline'}
-                    </Badge>
-                  </div>
-                </CardContent>
-              </Card>
+                </div>
+              </CardContent>
+            </Card>
 
-              {/* Authentication Token Card */}
-              <Card>
-                <CardHeader>
-                  <CardTitle>Authentication</CardTitle>
-                  <CardDescription>Manage Pi authentication token</CardDescription>
-                </CardHeader>
-                <CardContent className="space-y-4">
-                  <div className="flex gap-2">
-                    <Button
-                      variant="outline"
-                      onClick={() => setShowToken(!showToken)}
-                      className="flex-1"
-                    >
-                      <Key className="w-4 h-4 mr-2" />
-                      {showToken ? 'Hide Token' : 'View Token'}
-                    </Button>
-                    <Button
-                      variant="outline"
-                      onClick={handleRegenerateToken}
-                      disabled={regeneratingToken}
-                      className="flex-1"
-                    >
-                      <Key className="w-4 h-4 mr-2" />
-                      {regeneratingToken ? 'Regenerating...' : 'Regenerate'}
-                    </Button>
-                  </div>
-
-                  {showToken && machineToken && (
-                    <div className="space-y-3">
-                      <div className="space-y-2">
-                        <Label>Machine Token</Label>
-                        <div className="relative">
-                          <Textarea
-                            value={machineToken}
-                            readOnly
-                            className="font-mono text-xs resize-none"
-                            rows={4}
-                          />
-                        </div>
-                        <Button
-                          variant="secondary"
-                          size="sm"
-                          onClick={handleCopyToken}
-                          className="w-full"
-                        >
-                          {copied ? (
-                            <>
-                              <CheckCircle className="w-4 h-4 mr-2" />
-                              Copied!
-                            </>
-                          ) : (
-                            <>
-                              <Copy className="w-4 h-4 mr-2" />
-                              Copy Token
-                            </>
-                          )}
-                        </Button>
-                      </div>
-
-                      <div className="bg-blue-50 dark:bg-blue-950 border border-blue-200 dark:border-blue-800 rounded-lg p-4">
-                        <h4 className="font-semibold text-sm mb-2">Pi Setup Instructions</h4>
-                        <ol className="text-xs space-y-1 list-decimal list-inside text-muted-foreground">
-                          <li>SSH into your Raspberry Pi</li>
-                          <li>Edit: <code className="bg-muted px-1 rounded">~/gambino-pi-app/.env</code></li>
-                          <li>Update: <code className="bg-muted px-1 rounded">MACHINE_TOKEN=&lt;paste_token&gt;</code></li>
-                          <li>Restart: <code className="bg-muted px-1 rounded">sudo systemctl restart gambino-pi</code></li>
-                        </ol>
-                      </div>
-                    </div>
-                  )}
-                </CardContent>
-              </Card>
-            </div>
+            {/* Machine Token Card */}
+            <Card key="machine-token">
+              <CardHeader>
+                <div className="flex items-center justify-between">
+                  <CardTitle key="title">Machine Token</CardTitle>
+                  <Button
+                    key="toggle-btn"
+                    variant="ghost"
+                    size="sm"
+                    onClick={() => setShowToken(!showToken)}
+                  >
+                    <Key className="w-4 h-4 mr-2" />
+                    {showToken ? 'Hide' : 'Show'}
+                  </Button>
+                </div>
+                <CardDescription>
+                  Authentication token for Pi device
+                </CardDescription>
+              </CardHeader>
+              <CardContent>
+                <div className="flex flex-col sm:flex-row gap-2">
+                  <Input
+                    key="token-input"
+                    value={showToken ? (machineToken || 'No token generated') : '••••••••••••••••••••'}
+                    readOnly
+                    className="font-mono text-xs flex-1"
+                  />
+                  <Button
+                    key="copy-btn"
+                    size="sm"
+                    onClick={handleCopyToken}
+                    disabled={!machineToken}
+                    className="w-full sm:w-auto"
+                  >
+                    {copied ? (
+                      <>
+                        <CheckCircle className="w-4 h-4 mr-2" />
+                        Copied!
+                      </>
+                    ) : (
+                      <>
+                        <Copy className="w-4 h-4 mr-2" />
+                        Copy
+                      </>
+                    )}
+                  </Button>
+                </div>
+              </CardContent>
+            </Card>
           </TabsContent>
 
+          {/* Machines Tab - MOBILE FIRST REDESIGN */}
           {/* Machines Tab */}
           <TabsContent value="machines">
             <Card>
               <CardHeader>
-                <CardTitle>Discovered Machines</CardTitle>
-                <CardDescription>
-                  Machines reporting data through this hub
-                </CardDescription>
+                <div className="flex items-center justify-between">
+                  <div>
+                    <CardTitle>Discovered Machines</CardTitle>
+                    <CardDescription>
+                      Machines reporting data through this hub
+                    </CardDescription>
+                  </div>
+                  <Button variant="outline" size="sm" onClick={handleRefresh} disabled={refreshing}>
+                    <RefreshCw className={`w-4 h-4 mr-2 ${refreshing ? 'animate-spin' : ''}`} />
+                    Refresh
+                  </Button>
+                </div>
               </CardHeader>
               <CardContent>
-                {machines.length === 0 ? (
+                {loading ? (
+                  <div className="flex justify-center py-8">
+                    <RefreshCw className="w-8 h-8 animate-spin text-muted-foreground" />
+                  </div>
+                ) : discoveredMachines.length === 0 ? (
                   <div className="text-center py-12 text-muted-foreground">
                     <p>No machines discovered yet</p>
                     <p className="text-sm mt-1">Machines will appear here once they start reporting</p>
                   </div>
                 ) : (
-                  <Table>
-                    <TableHeader>
-                      <TableRow>
-                        <TableHead>Machine ID</TableHead>
-                        <TableHead>Status</TableHead>
-                        <TableHead>Days Active</TableHead>
-                        <TableHead className="text-right">Money In</TableHead>
-                        <TableHead className="text-right">Money Out</TableHead>
-                        <TableHead className="text-right">Net Revenue</TableHead>
-                        <TableHead>Last Seen</TableHead>
-                        <TableHead className="text-right">Actions</TableHead>
-                      </TableRow>
-                    </TableHeader>
-                    <TableBody>
-                      {discoveredMachines.map((machine) => (
-                        <TableRow key={machine.machineId}>
-                          
-                          <TableCell>
-                            <InlineEditableName
-                              machineId={machine.machineId}
-                              mongoId={machine._id}
-                              currentName={machine.name}
-                              fallbackName={machine.machineId}
-                              onUpdate={loadHubDetails}
-                            />
-                          </TableCell>
-                          <TableCell>
-                            <Badge variant={machine.isRegistered ? 'default' : 'secondary'}>
-                              {machine.isRegistered ? 'Registered' : 'Unknown'}
-                            </Badge>
-                          </TableCell>
-                          <TableCell>{machine.totalDays || 0}</TableCell>
-                          <TableCell className="text-right font-mono">
-                            ${(machine.totalMoneyIn || 0).toLocaleString()}
-                          </TableCell>
-                          <TableCell className="text-right font-mono">
-                            ${(machine.totalMoneyOut || 0).toLocaleString()}
-                          </TableCell>
-                          <TableCell className="text-right font-mono font-semibold">
-                            ${(machine.totalRevenue || 0).toLocaleString()}
-                          </TableCell>
-                          <TableCell className="text-sm text-muted-foreground">
-                            {machine.lastSeen ? new Date(machine.lastSeen).toLocaleDateString() : 'N/A'}
-                          </TableCell>
-                          <TableCell>
-                            <Button
-                              size="sm"
-                              variant="outline"
-                              onClick={(e) => {
-                                e.stopPropagation();
-                                setSelectedMachineForQR(machine);
-                              }}
-                            >
-                              <QrCode className="w-4 h-4" />
-                            </Button>
-                          </TableCell>
-                          <TableCell className="text-right">
-                            <Button
-                              variant="ghost"
-                              size="sm"
-                              onClick={() => window.location.href = `/admin/machines/${machine.machineId}`}
-                            >
-                              View →
-                            </Button>
-                          </TableCell>
-                        </TableRow>
-                      ))}
-                    </TableBody>
-                  </Table>
+                  <>
+                    {/* MOBILE VIEW - Cards */}
+                    <div className="md:hidden space-y-4">
+                      {discoveredMachines.map((machine) => {
+                        const uniqueKey = machine._id || machine.machineId || machine.hubMachineId;
+                        return (
+                        <Card key={uniqueKey} className="border-l-4 border-l-primary">
+                          <CardContent className="p-4">
+                            {/* Header with name and status */}
+                            <div key={`${uniqueKey}-header`} className="flex items-start justify-between mb-3">
+                              <div key={`${uniqueKey}-title`}>
+                                <h3 className="font-semibold text-base">{machine.name || machine.machineId}</h3>
+                                <p className="text-xs text-muted-foreground font-mono mt-0.5">
+                                  {machine.hubMachineId}
+                                </p>
+                              </div>
+                              {machine.isRegistered ? (
+                                <Badge key={`${uniqueKey}-badge`} variant="default" className="gap-1">
+                                  <CheckCircle className="w-3 h-3" />
+                                  Registered
+                                </Badge>
+                              ) : (
+                                <Badge key={`${uniqueKey}-badge-unknown`} variant="secondary">Unknown</Badge>
+                              )}
+                            </div>
+
+                            {/* Revenue Grid */}
+                            <div key={`${uniqueKey}-revenue`} className="grid grid-cols-2 gap-2 mb-3">
+                              <div key={`${uniqueKey}-days`} className="bg-muted/50 rounded-lg p-2">
+                                <span className="text-xs text-muted-foreground block">Days Active</span>
+                                <p className="font-semibold text-sm">
+                                  {machine.totalDays || 0}
+                                </p>
+                              </div>
+                              <div key={`${uniqueKey}-netrev`} className="bg-muted/50 rounded-lg p-2">
+                                <span className="text-xs text-muted-foreground block">Net Revenue</span>
+                                <p className="font-semibold text-sm">
+                                  ${(machine.totalRevenue || 0).toLocaleString()}
+                                </p>
+                              </div>
+                              <div key={`${uniqueKey}-moneyIn`} className="bg-muted/50 rounded-lg p-2">
+                                <span className="text-xs text-muted-foreground block">Money In</span>
+                                <p className="font-semibold text-sm">
+                                  ${(machine.totalMoneyIn || 0).toLocaleString()}
+                                </p>
+                              </div>
+                              <div key={`${uniqueKey}-moneyOut`} className="bg-muted/50 rounded-lg p-2">
+                                <span className="text-xs text-muted-foreground block">Money Out</span>
+                                <p className="font-semibold text-sm">
+                                  ${(machine.totalMoneyOut || 0).toLocaleString()}
+                                </p>
+                              </div>
+                            </div>
+
+                            {/* Last Seen */}
+                            <div key={`${uniqueKey}-lastseen`} className="flex items-center gap-2 mb-3 text-xs text-muted-foreground">
+                              <Activity className="w-3 h-3" />
+                              <span>Last seen: {machine.lastSeen ? new Date(machine.lastSeen).toLocaleDateString() : 'N/A'}</span>
+                            </div>
+
+                            {/* Action Buttons */}
+                            <div key={`${uniqueKey}-actions`} className="flex gap-2">
+                              <Button
+                                key={`${uniqueKey}-qr`}
+                                variant="outline"
+                                size="sm"
+                                className="flex-1 min-h-[44px]"
+                                onClick={() => setSelectedMachineForQR(machine)}
+                              >
+                                <QrCode className="w-4 h-4 mr-2" />
+                                QR Code
+                              </Button>
+                              <Button
+                                key={`${uniqueKey}-view`}
+                                size="sm"
+                                className="flex-1 min-h-[44px]"
+                                onClick={() => window.location.href = `/admin/machines/${machine.machineId}`}
+                              >
+                                View Details →
+                              </Button>
+                            </div>
+                          </CardContent>
+                        </Card>
+                        );
+                      })}
+                    </div>
+
+                    {/* DESKTOP VIEW - Table */}
+                                        {/* DESKTOP VIEW - Table */}
+                    <div className="hidden md:block">
+                      <Table>
+                        <TableHeader>
+                          <TableRow>
+                            <TableHead>Machine ID</TableHead>
+                            <TableHead>Hub</TableHead>
+                            <TableHead>Status</TableHead>
+                            <TableHead className="text-right">Days Active</TableHead>
+                            <TableHead className="text-right">Money In</TableHead>
+                            <TableHead className="text-right">Money Out</TableHead>
+                            <TableHead className="text-right">Net Revenue</TableHead>
+                            <TableHead>Last Seen</TableHead>
+                            <TableHead className="text-right">Actions</TableHead>
+                          </TableRow>
+                        </TableHeader>
+                        <TableBody>
+                          {discoveredMachines.map((machine) => {
+                            const uniqueKey = machine._id || machine.machineId || machine.hubMachineId;
+                            return (
+                              <TableRow key={uniqueKey} className="hover:bg-muted/50">
+                              {/* Machine ID - Name with hubMachineId subtitle */}
+                              <TableCell>
+                                <div className="font-semibold">{machine.name || machine.machineId}</div>
+                                <div className="text-xs text-muted-foreground font-mono">
+                                  {machine.hubMachineId}
+                                </div>
+                              </TableCell>
+                              
+                              {/* Hub - Which Pi this is connected to */}
+                              <TableCell className="font-mono text-sm text-muted-foreground">
+                                {hubId}
+                              </TableCell>
+                              
+                              {/* Status Badge */}
+                              <TableCell>
+                                {machine.isRegistered ? (
+                                  <Badge variant="default" className="gap-1">
+                                    <CheckCircle className="w-3 h-3" />
+                                    Registered
+                                  </Badge>
+                                ) : (
+                                  <Badge variant="secondary">Discovered</Badge>
+                                )}
+                              </TableCell>
+                              
+                              {/* Days Active */}
+                              <TableCell className="text-right">
+                                {machine.totalDays || 0}
+                              </TableCell>
+                              
+                              {/* Money In */}
+                              <TableCell className="text-right font-mono text-green-600">
+                                ${(machine.totalMoneyIn || 0).toLocaleString()}
+                              </TableCell>
+                              
+                              {/* Money Out */}
+                              <TableCell className="text-right font-mono text-red-600">
+                                ${(machine.totalMoneyOut || 0).toLocaleString()}
+                              </TableCell>
+                              
+                              {/* Net Revenue */}
+                              <TableCell className="text-right font-mono font-semibold">
+                                ${(machine.totalRevenue || 0).toLocaleString()}
+                              </TableCell>
+                              
+                              {/* Last Seen */}
+                              <TableCell className="text-sm text-muted-foreground">
+                                {machine.lastSeen ? new Date(machine.lastSeen).toLocaleDateString() : 'N/A'}
+                              </TableCell>
+                              
+                              {/* Actions */}
+                              <TableCell className="text-right">
+                                <div className="flex items-center justify-end gap-2">
+                                  <Button
+                                    variant="ghost"
+                                    size="sm"
+                                    onClick={() => setSelectedMachineForQR(machine)}
+                                    title="Generate QR Code"
+                                  >
+                                    <QrCode className="w-4 h-4" />
+                                  </Button>
+                                  <Button
+                                    variant="ghost"
+                                    size="sm"
+                                    onClick={() => window.location.href = `/admin/machines/${machine._id}`}
+                                  >
+                                    View →
+                                  </Button>
+                                </div>
+                              </TableCell>
+                            </TableRow>
+                            );
+                          })}
+                        </TableBody>
+                      </Table>
+                    </div>
+                  </>
                 )}
               </CardContent>
             </Card>
           </TabsContent>
 
-          {/* Events Tab */}
+          {/* Events Tab - Placeholder */}
           <TabsContent value="events">
             <Card>
               <CardHeader>
@@ -615,8 +749,8 @@ export default function HubDetailsPage({ params }: { params: Promise<{ hubId: st
 
           {/* Health Tab */}
           <TabsContent value="health" className="space-y-4">
-            <div className="grid gap-4 md:grid-cols-3">
-              <Card>
+            <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
+              <Card key="cpu">
                 <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
                   <CardTitle className="text-sm font-medium">CPU Usage</CardTitle>
                   <Cpu className="h-4 w-4 text-muted-foreground" />
@@ -628,7 +762,7 @@ export default function HubDetailsPage({ params }: { params: Promise<{ hubId: st
                 </CardContent>
               </Card>
 
-              <Card>
+              <Card key="memory">
                 <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
                   <CardTitle className="text-sm font-medium">Memory Usage</CardTitle>
                   <Activity className="h-4 w-4 text-muted-foreground" />
@@ -640,7 +774,7 @@ export default function HubDetailsPage({ params }: { params: Promise<{ hubId: st
                 </CardContent>
               </Card>
 
-              <Card>
+              <Card key="disk">
                 <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
                   <CardTitle className="text-sm font-medium">Disk Usage</CardTitle>
                   <HardDrive className="h-4 w-4 text-muted-foreground" />
@@ -653,18 +787,18 @@ export default function HubDetailsPage({ params }: { params: Promise<{ hubId: st
               </Card>
             </div>
 
-            <Card>
+            <Card key="system-status">
               <CardHeader>
                 <CardTitle>System Status</CardTitle>
               </CardHeader>
               <CardContent className="space-y-3">
-                <div className="flex items-center justify-between">
+                <div key="serial" className="flex items-center justify-between">
                   <span className="text-sm font-medium">Serial Connection</span>
                   <Badge variant={hub.health?.serialConnected ? 'default' : 'destructive'}>
                     {hub.health?.serialConnected ? 'Connected' : 'Disconnected'}
                   </Badge>
                 </div>
-                <div className="flex items-center justify-between">
+                <div key="uptime" className="flex items-center justify-between">
                   <span className="text-sm font-medium">Uptime</span>
                   <span className="text-sm text-muted-foreground">
                     {hub.stats?.uptime ? Math.floor(hub.stats.uptime / 3600) + ' hours' : 'N/A'}
@@ -679,12 +813,12 @@ export default function HubDetailsPage({ params }: { params: Promise<{ hubId: st
             <Card>
               <CardHeader>
                 <div className="flex items-center justify-between">
-                  <div>
+                  <div key="title">
                     <CardTitle>Hub Configuration</CardTitle>
                     <CardDescription>Manage hub settings and behavior</CardDescription>
                   </div>
                   {!editingConfig && (
-                    <Button onClick={() => setEditingConfig(true)} variant="outline">
+                    <Button key="edit-btn" onClick={() => setEditingConfig(true)} variant="outline" size="sm">
                       <Settings className="w-4 h-4 mr-2" />
                       Edit
                     </Button>
@@ -693,7 +827,7 @@ export default function HubDetailsPage({ params }: { params: Promise<{ hubId: st
               </CardHeader>
               <CardContent className="space-y-6">
                 <div className="grid gap-4">
-                  <div className="grid gap-2">
+                  <div key="name-field" className="grid gap-2">
                     <Label htmlFor="name">Hub Name</Label>
                     <Input
                       id="name"
@@ -703,7 +837,7 @@ export default function HubDetailsPage({ params }: { params: Promise<{ hubId: st
                     />
                   </div>
 
-                  <div className="grid gap-2">
+                  <div key="serial-field" className="grid gap-2">
                     <Label htmlFor="serialPort">Serial Port</Label>
                     <Input
                       id="serialPort"
@@ -714,7 +848,7 @@ export default function HubDetailsPage({ params }: { params: Promise<{ hubId: st
                     />
                   </div>
 
-                  <div className="grid gap-2">
+                  <div key="reporting-field" className="grid gap-2">
                     <Label htmlFor="reportingInterval">Reporting Interval (seconds)</Label>
                     <Input
                       id="reportingInterval"
@@ -725,7 +859,7 @@ export default function HubDetailsPage({ params }: { params: Promise<{ hubId: st
                     />
                   </div>
 
-                  <div className="grid gap-2">
+                  <div key="sync-field" className="grid gap-2">
                     <Label htmlFor="syncInterval">Sync Interval (seconds)</Label>
                     <Input
                       id="syncInterval"
@@ -736,7 +870,7 @@ export default function HubDetailsPage({ params }: { params: Promise<{ hubId: st
                     />
                   </div>
 
-                  <div className="flex items-center justify-between">
+                  <div key="debug-field" className="flex items-center justify-between">
                     <div className="space-y-0.5">
                       <Label htmlFor="debugMode">Debug Mode</Label>
                       <p className="text-sm text-muted-foreground">Enable verbose logging</p>
@@ -751,11 +885,12 @@ export default function HubDetailsPage({ params }: { params: Promise<{ hubId: st
                 </div>
 
                 {editingConfig && (
-                  <div className="flex gap-3">
-                    <Button onClick={handleSaveConfig} className="flex-1">
+                  <div className="flex flex-col sm:flex-row gap-2">
+                    <Button key="save" onClick={handleSaveConfig} className="flex-1">
                       Save Changes
                     </Button>
                     <Button
+                      key="cancel"
                       variant="outline"
                       onClick={() => {
                         setEditingConfig(false);
@@ -778,7 +913,7 @@ export default function HubDetailsPage({ params }: { params: Promise<{ hubId: st
             </Card>
           </TabsContent>
 
-          {/* Logs Tab */}
+          {/* Logs Tab - Placeholder */}
           <TabsContent value="logs">
             <Card>
               <CardHeader>

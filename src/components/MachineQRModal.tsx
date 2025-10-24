@@ -32,16 +32,22 @@ export default function MachineQRModal({ machine, storeId, onClose }: MachineQRM
       setLoading(true);
       setError('');
       
-      const response = await api.post(`/api/admin/machines/${machine._id}/qr-code`);
+      // ✅ FIX: Changed from POST /api/admin/machines to GET /api/machines
+      const response = await api.get(`/api/machines/${machine._id}/qr-code`);
       
       if (response.data.success) {
-        setQrData(response.data);
+        // Map backend response fields to our interface
+        setQrData({
+          qrCodeUrl: response.data.qrCode,  // Backend returns 'qrCode', not 'qrCodeUrl'
+          bindingToken: response.data.qrToken || response.data.bindingToken || '',
+          expiresAt: response.data.generated || new Date(Date.now() + 24 * 60 * 60 * 1000).toISOString()
+        });
       } else {
         setError('Failed to generate QR code');
       }
-    } catch (err) {
+    } catch (err: any) {
       console.error('QR code generation error:', err);
-      setError('Failed to generate QR code');
+      setError(err.response?.data?.error || 'Failed to generate QR code');
     } finally {
       setLoading(false);
     }
