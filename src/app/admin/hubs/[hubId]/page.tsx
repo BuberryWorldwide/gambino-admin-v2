@@ -102,6 +102,7 @@ export default function HubDetailsPage({ params }: { params: Promise<{ hubId: st
   const [user, setUser] = useState<User | null>(null);
   const [hub, setHub] = useState<Hub | null>(null);
   const [machines, setMachines] = useState<Machine[]>([]);
+  const [discoveredMachines, setDiscoveredMachines] = useState<Machine[]>([]);
   const [events, setEvents] = useState<Event[]>([]);
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
@@ -143,6 +144,9 @@ export default function HubDetailsPage({ params }: { params: Promise<{ hubId: st
           debugMode: hubData.config.debugMode || false,
         });
       }
+            
+      const machinesRes = await api.get(`/api/admin/hubs/${hubId}/discovered-machines`);
+      setDiscoveredMachines(machinesRes.data.machines || []);
     } catch (err) {
       console.error('Failed to load hub:', err);
       setError('Failed to load hub details');
@@ -153,7 +157,7 @@ export default function HubDetailsPage({ params }: { params: Promise<{ hubId: st
   useEffect(() => {
     loadUser();
     loadHubDetails();
-  }, [hubId, loadHubDetails]);
+  }, [hubId]);
 
   const loadUser = async () => {
     try {
@@ -387,7 +391,7 @@ export default function HubDetailsPage({ params }: { params: Promise<{ hubId: st
         <Tabs value={activeTab} onValueChange={setActiveTab} className="space-y-4">
           <TabsList>
             <TabsTrigger value="overview">Overview</TabsTrigger>
-            <TabsTrigger value="machines">Machines ({machines.length})</TabsTrigger>
+            <TabsTrigger value="machines">Machines ({discoveredMachines.length})</TabsTrigger>
             <TabsTrigger value="events">Events</TabsTrigger>
             <TabsTrigger value="health">Health & Monitoring</TabsTrigger>
             <TabsTrigger value="config">Configuration</TabsTrigger>
@@ -534,7 +538,7 @@ export default function HubDetailsPage({ params }: { params: Promise<{ hubId: st
                       </TableRow>
                     </TableHeader>
                     <TableBody>
-                      {machines.map((machine) => (
+                      {discoveredMachines.map((machine) => (
                         <TableRow key={machine.machineId}>
                           
                           <TableCell>
