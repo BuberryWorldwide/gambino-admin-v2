@@ -71,7 +71,6 @@ export default function DashboardPage() {
   const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
-    // CHECK TOKEN FIRST! This prevents the infinite loop
     const token = getToken();
     
     if (!token) {
@@ -82,7 +81,7 @@ export default function DashboardPage() {
 
     loadUser();
     loadDashboard();
-  }, []); // Keep empty dependency array
+  }, []);
 
   const loadUser = async () => {
     try {
@@ -91,7 +90,6 @@ export default function DashboardPage() {
     } catch (err) {
       console.log('Failed to load user profile');
       
-      // CRITICAL: Handle 401 errors
       if (axios.isAxiosError(err) && err.response?.status === 401) {
         console.log('Unauthorized - clearing token and redirecting');
         clearToken();
@@ -108,7 +106,7 @@ export default function DashboardPage() {
       setLoading(true);
       setError(null);
 
-      // Load hubs (already filtered by backend based on role)
+      // Load hubs
       const hubsRes = await api.get('/api/admin/hubs');
       const hubs: Hub[] = hubsRes.data.hubs || [];
 
@@ -161,7 +159,6 @@ export default function DashboardPage() {
     } catch (err: unknown) {
       console.error('Failed to load dashboard:', err);
       
-      // CRITICAL: Handle 401 errors
       if (axios.isAxiosError(err)) {
         if (err.response?.status === 401) {
           console.log('Unauthorized - clearing token and redirecting');
@@ -184,6 +181,17 @@ export default function DashboardPage() {
     setRefreshing(false);
   };
 
+  const formatTimestamp = (timestamp: Date) => {
+    const now = new Date();
+    const diffMs = now.getTime() - timestamp.getTime();
+    const diffMins = Math.floor(diffMs / 60000);
+    
+    if (diffMins < 1) return 'Just now';
+    if (diffMins < 60) return `${diffMins}m ago`;
+    if (diffMins < 1440) return `${Math.floor(diffMins / 60)}h ago`;
+    return timestamp.toLocaleDateString();
+  };
+
   if (loading) {
     return (
       <AdminLayout user={user}>
@@ -200,7 +208,7 @@ export default function DashboardPage() {
   if (error) {
     return (
       <AdminLayout user={user}>
-        <div className="max-w-md mx-auto mt-12">
+        <div className="max-w-md mx-auto mt-12 px-4">
           <div className="bg-white dark:bg-gray-900 rounded-lg border border-red-200 dark:border-red-900 p-6">
             <AlertCircle className="w-8 h-8 text-red-500 mb-3" />
             <h2 className="text-lg font-semibold text-gray-900 dark:text-gray-100 mb-2">Error Loading Dashboard</h2>
@@ -218,13 +226,13 @@ export default function DashboardPage() {
 
   return (
     <AdminLayout user={user}>
-      {/* Page Header */}
-      <div className="bg-white dark:bg-gray-900 border-b border-gray-200 dark:border-gray-800 sticky top-[73px] z-10">
-        <div className="max-w-[1600px] mx-auto px-6 py-4">
-          <div className="flex items-center justify-between">
+      {/* Page Header - Mobile Optimized */}
+      <div className="bg-white dark:bg-gray-900 border-b border-gray-200 dark:border-gray-800">
+        <div className="px-4 sm:px-6 py-4">
+          <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
             <div>
-              <h1 className="text-xl font-semibold text-gray-900 dark:text-gray-100">Dashboard</h1>
-              <p className="text-sm text-gray-500 dark:text-gray-400 mt-1">
+              <h1 className="text-xl sm:text-2xl font-semibold text-gray-900 dark:text-gray-100">Dashboard</h1>
+              <p className="text-xs sm:text-sm text-gray-500 dark:text-gray-400 mt-1">
                 {isVenueManager ? 'Your venues overview' : 'System overview'}
               </p>
             </div>
@@ -232,6 +240,7 @@ export default function DashboardPage() {
               variant="outline"
               onClick={handleRefresh}
               disabled={refreshing}
+              className="w-full sm:w-auto"
             >
               <RefreshCw className={`w-4 h-4 mr-2 ${refreshing ? 'animate-spin' : ''}`} />
               Refresh
@@ -240,103 +249,133 @@ export default function DashboardPage() {
         </div>
       </div>
 
-      <div className="max-w-[1600px] mx-auto px-6 py-6">
-        {/* Stats Grid */}
-        <div className="grid grid-cols-2 lg:grid-cols-5 gap-4 mb-6">
+      <div className="px-4 sm:px-6 py-4 sm:py-6 space-y-4 sm:space-y-6">
+        {/* Stats Grid - Responsive */}
+        <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-3 sm:gap-4">
           <StatCard
             label="Total Hubs"
             value={stats.totalHubs}
-            icon={<Server className="w-5 h-5" />}
+            icon={<Server className="w-4 h-4 sm:w-5 sm:h-5" />}
           />
           <StatCard
             label="Hubs Online"
             value={stats.onlineHubs}
-            icon={<Activity className="w-5 h-5" />}
+            icon={<Activity className="w-4 h-4 sm:w-5 sm:h-5" />}
             variant="success"
           />
           <StatCard
             label="Hubs Offline"
             value={stats.offlineHubs}
-            icon={<Server className="w-5 h-5" />}
+            icon={<Server className="w-4 h-4 sm:w-5 sm:h-5" />}
             variant="warning"
           />
           <StatCard
-            label="Discovered Machines"
+            label="Machines"
             value={stats.totalMachines}
-            icon={<Cpu className="w-5 h-5" />}
+            icon={<Cpu className="w-4 h-4 sm:w-5 sm:h-5" />}
           />
           <StatCard
-            label="Total Stores"
+            label="Stores"
             value={stats.totalStores}
-            icon={<Store className="w-5 h-5" />}
+            icon={<Store className="w-4 h-4 sm:w-5 sm:h-5" />}
           />
         </div>
 
-        {/* Recent Activity */}
-        <div className="bg-white dark:bg-gray-900 rounded-lg border border-gray-200 dark:border-gray-800 mb-6">
-          <div className="p-6 border-b border-gray-200 dark:border-gray-800">
-            <h2 className="text-lg font-semibold text-gray-900 dark:text-gray-100">Recent Activity</h2>
-            <p className="text-sm text-gray-500 dark:text-gray-400 mt-1">Latest hub heartbeats and updates</p>
+        {/* Recent Activity - Mobile Cards / Desktop Table */}
+        <div className="bg-white dark:bg-gray-900 rounded-lg border border-gray-200 dark:border-gray-800">
+          <div className="p-4 sm:p-6 border-b border-gray-200 dark:border-gray-800">
+            <h2 className="text-base sm:text-lg font-semibold text-gray-900 dark:text-gray-100">Recent Activity</h2>
+            <p className="text-xs sm:text-sm text-gray-500 dark:text-gray-400 mt-1">Latest hub heartbeats and updates</p>
           </div>
-          <div className="overflow-hidden">
-            {recentActivity.length === 0 ? (
-              <div className="p-12 text-center text-gray-500 dark:text-gray-400">
-                No recent activity
+
+          {recentActivity.length === 0 ? (
+            <div className="p-8 sm:p-12 text-center text-gray-500 dark:text-gray-400">
+              No recent activity
+            </div>
+          ) : (
+            <>
+              {/* Mobile: Card Layout */}
+              <div className="lg:hidden divide-y divide-gray-200 dark:divide-gray-800">
+                {recentActivity.map((item) => (
+                  <div key={item.id} className="p-4">
+                    <div className="flex items-start justify-between mb-2">
+                      <span className={`inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-medium ${
+                        item.type === 'hub_online'
+                          ? 'bg-green-100 dark:bg-green-900 text-green-800 dark:text-green-200'
+                          : 'bg-gray-100 dark:bg-gray-800 text-gray-800 dark:text-gray-200'
+                      }`}>
+                        {item.type === 'hub_online' ? '✓ Online' : '○ Offline'}
+                      </span>
+                      <span className="text-xs text-gray-500 dark:text-gray-400">
+                        {formatTimestamp(item.timestamp)}
+                      </span>
+                    </div>
+                    <div className="font-mono text-sm font-medium text-gray-900 dark:text-gray-100 mb-1">
+                      {item.hubId}
+                    </div>
+                    <div className="text-sm text-gray-600 dark:text-gray-400">
+                      {item.storeName}
+                    </div>
+                  </div>
+                ))}
               </div>
-            ) : (
-              <Table>
-                <TableHeader>
-                  <TableRow>
-                    <TableHead>Type</TableHead>
-                    <TableHead>Hub ID</TableHead>
-                    <TableHead>Store</TableHead>
-                    <TableHead>Time</TableHead>
-                  </TableRow>
-                </TableHeader>
-                <TableBody>
-                  {recentActivity.map((item) => (
-                    <TableRow key={item.id}>
-                      <TableCell>
-                        <span className={`inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-medium ${
-                          item.type === 'hub_online'
-                            ? 'bg-green-100 dark:bg-green-900 text-green-800 dark:text-green-200'
-                            : 'bg-gray-100 dark:bg-gray-800 text-gray-800 dark:text-gray-200'
-                        }`}>
-                          {item.type === 'hub_online' ? '✓ Online' : '○ Offline'}
-                        </span>
-                      </TableCell>
-                      <TableCell className="font-medium">{item.hubId}</TableCell>
-                      <TableCell className="text-gray-600 dark:text-gray-400">{item.storeName}</TableCell>
-                      <TableCell className="text-sm text-gray-500 dark:text-gray-400">
-                        {item.timestamp.toLocaleString()}
-                      </TableCell>
+
+              {/* Desktop: Table Layout */}
+              <div className="hidden lg:block overflow-x-auto">
+                <Table>
+                  <TableHeader>
+                    <TableRow>
+                      <TableHead>Type</TableHead>
+                      <TableHead>Hub ID</TableHead>
+                      <TableHead>Store</TableHead>
+                      <TableHead>Time</TableHead>
                     </TableRow>
-                  ))}
-                </TableBody>
-              </Table>
-            )}
-          </div>
+                  </TableHeader>
+                  <TableBody>
+                    {recentActivity.map((item) => (
+                      <TableRow key={item.id}>
+                        <TableCell>
+                          <span className={`inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-medium ${
+                            item.type === 'hub_online'
+                              ? 'bg-green-100 dark:bg-green-900 text-green-800 dark:text-green-200'
+                              : 'bg-gray-100 dark:bg-gray-800 text-gray-800 dark:text-gray-200'
+                          }`}>
+                            {item.type === 'hub_online' ? '✓ Online' : '○ Offline'}
+                          </span>
+                        </TableCell>
+                        <TableCell className="font-medium font-mono">{item.hubId}</TableCell>
+                        <TableCell className="text-gray-600 dark:text-gray-400">{item.storeName}</TableCell>
+                        <TableCell className="text-sm text-gray-500 dark:text-gray-400">
+                          {item.timestamp.toLocaleString()}
+                        </TableCell>
+                      </TableRow>
+                    ))}
+                  </TableBody>
+                </Table>
+              </div>
+            </>
+          )}
         </div>
 
-        {/* Quick Links */}
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+        {/* Quick Links - Already Responsive */}
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3 sm:gap-4">
           <QuickLink
             href="/admin/hubs"
             title="Manage Hubs"
             description="View and manage Pi hubs"
-            icon={<Server className="w-6 h-6" />}
+            icon={<Server className="w-5 h-5 sm:w-6 sm:h-6" />}
           />
           <QuickLink
             href="/admin/machines"
             title="Manage Machines"
             description="View and manage machines"
-            icon={<Cpu className="w-6 h-6" />}
+            icon={<Cpu className="w-5 h-5 sm:w-6 sm:h-6" />}
           />
           <QuickLink
             href="/admin/stores"
             title="Manage Stores"
             description="View and manage stores"
-            icon={<Store className="w-6 h-6" />}
+            icon={<Store className="w-5 h-5 sm:w-6 sm:h-6" />}
           />
         </div>
       </div>
@@ -359,12 +398,12 @@ function StatCard({ label, value, icon, variant = 'default' }: StatCardProps) {
   };
 
   return (
-    <div className={`${variants[variant]} border rounded-lg p-4`}>
-      <div className="flex items-center justify-between mb-2">
+    <div className={`${variants[variant]} border rounded-lg p-3 sm:p-4`}>
+      <div className="flex items-center justify-between mb-1.5 sm:mb-2">
         <div className="text-gray-500 dark:text-gray-400">{icon}</div>
       </div>
-      <div className="text-2xl font-semibold text-gray-900 dark:text-gray-100 mb-1">{value}</div>
-      <div className="text-xs font-medium text-gray-500 dark:text-gray-400 uppercase">{label}</div>
+      <div className="text-xl sm:text-2xl font-semibold text-gray-900 dark:text-gray-100 mb-0.5 sm:mb-1">{value}</div>
+      <div className="text-[10px] sm:text-xs font-medium text-gray-500 dark:text-gray-400 uppercase leading-tight">{label}</div>
     </div>
   );
 }
@@ -375,20 +414,21 @@ interface QuickLinkProps {
   description: string;
   icon: React.ReactNode;
 }
+
 function QuickLink({ href, title, description, icon }: QuickLinkProps) {
   return (
-    <a                    // ← YOU'RE MISSING THIS LINE!!!
+    <a
       href={href}
-      className="group bg-white dark:bg-gray-900 border border-gray-200 dark:border-gray-800 rounded-lg p-6 hover:border-gray-900 dark:hover:border-gray-100 transition-colors"
+      className="group bg-white dark:bg-gray-900 border border-gray-200 dark:border-gray-800 rounded-lg p-4 sm:p-6 hover:border-gray-900 dark:hover:border-gray-100 transition-colors active:scale-[0.98]"
     >
-      <div className="flex items-start justify-between mb-3">
+      <div className="flex items-start justify-between mb-2 sm:mb-3">
         <div className="text-gray-500 dark:text-gray-400 group-hover:text-gray-900 dark:group-hover:text-gray-100 transition-colors">
           {icon}
         </div>
-        <ArrowRight className="w-5 h-5 text-gray-400 group-hover:text-gray-900 dark:group-hover:text-gray-100 transition-colors" />
+        <ArrowRight className="w-4 h-4 sm:w-5 sm:h-5 text-gray-400 group-hover:text-gray-900 dark:group-hover:text-gray-100 transition-colors" />
       </div>
-      <h3 className="text-lg font-semibold text-gray-900 dark:text-gray-100 mb-1">{title}</h3>
-      <p className="text-sm text-gray-500 dark:text-gray-400">{description}</p>
+      <h3 className="text-base sm:text-lg font-semibold text-gray-900 dark:text-gray-100 mb-1">{title}</h3>
+      <p className="text-xs sm:text-sm text-gray-500 dark:text-gray-400">{description}</p>
     </a>
   );
 }

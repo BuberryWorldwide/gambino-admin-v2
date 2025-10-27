@@ -179,7 +179,7 @@ const loadUser = async () => {
   if (error) {
     return (
       <AdminLayout user={user}>
-        <div className="max-w-md mx-auto mt-12">
+        <div className="max-w-md mx-auto mt-12 px-4">
           <div className="bg-white dark:bg-gray-900 rounded-lg border border-red-200 dark:border-red-900 p-6">
             <AlertCircle className="w-8 h-8 text-red-500 mb-3" />
             <h2 className="text-lg font-semibold text-gray-900 dark:text-gray-100 mb-2">Error Loading Hubs</h2>
@@ -197,24 +197,25 @@ const loadUser = async () => {
     <AdminLayout user={user}>
       {/* Page Header */}
       <div className="bg-white dark:bg-gray-900 border-b border-gray-200 dark:border-gray-800 sticky top-[73px] z-10">
-        <div className="max-w-[1600px] mx-auto px-6 py-4">
-          <div className="flex items-center justify-between mb-4">
+        <div className="max-w-[1600px] mx-auto px-4 sm:px-6 py-4">
+          <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4 mb-4">
             <div>
               <h1 className="text-xl font-semibold text-gray-900 dark:text-gray-100">Pi Hubs</h1>
               <p className="text-sm text-gray-500 dark:text-gray-400 mt-1">
                 Manage Raspberry Pi hubs and discover connected machines
               </p>
             </div>
-            <div className="flex items-center gap-3">
+            <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-2 sm:gap-3">
               <Button
                 variant="outline"
                 onClick={handleRefresh}
                 disabled={refreshing}
+                className="w-full sm:w-auto"
               >
                 <RefreshCw className={`w-4 h-4 mr-2 ${refreshing ? 'animate-spin' : ''}`} />
                 Refresh
               </Button>
-              <Button onClick={() => window.location.href = '/admin/hubs/register'}>
+              <Button onClick={() => window.location.href = '/admin/hubs/register'} className="w-full sm:w-auto">
                 <Plus className="w-4 h-4 mr-2" />
                 Register Hub
               </Button>
@@ -235,16 +236,16 @@ const loadUser = async () => {
         </div>
       </div>
 
-      <div className="max-w-[1600px] mx-auto px-6 py-6">
-        {/* Stats */}
-        <div className="grid grid-cols-4 gap-4 mb-6">
+      <div className="max-w-[1600px] mx-auto px-4 sm:px-6 py-6">
+        {/* Stats - Mobile Responsive Grid */}
+        <div className="grid grid-cols-2 lg:grid-cols-4 gap-3 sm:gap-4 mb-6">
           <StatBox label="Total Hubs" value={stats.total} />
           <StatBox label="Online" value={stats.online} variant="success" />
           <StatBox label="Discovered Machines" value={stats.totalMachines} variant="info" />
           <StatBox label="Registered" value={stats.registered} variant="info" />
         </div>
 
-        {/* Table */}
+        {/* Mobile Cards / Desktop Table */}
         {filteredHubs.length === 0 ? (
           <div className="bg-white dark:bg-gray-900 rounded-lg border border-gray-200 dark:border-gray-800 p-12 text-center">
             <Search className="w-12 h-12 text-gray-400 dark:text-gray-600 mx-auto mb-4" />
@@ -258,76 +259,143 @@ const loadUser = async () => {
             </Button>
           </div>
         ) : (
-          <div className="bg-white dark:bg-gray-900 rounded-lg border border-gray-200 dark:border-gray-800 overflow-hidden">
-            <Table>
-              <TableHeader>
-                <TableRow>
-                  <TableHead>Hub ID</TableHead>
-                  <TableHead>Store</TableHead>
-                  <TableHead>Status</TableHead>
-                  <TableHead>Machines</TableHead>
-                  <TableHead>Registered</TableHead>
-                  <TableHead>Last Seen</TableHead>
-                  <TableHead className="text-right">Actions</TableHead>
-                </TableRow>
-              </TableHeader>
-              <TableBody>
-                {filteredHubs.map((hub) => {
-                  const machines = discoveredMachines[hub.hubId] || [];
-                  const registered = machines.filter(m => m.isRegistered).length;
-                  const unknown = machines.length - registered;
+          <>
+            {/* Mobile: Card Layout */}
+            <div className="lg:hidden space-y-3">
+              {filteredHubs.map((hub) => {
+                const machines = discoveredMachines[hub.hubId] || [];
+                const registered = machines.filter(m => m.isRegistered).length;
+                const unknown = machines.length - registered;
 
-                  return (
-                    <TableRow 
-                      key={hub.hubId} 
-                      className="cursor-pointer"
-                      onClick={() => window.location.href = `/admin/hubs/${hub.hubId}`}
-                    >
-                      <TableCell className="font-medium">{hub.hubId}</TableCell>
-                      <TableCell>
-                        <div className="text-sm">{hub.store?.storeName || hub.storeId}</div>
+                return (
+                  <div
+                    key={hub.hubId}
+                    onClick={() => window.location.href = `/admin/hubs/${hub.hubId}`}
+                    className="bg-white dark:bg-gray-900 rounded-lg border border-gray-200 dark:border-gray-800 p-4 cursor-pointer active:bg-gray-50 dark:active:bg-gray-800"
+                  >
+                    <div className="flex items-start justify-between mb-3">
+                      <div className="flex-1 min-w-0">
+                        <h3 className="font-semibold text-gray-900 dark:text-gray-100 mb-1">
+                          {hub.hubId}
+                        </h3>
+                        <p className="text-sm text-gray-600 dark:text-gray-400">
+                          {hub.store?.storeName || hub.storeId}
+                        </p>
                         {hub.store?.city && (
-                          <div className="text-xs text-gray-500 dark:text-gray-400">
+                          <p className="text-xs text-gray-500 dark:text-gray-500 mt-0.5">
                             {hub.store.city}, {hub.store.state}
-                          </div>
+                          </p>
                         )}
-                      </TableCell>
-                      <TableCell>
-                        {hub.isOnline ? (
-                          <Badge variant="default" className="bg-green-100 dark:bg-green-900 text-green-800 dark:text-green-200">
-                            <Wifi className="w-3 h-3 mr-1" />
-                            Online
-                          </Badge>
-                        ) : (
-                          <Badge variant="secondary">
-                            <WifiOff className="w-3 h-3 mr-1" />
-                            Offline
-                          </Badge>
-                        )}
-                      </TableCell>
-                      <TableCell className="font-medium">{machines.length}</TableCell>
-                      <TableCell>
-                        <div className="flex items-center gap-2">
-                          <span className="font-medium text-green-700 dark:text-green-400">{registered}</span>
+                      </div>
+                      {hub.isOnline ? (
+                        <Badge variant="default" className="bg-green-100 dark:bg-green-900 text-green-800 dark:text-green-200 shrink-0">
+                          <Wifi className="w-3 h-3 mr-1" />
+                          Online
+                        </Badge>
+                      ) : (
+                        <Badge variant="secondary" className="shrink-0">
+                          <WifiOff className="w-3 h-3 mr-1" />
+                          Offline
+                        </Badge>
+                      )}
+                    </div>
+
+                    <div className="grid grid-cols-2 gap-3 pt-3 border-t border-gray-200 dark:border-gray-800">
+                      <div>
+                        <p className="text-xs text-gray-500 dark:text-gray-400 mb-1">Machines</p>
+                        <p className="font-semibold text-gray-900 dark:text-gray-100">{machines.length}</p>
+                      </div>
+                      <div>
+                        <p className="text-xs text-gray-500 dark:text-gray-400 mb-1">Registered</p>
+                        <p className="font-semibold text-green-700 dark:text-green-400">
+                          {registered}
                           {unknown > 0 && (
-                            <span className="text-xs text-gray-500 dark:text-gray-400">+{unknown} unknown</span>
+                            <span className="text-xs text-gray-500 dark:text-gray-400 ml-1">
+                              +{unknown}
+                            </span>
                           )}
-                        </div>
-                      </TableCell>
-                      <TableCell className="text-sm text-gray-500 dark:text-gray-400">
-                        {hub.lastHeartbeat ? new Date(hub.lastHeartbeat).toLocaleString() : 'Never'}
-                      </TableCell>
-                      <TableCell className="text-right">
-                        <span className="text-gray-900 dark:text-gray-100 hover:text-gray-700 dark:hover:text-gray-300 font-medium">
-                          View →
-                        </span>
-                      </TableCell>
+                        </p>
+                      </div>
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
+
+            {/* Desktop: Table Layout */}
+            <div className="hidden lg:block bg-white dark:bg-gray-900 rounded-lg border border-gray-200 dark:border-gray-800 overflow-hidden">
+              <div className="overflow-x-auto">
+                <Table>
+                  <TableHeader>
+                    <TableRow>
+                      <TableHead>Hub ID</TableHead>
+                      <TableHead>Store</TableHead>
+                      <TableHead>Status</TableHead>
+                      <TableHead>Machines</TableHead>
+                      <TableHead>Registered</TableHead>
+                      <TableHead>Last Seen</TableHead>
+                      <TableHead className="text-right">Actions</TableHead>
                     </TableRow>
-                  );
-                })}
-              </TableBody>
-            </Table>
-          </div>
+                  </TableHeader>
+                  <TableBody>
+                    {filteredHubs.map((hub) => {
+                      const machines = discoveredMachines[hub.hubId] || [];
+                      const registered = machines.filter(m => m.isRegistered).length;
+                      const unknown = machines.length - registered;
+
+                      return (
+                        <TableRow 
+                          key={hub.hubId} 
+                          className="cursor-pointer"
+                          onClick={() => window.location.href = `/admin/hubs/${hub.hubId}`}
+                        >
+                          <TableCell className="font-medium">{hub.hubId}</TableCell>
+                          <TableCell>
+                            <div className="text-sm">{hub.store?.storeName || hub.storeId}</div>
+                            {hub.store?.city && (
+                              <div className="text-xs text-gray-500 dark:text-gray-400">
+                                {hub.store.city}, {hub.store.state}
+                              </div>
+                            )}
+                          </TableCell>
+                          <TableCell>
+                            {hub.isOnline ? (
+                              <Badge variant="default" className="bg-green-100 dark:bg-green-900 text-green-800 dark:text-green-200">
+                                <Wifi className="w-3 h-3 mr-1" />
+                                Online
+                              </Badge>
+                            ) : (
+                              <Badge variant="secondary">
+                                <WifiOff className="w-3 h-3 mr-1" />
+                                Offline
+                              </Badge>
+                            )}
+                          </TableCell>
+                          <TableCell className="font-medium">{machines.length}</TableCell>
+                          <TableCell>
+                            <div className="flex items-center gap-2">
+                              <span className="font-medium text-green-700 dark:text-green-400">{registered}</span>
+                              {unknown > 0 && (
+                                <span className="text-xs text-gray-500 dark:text-gray-400">+{unknown} unknown</span>
+                              )}
+                            </div>
+                          </TableCell>
+                          <TableCell className="text-sm text-gray-500 dark:text-gray-400">
+                            {hub.lastHeartbeat ? new Date(hub.lastHeartbeat).toLocaleString() : 'Never'}
+                          </TableCell>
+                          <TableCell className="text-right">
+                            <span className="text-gray-900 dark:text-gray-100 hover:text-gray-700 dark:hover:text-gray-300 font-medium">
+                              View →
+                            </span>
+                          </TableCell>
+                        </TableRow>
+                      );
+                    })}
+                  </TableBody>
+                </Table>
+              </div>
+            </div>
+          </>
         )}
       </div>
     </AdminLayout>
@@ -348,8 +416,8 @@ function StatBox({ label, value, variant = 'default' }: StatBoxProps) {
   };
 
   return (
-    <div className={`${variants[variant]} border rounded-lg p-4`}>
-      <div className="text-2xl font-semibold text-gray-900 dark:text-gray-100 mb-1">{value}</div>
+    <div className={`${variants[variant]} border rounded-lg p-3 sm:p-4`}>
+      <div className="text-xl sm:text-2xl font-semibold text-gray-900 dark:text-gray-100 mb-1">{value}</div>
       <div className="text-xs font-medium text-gray-500 dark:text-gray-400 uppercase">{label}</div>
     </div>
   );
