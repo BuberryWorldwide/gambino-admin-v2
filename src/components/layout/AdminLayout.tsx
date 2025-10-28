@@ -16,7 +16,8 @@ import {
   LogOut,
   Menu,
   X,
-  LucideIcon
+  LucideIcon,
+  FileText
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 
@@ -92,7 +93,7 @@ export default function AdminLayout({ children, user }: AdminLayoutProps) {
   }
 };
 
-  const navItems: NavItem[] = [
+const navItems: NavItem[] = [
     { href: '/admin/dashboard', label: 'Dashboard', icon: LayoutDashboard },
     { href: '/admin/hubs', label: 'Pi Hubs', icon: Activity },
     { href: '/admin/machines', label: 'Machines', icon: Activity },
@@ -100,6 +101,11 @@ export default function AdminLayout({ children, user }: AdminLayoutProps) {
     { href: '/admin/users', label: 'Users', icon: Users },
     { href: '/admin/settings', label: 'Settings', icon: Settings },
   ];
+
+  // Add Logs for super_admin only
+  if (user?.role === 'super_admin') {
+    navItems.splice(3, 0, { href: '/admin/logs', label: 'Live Logs', icon: FileText });
+  }
 
   return (
     <div className="min-h-screen bg-white dark:bg-gray-950 text-gray-900 dark:text-gray-100">
