@@ -56,6 +56,40 @@ interface ActivityItem {
   timestamp: Date;
 }
 
+// ADD THESE NEW INTERFACES after the existing ActivityItem interface:
+interface MachineMetric {
+  machineId: string;
+  storeId: string;
+  moneyIn: number;
+  moneyOut: number;
+  netRevenue: number;
+  profitMargin: number;
+  totalEvents: number;
+}
+
+interface StoreMetric {
+  storeId: string;
+  moneyIn: number;
+  moneyOut: number;
+  netRevenue: number;
+  gambinoCut: number;
+}
+
+interface MachineMetrics {
+  success: boolean;
+  timeframe: string;
+  summary: {
+    totalMachines: number;
+    totalStores: number;
+    systemMoneyIn: number;
+    systemMoneyOut: number;
+    systemNetRevenue: number;
+  };
+  byStore: StoreMetric[];
+  byMachine: MachineMetric[];
+  lastUpdated: Date;
+}
+
 export default function DashboardPage() {
   const [user, setUser] = useState<User | null>(null);
   const [stats, setStats] = useState<Stats>({
@@ -69,6 +103,8 @@ export default function DashboardPage() {
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [machineMetrics, setMachineMetrics] = useState<MachineMetrics | null>(null);
+  const [metricsTimeframe, setMetricsTimeframe] = useState('7d');
 
   useEffect(() => {
     const token = getToken();
@@ -102,78 +138,70 @@ export default function DashboardPage() {
   };
 
   const loadDashboard = async () => {
-    try {
-      setLoading(true);
-      setError(null);
+  try {
+    setLoading(true);
+    setError(null);
 
-      // Load hubs
-      const hubsRes = await api.get('/api/admin/hubs');
-      const hubs: Hub[] = hubsRes.data.hubs || [];
+    // Load hubs, stores, AND machine metrics in parallel
+    const [hubsRes, storesRes, metricsRes] = await Promise.all([
+      api.get('/api/admin/hubs'),
+      api.get('/api/admin/stores'),
+      api.get(`/api/admin/machine-metrics?timeframe=${metricsTimeframe}`)  // NEW!
+    ]);
 
-      // Load stores
-      const storesRes = await api.get('/api/admin/stores');
-      const stores = storesRes.data.stores || [];
+    const hubs: Hub[] = hubsRes.data.hubs || [];
+    const stores = storesRes.data.stores || [];
+    const metrics = metricsRes.data;  // NEW!
 
-      // Calculate stats
-      const onlineHubs = hubs.filter(h => h.isOnline).length;
-      const offlineHubs = hubs.length - onlineHubs;
+    // Calculate stats
+    const onlineHubs = hubs.filter(h => h.isOnline).length;
+    const offlineHubs = hubs.length - onlineHubs;
 
-      // Get total machines from hubs
-      let totalMachines = 0;
-      await Promise.all(
-        hubs.map(async (hub) => {
-          try {
-            const res = await api.get(`/api/admin/hubs/${hub.hubId}/discovered-machines`);
-            totalMachines += (res.data.machines || []).length;
-          } catch (err) {
-            console.error(`Failed to load machines for ${hub.hubId}`);
-          }
-        })
-      );
+    setStats({
+      totalHubs: hubs.length,
+      onlineHubs,
+      offlineHubs,
+      totalMachines: metrics?.summary?.totalMachines || 0,  // Get from metrics now
+      totalStores: stores.length,
+    });
 
-      setStats({
-        totalHubs: hubs.length,
-        onlineHubs,
-        offlineHubs,
-        totalMachines,
-        totalStores: stores.length,
-      });
+    setMachineMetrics(metrics);  // NEW!
 
-      // Generate recent activity from hubs
-      const activity: ActivityItem[] = hubs
-        .sort((a, b) => {
-          const aTime = a.lastHeartbeat ? new Date(a.lastHeartbeat).getTime() : 0;
-          const bTime = b.lastHeartbeat ? new Date(b.lastHeartbeat).getTime() : 0;
-          return bTime - aTime;
-        })
-        .slice(0, 10)
-        .map((hub, index) => ({
-          id: `${hub.hubId}-${index}`,
-          type: hub.isOnline ? 'hub_online' : 'hub_offline',
-          hubId: hub.hubId,
-          storeName: hub.store?.storeName || hub.storeId,
-          timestamp: hub.lastHeartbeat ? new Date(hub.lastHeartbeat) : new Date(),
-        }));
+    // Generate recent activity from hubs
+    const activity: ActivityItem[] = hubs
+      .sort((a, b) => {
+        const aTime = a.lastHeartbeat ? new Date(a.lastHeartbeat).getTime() : 0;
+        const bTime = b.lastHeartbeat ? new Date(b.lastHeartbeat).getTime() : 0;
+        return bTime - aTime;
+      })
+      .slice(0, 10)
+      .map((hub, index) => ({
+        id: `${hub.hubId}-${index}`,
+        type: hub.isOnline ? 'hub_online' : 'hub_offline',
+        hubId: hub.hubId,
+        storeName: hub.store?.storeName || hub.storeId,
+        timestamp: hub.lastHeartbeat ? new Date(hub.lastHeartbeat) : new Date(),
+      }));
 
-      setRecentActivity(activity);
-    } catch (err: unknown) {
-      console.error('Failed to load dashboard:', err);
-      
-      if (axios.isAxiosError(err)) {
-        if (err.response?.status === 401) {
-          console.log('Unauthorized - clearing token and redirecting');
-          clearToken();
-          window.location.href = '/login';
-          return;
-        }
-        setError(err.response?.data?.error || 'Failed to load dashboard');
-      } else {
-        setError('Failed to load dashboard');
+    setRecentActivity(activity);
+  } catch (err: unknown) {
+    console.error('Failed to load dashboard:', err);
+    
+    if (axios.isAxiosError(err)) {
+      if (err.response?.status === 401) {
+        console.log('Unauthorized - clearing token and redirecting');
+        clearToken();
+        window.location.href = '/login';
+        return;
       }
-    } finally {
-      setLoading(false);
+      setError(err.response?.data?.error || 'Failed to load dashboard');
+    } else {
+      setError('Failed to load dashboard');
     }
-  };
+  } finally {
+    setLoading(false);
+  }
+};
 
   const handleRefresh = async () => {
     setRefreshing(true);
@@ -280,6 +308,175 @@ export default function DashboardPage() {
             icon={<Store className="w-4 h-4 sm:w-5 sm:h-5" />}
           />
         </div>
+
+        {/* Machine Metrics Section - NEW! */}
+{machineMetrics && (
+  <div className="mt-8 space-y-6">
+    {/* Revenue Summary Cards */}
+    <div>
+      <div className="flex items-center justify-between mb-4">
+        <h2 className="text-lg font-semibold text-gray-900 dark:text-gray-100">
+          Revenue Overview
+        </h2>
+        <select 
+          value={metricsTimeframe}
+          onChange={(e) => {
+            setMetricsTimeframe(e.target.value);
+            loadDashboard();
+          }}
+          className="px-3 py-1.5 text-sm border border-gray-300 dark:border-gray-700 rounded-lg bg-white dark:bg-gray-900 text-gray-900 dark:text-gray-100"
+        >
+          <option value="24h">Last 24 Hours</option>
+          <option value="7d">Last 7 Days</option>
+          <option value="30d">Last 30 Days</option>
+          <option value="90d">Last 90 Days</option>
+        </select>
+      </div>
+
+      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+        <div className="bg-white dark:bg-gray-900 border border-gray-200 dark:border-gray-800 rounded-lg p-4">
+          <div className="flex items-center justify-between">
+            <p className="text-sm text-gray-500 dark:text-gray-400">Money IN</p>
+            <Activity className="w-4 h-4 text-green-500" />
+          </div>
+          <p className="text-2xl font-bold text-green-600 dark:text-green-500 mt-2">
+            ${machineMetrics.summary.systemMoneyIn.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+          </p>
+        </div>
+
+        <div className="bg-white dark:bg-gray-900 border border-gray-200 dark:border-gray-800 rounded-lg p-4">
+          <div className="flex items-center justify-between">
+            <p className="text-sm text-gray-500 dark:text-gray-400">Money OUT</p>
+            <Activity className="w-4 h-4 text-red-500" />
+          </div>
+          <p className="text-2xl font-bold text-red-600 dark:text-red-500 mt-2">
+            ${machineMetrics.summary.systemMoneyOut.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+          </p>
+        </div>
+
+        <div className="bg-white dark:bg-gray-900 border border-gray-200 dark:border-gray-800 rounded-lg p-4">
+          <div className="flex items-center justify-between">
+            <p className="text-sm text-gray-500 dark:text-gray-400">Net Revenue</p>
+            <Activity className="w-4 h-4 text-blue-500" />
+          </div>
+          <p className="text-2xl font-bold text-blue-600 dark:text-blue-500 mt-2">
+            ${machineMetrics.summary.systemNetRevenue.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+          </p>
+        </div>
+
+        <div className="bg-white dark:bg-gray-900 border border-gray-200 dark:border-gray-800 rounded-lg p-4">
+          <div className="flex items-center justify-between">
+            <p className="text-sm text-gray-500 dark:text-gray-400">Profit Margin</p>
+            <Activity className="w-4 h-4 text-yellow-500" />
+          </div>
+          <p className="text-2xl font-bold text-yellow-600 dark:text-yellow-500 mt-2">
+            {machineMetrics.summary.systemMoneyIn > 0 
+              ? ((machineMetrics.summary.systemNetRevenue / machineMetrics.summary.systemMoneyIn) * 100).toFixed(1)
+              : '0.0'}%
+          </p>
+        </div>
+      </div>
+    </div>
+
+    {/* Store Breakdown */}
+    {machineMetrics.byStore.length > 0 && (
+      <div>
+        <h3 className="text-lg font-semibold text-gray-900 dark:text-gray-100 mb-4">
+          Revenue by Store
+        </h3>
+        <div className="space-y-4">
+          {machineMetrics.byStore.map((store) => (
+            <div 
+              key={store.storeId}
+              className="bg-white dark:bg-gray-900 border border-gray-200 dark:border-gray-800 rounded-lg p-6"
+            >
+              <div className="flex items-center justify-between mb-4">
+                <h4 className="text-lg font-semibold text-gray-900 dark:text-gray-100">
+                  {store.storeId}
+                </h4>
+                <span className="text-sm text-gray-500 dark:text-gray-400">
+                  Gambino Cut: ${store.gambinoCut.toFixed(2)}
+                </span>
+              </div>
+
+              <div className="grid grid-cols-3 gap-4 mb-4">
+                <div>
+                  <p className="text-sm text-gray-500 dark:text-gray-400">Money IN</p>
+                  <p className="text-xl font-bold text-green-600 dark:text-green-500">
+                    ${store.moneyIn.toLocaleString('en-US', { minimumFractionDigits: 2 })}
+                  </p>
+                </div>
+                <div>
+                  <p className="text-sm text-gray-500 dark:text-gray-400">Money OUT</p>
+                  <p className="text-xl font-bold text-red-600 dark:text-red-500">
+                    ${store.moneyOut.toLocaleString('en-US', { minimumFractionDigits: 2 })}
+                  </p>
+                </div>
+                <div>
+                  <p className="text-sm text-gray-500 dark:text-gray-400">Net Revenue</p>
+                  <p className="text-xl font-bold text-blue-600 dark:text-blue-500">
+                    ${store.netRevenue.toLocaleString('en-US', { minimumFractionDigits: 2 })}
+                  </p>
+                </div>
+              </div>
+
+              {/* Machine Breakdown for this store */}
+              <div className="border-t border-gray-200 dark:border-gray-800 pt-4">
+                <h5 className="text-sm font-semibold text-gray-700 dark:text-gray-300 mb-3">
+                  Machines ({machineMetrics.byMachine.filter(m => m.storeId === store.storeId).length})
+                </h5>
+                <div className="space-y-2">
+                  {machineMetrics.byMachine
+                    .filter(m => m.storeId === store.storeId)
+                    .sort((a, b) => b.netRevenue - a.netRevenue)
+                    .map((machine) => (
+                      <div 
+                        key={machine.machineId}
+                        className="flex items-center justify-between p-3 bg-gray-50 dark:bg-gray-800 rounded-lg"
+                      >
+                        <div className="flex-1">
+                          <p className="font-medium text-gray-900 dark:text-gray-100">
+                            {machine.machineId}
+                          </p>
+                          <p className="text-xs text-gray-500 dark:text-gray-400">
+                            {machine.totalEvents} events
+                          </p>
+                        </div>
+                        <div className="flex items-center gap-4 text-sm">
+                          <div className="text-right">
+                            <p className="text-green-600 dark:text-green-500 font-mono">
+                              +${machine.moneyIn.toFixed(2)}
+                            </p>
+                          </div>
+                          <div className="text-right">
+                            <p className="text-red-600 dark:text-red-500 font-mono">
+                              -${machine.moneyOut.toFixed(2)}
+                            </p>
+                          </div>
+                          <div className="text-right min-w-[100px]">
+                            <p className={`font-bold font-mono ${
+                              machine.netRevenue >= 0 
+                                ? 'text-blue-600 dark:text-blue-500' 
+                                : 'text-red-600 dark:text-red-500'
+                            }`}>
+                              ${machine.netRevenue.toFixed(2)}
+                            </p>
+                            <p className="text-xs text-gray-500 dark:text-gray-400">
+                              {machine.profitMargin.toFixed(1)}% margin
+                            </p>
+                          </div>
+                        </div>
+                      </div>
+                    ))}
+                </div>
+              </div>
+            </div>
+          ))}
+        </div>
+      </div>
+    )}
+  </div>
+)}
 
         {/* Recent Activity - Mobile Cards / Desktop Table */}
         <div className="bg-white dark:bg-gray-900 rounded-lg border border-gray-200 dark:border-gray-800">

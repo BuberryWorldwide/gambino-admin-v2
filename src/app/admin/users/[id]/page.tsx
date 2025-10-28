@@ -2,7 +2,11 @@
 
 import { useEffect, useState } from 'react';
 import { useRouter, useParams } from 'next/navigation';
-import { ArrowLeft, Save, X, Mail, Phone, User as UserIcon, CheckCircle, XCircle, Search } from 'lucide-react';
+import { 
+  ArrowLeft, Save, X, Mail, Phone, User as UserIcon, 
+  CheckCircle, XCircle, Search, Wallet, Coins, Calendar, 
+  Clock, Copy, Check 
+} from 'lucide-react';
 import api from '@/lib/api';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -30,6 +34,12 @@ interface User {
   isActive?: boolean;
   assignedVenues?: string[];
   gambinoBalance?: number;
+  cachedGambinoBalance?: number;
+  walletAddress?: string;
+  createdAt?: string;
+  lastActivity?: string;
+  walletCreatedAt?: string;
+  walletType?: 'generated' | 'connected';
 }
 
 interface Store {
@@ -53,6 +63,7 @@ export default function UserEditPage() {
   const [activeTab, setActiveTab] = useState('details');
   const [searchTerm, setSearchTerm] = useState('');
   const [error, setError] = useState('');
+  const [copied, setCopied] = useState(false);
   
   const [formData, setFormData] = useState({
     firstName: '',
@@ -103,7 +114,6 @@ export default function UserEditPage() {
   const handleSave = async () => {
     setError('');
     
-    // Validation
     if (!formData.firstName || !formData.lastName) {
       setError('First and last name are required');
       return;
@@ -114,13 +124,12 @@ export default function UserEditPage() {
       return;
     }
     
-    // Role-specific validation
     if (['venue_manager', 'venue_staff'].includes(formData.role) && formData.assignedVenues.length === 0) {
       setError(`${formData.role === 'venue_manager' ? 'Venue managers' : 'Venue staff'} must be assigned to at least one venue`);
       return;
     }
     
-setSaving(true);
+    setSaving(true);
     try {
       await api.put(`/api/admin/users/${userId}`, formData);
       router.push('/admin/users');
@@ -132,6 +141,14 @@ setSaving(true);
       }
     } finally {
       setSaving(false);
+    }
+  };
+
+  const copyWalletAddress = () => {
+    if (user?.walletAddress) {
+      navigator.clipboard.writeText(user.walletAddress);
+      setCopied(true);
+      setTimeout(() => setCopied(false), 2000);
     }
   };
 
@@ -232,97 +249,161 @@ setSaving(true);
                   Edit User
                 </h1>
                 <div className="flex items-center gap-3">
-                  <div className="w-12 h-12 rounded-full bg-gradient-to-br from-yellow-400 to-yellow-600 dark:from-yellow-300 dark:to-yellow-500 flex items-center justify-center text-gray-900 font-bold text-lg shadow-md">
-                    {user.firstName?.charAt(0) || user.email?.charAt(0) || 'U'}
-                  </div>
-                  <div>
-                    <p className="text-lg font-medium text-gray-900 dark:text-white">
-                      {user.firstName} {user.lastName}
-                    </p>
-                    <div className="flex items-center gap-1.5 text-sm text-gray-600 dark:text-gray-400">
-                      <Mail className="w-3.5 h-3.5" />
-                      {user.email}
-                    </div>
-                  </div>
+                  <Badge className={`${getRoleColor(user.role)} border`}>
+                    {getRoleLabel(user.role)}
+                  </Badge>
+                  <Badge className={
+                    user.isActive !== false
+                      ? 'bg-green-500/10 text-green-600 dark:bg-green-500/20 dark:text-green-400 border border-green-500/20'
+                      : 'bg-red-500/10 text-red-600 dark:bg-red-500/20 dark:text-red-400 border border-red-500/20'
+                  }>
+                    {user.isActive !== false ? 'Active' : 'Inactive'}
+                  </Badge>
                 </div>
               </div>
             </div>
-            <Badge className={`${getRoleColor(formData.role)} border text-base px-4 py-2`}>
-              {getRoleLabel(formData.role)}
-            </Badge>
           </div>
 
-          {/* Error Message */}
-          {error && (
-            <Card className="p-4 mb-6 bg-red-500/10 border-red-500/20">
+          {/* User Stats Cards */}
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 mb-6">
+            <Card className="p-4 bg-white dark:bg-gray-900 border-gray-200 dark:border-gray-800">
               <div className="flex items-center gap-3">
-                <XCircle className="w-5 h-5 text-red-600 dark:text-red-400 flex-shrink-0" />
-                <p className="text-red-600 dark:text-red-400 font-medium">{error}</p>
+                <div className="p-2 rounded-lg bg-yellow-500/10 dark:bg-yellow-500/20">
+                  <Coins className="w-5 h-5 text-yellow-600 dark:text-yellow-400" />
+                </div>
+                <div>
+                  <p className="text-sm text-gray-600 dark:text-gray-400">Balance</p>
+                  <p className="text-xl font-bold text-gray-900 dark:text-white">
+                    {(user.cachedGambinoBalance || user.gambinoBalance || 0).toLocaleString()}
+                  </p>
+                </div>
               </div>
             </Card>
-          )}
 
-          {/* Tabs */}
-          <div className="flex gap-2 border-b border-gray-200 dark:border-gray-800">
-            <button
-              onClick={() => setActiveTab('details')}
-              className={`px-6 py-3 font-medium transition-all relative ${
-                activeTab === 'details'
-                  ? 'text-yellow-600 dark:text-yellow-400'
-                  : 'text-gray-600 dark:text-gray-400 hover:text-gray-900 dark:hover:text-gray-200'
-              }`}
-            >
-              Details
-              {activeTab === 'details' && (
-                <div className="absolute bottom-0 left-0 right-0 h-0.5 bg-yellow-500 dark:bg-yellow-400"></div>
-              )}
-            </button>
-            {showStoreTab && (
-              <button
-                onClick={() => setActiveTab('stores')}
-                className={`px-6 py-3 font-medium transition-all relative ${
-                  activeTab === 'stores'
-                    ? 'text-yellow-600 dark:text-yellow-400'
-                    : 'text-gray-600 dark:text-gray-400 hover:text-gray-900 dark:hover:text-gray-200'
-                }`}
-              >
-                Store Access ({formData.assignedVenues.length})
-                {activeTab === 'stores' && (
-                  <div className="absolute bottom-0 left-0 right-0 h-0.5 bg-yellow-500 dark:bg-yellow-400"></div>
-                )}
-              </button>
-            )}
+            <Card className="p-4 bg-white dark:bg-gray-900 border-gray-200 dark:border-gray-800">
+              <div className="flex items-center gap-3">
+                <div className="p-2 rounded-lg bg-blue-500/10 dark:bg-blue-500/20">
+                  <Wallet className="w-5 h-5 text-blue-600 dark:text-blue-400" />
+                </div>
+                <div>
+                  <p className="text-sm text-gray-600 dark:text-gray-400">Wallet</p>
+                  <p className="text-sm font-mono text-gray-900 dark:text-white">
+                    {user.walletAddress ? `${user.walletAddress.slice(0, 6)}...${user.walletAddress.slice(-4)}` : 'None'}
+                  </p>
+                </div>
+              </div>
+            </Card>
+
+            <Card className="p-4 bg-white dark:bg-gray-900 border-gray-200 dark:border-gray-800">
+              <div className="flex items-center gap-3">
+                <div className="p-2 rounded-lg bg-green-500/10 dark:bg-green-500/20">
+                  <Calendar className="w-5 h-5 text-green-600 dark:text-green-400" />
+                </div>
+                <div>
+                  <p className="text-sm text-gray-600 dark:text-gray-400">Member Since</p>
+                  <p className="text-sm font-medium text-gray-900 dark:text-white">
+                    {user.createdAt ? new Date(user.createdAt).toLocaleDateString('en-US', { 
+                      month: 'short', 
+                      year: 'numeric' 
+                    }) : 'Unknown'}
+                  </p>
+                </div>
+              </div>
+            </Card>
+
+            <Card className="p-4 bg-white dark:bg-gray-900 border-gray-200 dark:border-gray-800">
+              <div className="flex items-center gap-3">
+                <div className="p-2 rounded-lg bg-purple-500/10 dark:bg-purple-500/20">
+                  <Clock className="w-5 h-5 text-purple-600 dark:text-purple-400" />
+                </div>
+                <div>
+                  <p className="text-sm text-gray-600 dark:text-gray-400">Account Age</p>
+                  <p className="text-sm font-medium text-gray-900 dark:text-white">
+                    {user.createdAt ? Math.floor((Date.now() - new Date(user.createdAt).getTime()) / (1000 * 60 * 60 * 24)) : 0} days
+                  </p>
+                </div>
+              </div>
+            </Card>
           </div>
         </div>
 
-        {/* Details Tab */}
+        {/* Error Alert */}
+        {error && (
+          <div className="mb-6 p-4 bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800 rounded-lg">
+            <p className="text-red-800 dark:text-red-200 text-sm font-medium">{error}</p>
+          </div>
+        )}
+
+        {/* Tabs */}
+        <div className="flex gap-2 mb-6 border-b border-gray-200 dark:border-gray-800">
+          <button
+            onClick={() => setActiveTab('details')}
+            className={`px-4 py-2 font-medium transition-colors ${
+              activeTab === 'details'
+                ? 'text-yellow-600 dark:text-yellow-400 border-b-2 border-yellow-600 dark:border-yellow-400'
+                : 'text-gray-600 dark:text-gray-400 hover:text-gray-900 dark:hover:text-gray-100'
+            }`}
+          >
+            Profile Details
+          </button>
+          {showStoreTab && (
+            <button
+              onClick={() => setActiveTab('stores')}
+              className={`px-4 py-2 font-medium transition-colors ${
+                activeTab === 'stores'
+                  ? 'text-yellow-600 dark:text-yellow-400 border-b-2 border-yellow-600 dark:border-yellow-400'
+                  : 'text-gray-600 dark:text-gray-400 hover:text-gray-900 dark:hover:text-gray-100'
+              }`}
+            >
+              Store Access
+            </button>
+          )}
+          <button
+            onClick={() => setActiveTab('wallet')}
+            className={`px-4 py-2 font-medium transition-colors ${
+              activeTab === 'wallet'
+                ? 'text-yellow-600 dark:text-yellow-400 border-b-2 border-yellow-600 dark:border-yellow-400'
+                : 'text-gray-600 dark:text-gray-400 hover:text-gray-900 dark:hover:text-gray-100'
+            }`}
+          >
+            Wallet & Account
+          </button>
+        </div>
+
+        {/* Profile Details Tab */}
         {activeTab === 'details' && (
-          <Card className="p-6 bg-white dark:bg-gray-900 border-gray-200 dark:border-gray-800">
-            <div className="space-y-6">
+          <Card className="bg-white dark:bg-gray-900 border-gray-200 dark:border-gray-800">
+            <div className="p-6 space-y-6">
               <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                 <div className="space-y-2">
                   <Label htmlFor="firstName" className="text-gray-700 dark:text-gray-300">
                     First Name <span className="text-red-500">*</span>
                   </Label>
-                  <Input
-                    id="firstName"
-                    value={formData.firstName}
-                    onChange={(e) => setFormData({...formData, firstName: e.target.value})}
-                    className="bg-gray-50 dark:bg-gray-800 border-gray-300 dark:border-gray-700 text-gray-900 dark:text-white"
-                    placeholder="John"
-                  />
+                  <div className="relative">
+                    <UserIcon className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400" />
+                    <Input
+                      id="firstName"
+                      value={formData.firstName}
+                      onChange={(e) => setFormData({...formData, firstName: e.target.value})}
+                      className="pl-10 bg-gray-50 dark:bg-gray-800 border-gray-300 dark:border-gray-700 text-gray-900 dark:text-white"
+                      placeholder="John"
+                    />
+                  </div>
                 </div>
                 <div className="space-y-2">
                   <Label htmlFor="lastName" className="text-gray-700 dark:text-gray-300">
                     Last Name <span className="text-red-500">*</span>
                   </Label>
-                  <Input
-                    id="lastName"
-                    value={formData.lastName}
-                    onChange={(e) => setFormData({...formData, lastName: e.target.value})}
-                    className="bg-gray-50 dark:bg-gray-800 border-gray-300 dark:border-gray-700 text-gray-900 dark:text-white"
-                    placeholder="Doe"
-                  />
+                  <div className="relative">
+                    <UserIcon className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400" />
+                    <Input
+                      id="lastName"
+                      value={formData.lastName}
+                      onChange={(e) => setFormData({...formData, lastName: e.target.value})}
+                      className="pl-10 bg-gray-50 dark:bg-gray-800 border-gray-300 dark:border-gray-700 text-gray-900 dark:text-white"
+                      placeholder="Doe"
+                    />
+                  </div>
                 </div>
               </div>
 
@@ -398,6 +479,156 @@ setSaving(true);
                       checked={formData.isActive}
                       onCheckedChange={(checked) => setFormData({...formData, isActive: checked})}
                     />
+                  </div>
+                </div>
+              </div>
+            </div>
+          </Card>
+        )}
+
+        {/* Wallet & Account Tab */}
+        {activeTab === 'wallet' && (
+          <Card className="bg-white dark:bg-gray-900 border-gray-200 dark:border-gray-800">
+            <div className="p-6">
+              <h3 className="text-lg font-semibold text-gray-900 dark:text-white mb-6">
+                Wallet & Blockchain Information
+              </h3>
+              
+              <div className="space-y-6">
+                {/* Wallet Address */}
+                <div className="p-6 bg-gray-50 dark:bg-gray-800 rounded-lg border border-gray-200 dark:border-gray-700">
+                  <div className="flex items-start justify-between mb-4">
+                    <div className="flex items-center gap-3">
+                      <div className="p-2 rounded-lg bg-blue-500/10 dark:bg-blue-500/20">
+                        <Wallet className="w-5 h-5 text-blue-600 dark:text-blue-400" />
+                      </div>
+                      <div>
+                        <p className="text-sm font-medium text-gray-700 dark:text-gray-300">Wallet Address</p>
+                        <p className="text-xs text-gray-500 dark:text-gray-400 mt-1">Solana blockchain address</p>
+                      </div>
+                    </div>
+                  </div>
+                  {user.walletAddress ? (
+                    <div className="flex items-center gap-2">
+                      <code className="flex-1 px-4 py-3 bg-white dark:bg-gray-900 rounded-lg text-sm font-mono text-gray-900 dark:text-white border border-gray-200 dark:border-gray-700 break-all">
+                        {user.walletAddress}
+                      </code>
+                      <Button
+                        onClick={copyWalletAddress}
+                        variant="outline"
+                        size="sm"
+                        className="border-gray-300 dark:border-gray-700"
+                      >
+                        {copied ? (
+                          <>
+                            <Check className="w-4 h-4 mr-1.5 text-green-600" />
+                            Copied
+                          </>
+                        ) : (
+                          <>
+                            <Copy className="w-4 h-4 mr-1.5" />
+                            Copy
+                          </>
+                        )}
+                      </Button>
+                    </div>
+                  ) : (
+                    <div className="px-4 py-3 bg-white dark:bg-gray-900 rounded-lg border border-dashed border-gray-300 dark:border-gray-700 text-center">
+                      <p className="text-sm text-gray-500 dark:text-gray-400">No wallet connected yet</p>
+                    </div>
+                  )}
+                </div>
+
+                {/* Token Balance */}
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                  <div className="p-6 bg-yellow-50 dark:bg-yellow-900/10 rounded-lg border border-yellow-200 dark:border-yellow-800">
+                    <div className="flex items-center gap-3 mb-3">
+                      <div className="p-2 rounded-lg bg-yellow-500/20 dark:bg-yellow-500/20">
+                        <Coins className="w-5 h-5 text-yellow-600 dark:text-yellow-400" />
+                      </div>
+                      <p className="text-sm font-medium text-gray-700 dark:text-gray-300">GG Token Balance</p>
+                    </div>
+                    <p className="text-3xl font-bold text-yellow-600 dark:text-yellow-400">
+                      {(user.cachedGambinoBalance || user.gambinoBalance || 0).toLocaleString()}
+                    </p>
+                    <p className="text-xs text-gray-500 dark:text-gray-400 mt-2">GAMBINO Tokens</p>
+                  </div>
+
+                  <div className="p-6 bg-gray-50 dark:bg-gray-800 rounded-lg border border-gray-200 dark:border-gray-700">
+                    <div className="flex items-center gap-3 mb-3">
+                      <div className="p-2 rounded-lg bg-gray-500/10 dark:bg-gray-500/20">
+                        <Calendar className="w-5 h-5 text-gray-600 dark:text-gray-400" />
+                      </div>
+                      <p className="text-sm font-medium text-gray-700 dark:text-gray-300">Last Activity</p>
+                    </div>
+                    <p className="text-lg font-semibold text-gray-900 dark:text-white">
+                      {user.lastActivity 
+                        ? new Date(user.lastActivity).toLocaleDateString('en-US', { 
+                            month: 'short', 
+                            day: 'numeric',
+                            year: 'numeric'
+                          })
+                        : 'Never'
+                      }
+                    </p>
+                    <p className="text-xs text-gray-500 dark:text-gray-400 mt-2">
+                      {user.lastActivity 
+                        ? `${Math.floor((Date.now() - new Date(user.lastActivity).getTime()) / (1000 * 60 * 60 * 24))} days ago`
+                        : 'No recent activity'
+                      }
+                    </p>
+                  </div>
+                </div>
+
+                {/* Account Timeline */}
+                <div className="p-6 bg-gray-50 dark:bg-gray-800 rounded-lg border border-gray-200 dark:border-gray-700">
+                  <h4 className="text-sm font-semibold text-gray-700 dark:text-gray-300 mb-4">Account Timeline</h4>
+                  <div className="space-y-3">
+                    <div className="flex items-center justify-between">
+                      <div className="flex items-center gap-3">
+                        <div className="w-2 h-2 rounded-full bg-green-500"></div>
+                        <span className="text-sm text-gray-700 dark:text-gray-300">Account Created</span>
+                      </div>
+                      <span className="text-sm font-medium text-gray-900 dark:text-white">
+                        {user.createdAt 
+                          ? new Date(user.createdAt).toLocaleDateString('en-US', { 
+                              month: 'short', 
+                              day: 'numeric',
+                              year: 'numeric'
+                            })
+                          : 'Unknown'
+                        }
+                      </span>
+                    </div>
+                    <div className="flex items-center justify-between">
+                      <div className="flex items-center gap-3">
+                        <div className="w-2 h-2 rounded-full bg-purple-500"></div>
+                        <span className="text-sm text-gray-700 dark:text-gray-300">Wallet Connected</span>
+                      </div>
+                      <span className="text-sm font-medium text-gray-900 dark:text-white">
+                        {user.walletCreatedAt 
+                          ? new Date(user.walletCreatedAt).toLocaleDateString('en-US', { 
+                              month: 'short', 
+                              day: 'numeric',
+                              year: 'numeric'
+                            })
+                          : 'Unknown'
+                        }
+                      </span>
+                    </div>
+                    <div className="flex items-center justify-between">
+                      <div className="flex items-center gap-3">
+                        <div className="w-2 h-2 rounded-full bg-orange-500"></div>
+                        <span className="text-sm text-gray-700 dark:text-gray-300">Wallet Type</span>
+                      </div>
+                      <Badge className="bg-orange-500/10 text-orange-600 dark:bg-orange-500/20 dark:text-orange-400 border border-orange-500/20">
+                        {user.walletType === 'generated' ? 'Platform Generated' : 
+                         user.walletType === 'connected' ? 'External Connected' : 'None'}
+                      </Badge>
+                    </div>
+                    
+                      
+                   
                   </div>
                 </div>
               </div>

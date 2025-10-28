@@ -2,7 +2,7 @@
 
 import { useEffect, useState } from 'react';
 import { useRouter } from 'next/navigation';
-import { Search, UserPlus, Mail, Shield, Building, DollarSign, Edit } from 'lucide-react';
+import { Search, UserPlus, Mail, Shield, Building, DollarSign, Edit, Calendar } from 'lucide-react';
 import api from '@/lib/api';
 import { Button } from '@/components/ui/button';
 import { Card } from '@/components/ui/card';
@@ -27,6 +27,7 @@ interface User {
   isActive?: boolean;
   assignedVenues?: string[];
   gambinoBalance?: number;
+  cachedGambinoBalance?: number;
   createdAt?: string;
 }
 
@@ -57,6 +58,24 @@ export default function UsersPage() {
     user.lastName?.toLowerCase().includes(searchTerm.toLowerCase()) ||
     user.role?.toLowerCase().includes(searchTerm.toLowerCase())
   );
+
+  const sortByOldest = () => {
+    const sorted = [...users].sort((a, b) => {
+      const dateA = a.createdAt ? new Date(a.createdAt).getTime() : 0;
+      const dateB = b.createdAt ? new Date(b.createdAt).getTime() : 0;
+      return dateA - dateB;
+    });
+    setUsers(sorted);
+  };
+
+  const sortByNewest = () => {
+    const sorted = [...users].sort((a, b) => {
+      const dateA = a.createdAt ? new Date(a.createdAt).getTime() : 0;
+      const dateB = b.createdAt ? new Date(b.createdAt).getTime() : 0;
+      return dateB - dateA;
+    });
+    setUsers(sorted);
+  };
 
   const getRoleBadgeColor = (role: string) => {
     const colors: Record<string, string> = {
@@ -133,16 +152,38 @@ export default function UsersPage() {
           </div>
         </div>
 
-        {/* Search */}
+        {/* Search & Sort */}
         <Card className="p-4 mb-6 bg-white dark:bg-gray-900 border-gray-200 dark:border-gray-800 shadow-sm">
-          <div className="relative">
-            <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-5 h-5 text-gray-400 dark:text-gray-500" />
-            <Input
-              placeholder="Search by name, email, or role..."
-              value={searchTerm}
-              onChange={(e: React.ChangeEvent<HTMLInputElement>) => setSearchTerm(e.target.value)}
-              className="pl-10 bg-gray-50 dark:bg-gray-800 border-gray-300 dark:border-gray-700 text-gray-900 dark:text-white focus:ring-yellow-500 dark:focus:ring-yellow-400"
-            />
+          <div className="flex flex-col sm:flex-row gap-3">
+            <div className="relative flex-1">
+              <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-5 h-5 text-gray-400 dark:text-gray-500" />
+              <Input
+                placeholder="Search by name, email, or role..."
+                value={searchTerm}
+                onChange={(e: React.ChangeEvent<HTMLInputElement>) => setSearchTerm(e.target.value)}
+                className="pl-10 bg-gray-50 dark:bg-gray-800 border-gray-300 dark:border-gray-700 text-gray-900 dark:text-white focus:ring-yellow-500 dark:focus:ring-yellow-400"
+              />
+            </div>
+            <div className="flex gap-2">
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={sortByOldest}
+                className="border-gray-300 dark:border-gray-700 text-gray-700 dark:text-gray-300"
+              >
+                <Calendar className="w-4 h-4 mr-1.5" />
+                Oldest First
+              </Button>
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={sortByNewest}
+                className="border-gray-300 dark:border-gray-700 text-gray-700 dark:text-gray-300"
+              >
+                <Calendar className="w-4 h-4 mr-1.5" />
+                Newest First
+              </Button>
+            </div>
           </div>
         </Card>
 
@@ -198,7 +239,7 @@ export default function UsersPage() {
               <div>
                 <p className="text-sm text-gray-600 dark:text-gray-400">Total Balance</p>
                 <p className="text-2xl font-bold text-gray-900 dark:text-white">
-                  {users.reduce((sum: number, u: User) => sum + (u.gambinoBalance || 0), 0).toLocaleString()}
+                  {users.reduce((sum: number, u: User) => sum + (u.cachedGambinoBalance || u.gambinoBalance || 0), 0).toLocaleString()}
                 </p>
               </div>
             </div>
@@ -214,6 +255,7 @@ export default function UsersPage() {
                   <TableHead className="text-gray-700 dark:text-gray-300 font-semibold">User</TableHead>
                   <TableHead className="text-gray-700 dark:text-gray-300 font-semibold">Role</TableHead>
                   <TableHead className="text-gray-700 dark:text-gray-300 font-semibold">Venues</TableHead>
+                  <TableHead className="text-gray-700 dark:text-gray-300 font-semibold">Member Since</TableHead>
                   <TableHead className="text-gray-700 dark:text-gray-300 font-semibold">Status</TableHead>
                   <TableHead className="text-gray-700 dark:text-gray-300 font-semibold">Balance</TableHead>
                   <TableHead className="text-gray-700 dark:text-gray-300 font-semibold text-right">Actions</TableHead>
@@ -222,7 +264,7 @@ export default function UsersPage() {
               <TableBody>
                 {filteredUsers.length === 0 ? (
                   <TableRow>
-                    <TableCell colSpan={6} className="text-center py-12">
+                    <TableCell colSpan={7} className="text-center py-12">
                       <div className="text-gray-500 dark:text-gray-400">
                         {searchTerm ? 'No users found matching your search' : 'No users found'}
                       </div>
@@ -270,6 +312,24 @@ export default function UsersPage() {
                         )}
                       </TableCell>
                       <TableCell>
+                        {user.createdAt ? (
+                          <div className="text-gray-700 dark:text-gray-300">
+                            <div className="font-medium">
+                              {new Date(user.createdAt).toLocaleDateString('en-US', { 
+                                month: 'short', 
+                                day: 'numeric', 
+                                year: 'numeric' 
+                              })}
+                            </div>
+                            <div className="text-xs text-gray-500 dark:text-gray-400">
+                              {Math.floor((Date.now() - new Date(user.createdAt).getTime()) / (1000 * 60 * 60 * 24))} days ago
+                            </div>
+                          </div>
+                        ) : (
+                          <span className="text-gray-400 dark:text-gray-500">—</span>
+                        )}
+                      </TableCell>
+                      <TableCell>
                         <Badge className={
                           user.isActive !== false
                             ? 'bg-green-500/10 text-green-600 dark:bg-green-500/20 dark:text-green-400 border border-green-500/20'
@@ -279,7 +339,7 @@ export default function UsersPage() {
                         </Badge>
                       </TableCell>
                       <TableCell className="text-gray-900 dark:text-white font-mono">
-                        {user.gambinoBalance?.toLocaleString() || '0'}
+                        {(user.cachedGambinoBalance || user.gambinoBalance || 0).toLocaleString()}
                       </TableCell>
                       <TableCell className="text-right">
                         <Button

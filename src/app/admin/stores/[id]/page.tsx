@@ -109,12 +109,9 @@ export default function StoreDashboardPage() {
       const endDate = new Date(selectedDate);
       endDate.setHours(23, 59, 59, 999);
 
-      const response = await api.get(`/api/admin/stores/${storeId}/daily/${selectedDate.toISOString().split('T')[0]}`, {
-        params: {
-          startDate: startDate.toISOString(),
-          endDate: endDate.toISOString()
-        }
-      });
+      const response = await api.get(`/api/admin/reports/${storeId}/cumulative/${selectedDate.toISOString().split('T')[0]}`);
+
+
 
       if (response.data) {
         // Count vouchers from machines
