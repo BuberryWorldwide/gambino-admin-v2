@@ -55,6 +55,8 @@ interface TodayStats {
 }
 
 export default function MachinesPage() {
+  const [mounted, setMounted] = useState(false);
+
   const [machines, setMachines] = useState<Machine[]>([]);
   const [filteredMachines, setFilteredMachines] = useState<Machine[]>([]);
   const [stats, setStats] = useState<Stats>({ total: 0, active: 0, inactive: 0, maintenance: 0 });
@@ -82,82 +84,71 @@ export default function MachinesPage() {
   }, [searchTerm, statusFilter, machines]);
 
   const loadTodayStats = async () => {
-    try {
-      const response = await api.get('/api/admin/events/today/summary');
-      if (response.data.success) {
-        setTodayStats(response.data.stats);
-      }
-    } catch (err) {
-      console.error('Failed to load today stats:', err);
+  try {
+    const response = await api.get('/api/admin/machine-metrics?timeframe=24h');
+    if (response.data.success && response.data.summary) {
+      const summary = response.data.summary;
+      setTodayStats({
+        totalRevenue: summary.systemNetRevenue || 0,
+        totalMoneyIn: summary.systemMoneyIn || 0,
+        totalMoneyOut: summary.systemMoneyOut || 0,
+        totalVouchers: 0,
+        activeMachines: summary.totalMachines || 0
+      });
     }
-  };
+  } catch (err) {
+    console.error('Failed to load today stats:', err);
+  }
+};
 
-  const loadMachines = async () => {
-    try {
-      setLoading(true);
-      
-      // Get all hubs
-      const hubsRes = await api.get('/api/admin/hubs');
-      const hubs = hubsRes.data.hubs || [];
-      
-      const allMachines: Machine[] = [];
-      
-      // Get machines from each hub
-      for (const hub of hubs) {
-        try {
-          const machinesRes = await api.get(`/api/admin/hubs/${hub.hubId}/discovered-machines`);
-          const hubMachines = machinesRes.data.machines || [];
+const loadMachines = async () => {
+  try {
+    setLoading(true);
+    
+    // Get all hubs
+    const hubsRes = await api.get('/api/admin/hubs');
+    const hubs = hubsRes.data.hubs || [];
+    
+    const allMachines: Machine[] = [];
+    
+    // Get machines from each hub
+    for (const hub of hubs) {
+      try {
+        const machinesRes = await api.get(`/api/admin/hubs/${hub.hubId}/discovered-machines`);
+        const hubMachines = machinesRes.data.machines || [];
+        
+        hubMachines.forEach((m: Machine) => {
+          m.hubId = hub.hubId;
+          m.storeId = hub.storeId;
+          m.store = hub.store;
           
-          // Attach hub and store info to each machine, and deduplicate
-          hubMachines.forEach((m: Machine) => {
-            m.hubId = hub.hubId;
-            m.storeId = hub.storeId;
-            m.store = hub.store ? {
-              storeName: hub.store.storeName,
-              city: hub.store.city || '',
-              state: hub.store.state || ''
-            } : undefined;
-            
-            // Check if machine already added from another hub
-            const existingIndex = allMachines.findIndex(existing => existing.machineId === m.machineId);
-            
-            if (existingIndex === -1) {
-              // New machine, add it
-              allMachines.push(m);
-            } else {
-              // Duplicate discovered machine - keep the one with most recent lastSeen
-              const existing = allMachines[existingIndex];
-              const existingTime = existing.lastSeen ? new Date(existing.lastSeen).getTime() : 0;
-              const newTime = m.lastSeen ? new Date(m.lastSeen).getTime() : 0;
-              
-              if (newTime > existingTime) {
-                // This one is more recent, replace it
-                allMachines[existingIndex] = m;
-              }
-            }
-          });
-        } catch (err) {
-          console.error(`Failed to load machines for hub ${hub.hubId}`);
-        }
+          const existingIndex = allMachines.findIndex(existing => existing.machineId === m.machineId);
+          
+          if (existingIndex === -1) {
+            allMachines.push(m);
+          }
+        });
+      } catch (err) {
+        console.error(`Failed to load machines for hub ${hub.hubId}`);
       }
-      
-      setMachines(allMachines);
-      
-      // Calculate stats
-      const newStats = {
-        total: allMachines.length,
-        active: allMachines.filter(m => m.isRegistered).length,
-        inactive: allMachines.filter(m => !m.isRegistered).length,
-        maintenance: 0
-      };
-      setStats(newStats);
-      
-    } catch (err) {
-      console.error('Failed to load machines:', err);
-    } finally {
-      setLoading(false);
     }
-  };
+    
+    setMachines(allMachines);
+    
+    const newStats = {
+      total: allMachines.length,
+      active: allMachines.filter((m: Machine) => m.isRegistered).length,
+      inactive: allMachines.filter((m: Machine) => !m.isRegistered).length,
+      maintenance: 0
+    };
+    setStats(newStats);
+    
+  } catch (err) {
+    console.error('Failed to load machines:', err);
+  } finally {
+    setLoading(false);
+  }
+};
 
   const filterMachines = () => {
     let filtered = machines;
@@ -290,8 +281,8 @@ export default function MachinesPage() {
             <div className="flex items-center gap-2 sm:gap-3">
               <DollarSign className="w-6 h-6 sm:w-8 sm:h-8 text-green-500" />
               <div>
-                <div className="text-xs sm:text-sm text-gray-600 dark:text-gray-400">Revenue Today</div>
-                <div className={`text-xl sm:text-2xl font-bold ${todayStats.totalRevenue >= 0 ? 'text-green-500' : 'text-red-500'}`}>
+                  <div className="text-xs sm:text-sm text-gray-600 dark:text-gray-400">Revenue Today</div>
+                  <div className="text-xs text-gray-500 mt-1">All venues combined</div>                <div className={`text-xl sm:text-2xl font-bold ${todayStats.totalRevenue >= 0 ? 'text-green-500' : 'text-red-500'}`}>
                   {formatCurrency(todayStats.totalRevenue)}
                 </div>
               </div>

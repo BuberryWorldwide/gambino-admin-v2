@@ -1,7 +1,8 @@
+// src/components/MachineQRModal.tsx
 'use client';
 
 import { useEffect, useState, useCallback } from 'react';
-import { X, Download, Loader2 } from 'lucide-react';
+import { X, Download, Loader2, Printer } from 'lucide-react';
 import api from '@/lib/api';
 import Image from 'next/image';
 
@@ -14,6 +15,7 @@ interface MachineQRModalProps {
   };
   storeId: string;
   onClose: () => void;
+  useMachineIdEndpoint?: boolean; // NEW: Flag to use machineId endpoint instead of _id
 }
 
 interface QRCodeData {
@@ -22,7 +24,12 @@ interface QRCodeData {
   expiresAt: string;
 }
 
-export default function MachineQRModal({ machine, storeId, onClose }: MachineQRModalProps) {
+export default function MachineQRModal({ 
+  machine, 
+  storeId, 
+  onClose,
+  useMachineIdEndpoint = false 
+}: MachineQRModalProps) {
   const [qrData, setQrData] = useState<QRCodeData | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
@@ -32,8 +39,14 @@ export default function MachineQRModal({ machine, storeId, onClose }: MachineQRM
       setLoading(true);
       setError('');
       
-      // ✅ FIX: Changed from POST /api/admin/machines to GET /api/machines
-      const response = await api.get(`/api/machines/${machine._id}/qr-code`);
+      // Choose the correct API endpoint based on what's available
+      const endpoint = useMachineIdEndpoint || !machine._id
+        ? `/api/machines/by-machine-id/${machine.machineId}/qr-code`
+        : `/api/machines/${machine._id}/qr-code`;
+      
+      console.log('🔍 API URL:', endpoint);
+      
+      const response = await api.get(endpoint);
       
       if (response.data.success) {
         // Map backend response fields to our interface
@@ -51,7 +64,7 @@ export default function MachineQRModal({ machine, storeId, onClose }: MachineQRM
     } finally {
       setLoading(false);
     }
-  }, [machine._id]);
+  }, [machine._id, machine.machineId, useMachineIdEndpoint]);
 
   useEffect(() => {
     loadQRCode();
@@ -80,64 +93,73 @@ export default function MachineQRModal({ machine, storeId, onClose }: MachineQRM
         <head>
           <title>Machine QR Code - ${machine.machineId}</title>
           <style>
-            @media print {
-              @page { margin: 0; }
-              body { margin: 1cm; }
-            }
             body {
               font-family: Arial, sans-serif;
               display: flex;
               flex-direction: column;
               align-items: center;
+              justify-content: center;
               padding: 20px;
-            }
-            .header {
-              text-align: center;
-              margin-bottom: 30px;
             }
             .qr-container {
               text-align: center;
-              page-break-inside: avoid;
+              border: 2px solid #000;
+              padding: 30px;
+              margin: 20px;
             }
             img {
               max-width: 400px;
               height: auto;
             }
-            .info {
-              margin-top: 20px;
-              text-align: center;
+            h1 {
+              margin-bottom: 10px;
+              font-size: 24px;
             }
             .machine-id {
-              font-size: 24px;
+              font-family: monospace;
+              font-size: 18px;
               font-weight: bold;
               margin: 10px 0;
             }
             .instructions {
-              margin-top: 30px;
+              text-align: left;
+              margin-top: 20px;
               padding: 20px;
               background: #f5f5f5;
-              border-radius: 8px;
-              max-width: 500px;
+              border-radius: 5px;
+            }
+            .instructions h2 {
+              margin-top: 0;
+            }
+            .instructions ol {
+              margin: 10px 0;
+              padding-left: 20px;
+            }
+            .instructions li {
+              margin: 5px 0;
+            }
+            @media print {
+              body {
+                padding: 0;
+              }
             }
           </style>
         </head>
         <body>
-          <div class="header">
-            <h1>Gambino Gold</h1>
-            <h2>Machine Binding QR Code</h2>
-          </div>
           <div class="qr-container">
-            <img src="${qrData.qrCodeUrl}" alt="QR Code" />
-            <div class="info">
-              <div class="machine-id">${machine.machineId}</div>
-              <div>${machine.name || 'Gaming Machine'}</div>
-              <div>Store: ${storeId}</div>
-            </div>
+            <h1>Gambino Machine QR Code</h1>
+            <p class="machine-id">${machine.machineId}</p>
+            ${machine.name ? `<p>${machine.name}</p>` : ''}
+            <img src="${qrData.qrCodeUrl}" alt="Machine QR Code" />
+            <p><strong>Hub:</strong> ${machine.hubMachineId}</p>
+            <p><strong>Store:</strong> ${storeId}</p>
           </div>
           <div class="instructions">
-            <h3>Setup Instructions:</h3>
+            <h2>User Instructions:</h2>
             <ol>
-              <li>Scan this QR code with the Gambino Hub device</li>
+              <li>Open the Gambino app on your phone</li>
+              <li>Navigate to the "Scan Machine" section</li>
+              <li>Scan this QR code</li>
               <li>Confirm the machine details match</li>
               <li>Complete the binding process</li>
               <li>Test the connection</li>
@@ -233,8 +255,8 @@ export default function MachineQRModal({ machine, storeId, onClose }: MachineQRM
                     </p>
                   </div>
                   <div>
-                    <span className="text-gray-600 dark:text-gray-400">Expires:</span>
-                    <p className="font-semibold text-gray-900 dark:text-white">
+                    <span className="text-gray-600 dark:text-gray-400">Generated:</span>
+                    <p className="text-gray-900 dark:text-white">
                       {new Date(qrData.expiresAt).toLocaleDateString()}
                     </p>
                   </div>
@@ -244,13 +266,14 @@ export default function MachineQRModal({ machine, storeId, onClose }: MachineQRM
               {/* Instructions */}
               <div className="bg-blue-50 dark:bg-blue-900/20 border border-blue-200 dark:border-blue-800 rounded-lg p-4">
                 <h3 className="font-semibold text-blue-900 dark:text-blue-100 mb-2">
-                  Setup Instructions:
+                  How to Use
                 </h3>
                 <ol className="list-decimal list-inside space-y-1 text-sm text-blue-800 dark:text-blue-200">
-                  <li>Scan this QR code with your Gambino Hub device</li>
-                  <li>Confirm the machine details match your gaming machine</li>
-                  <li>Complete the binding process on the hub</li>
-                  <li>Test the connection to ensure data is flowing</li>
+                  <li>Open the Gambino app on your mobile device</li>
+                  <li>Navigate to the "Scan Machine" section</li>
+                  <li>Point your camera at this QR code</li>
+                  <li>Verify the machine details match</li>
+                  <li>Complete the binding process</li>
                 </ol>
               </div>
 
@@ -258,16 +281,17 @@ export default function MachineQRModal({ machine, storeId, onClose }: MachineQRM
               <div className="flex gap-3">
                 <button
                   onClick={handleDownload}
-                  className="flex-1 flex items-center justify-center gap-2 px-4 py-2 bg-yellow-500 hover:bg-yellow-600 text-white rounded-lg font-medium transition-colors"
+                  className="flex-1 flex items-center justify-center gap-2 px-4 py-3 bg-yellow-500 hover:bg-yellow-600 text-black font-semibold rounded-lg transition-colors"
                 >
                   <Download className="w-5 h-5" />
                   Download QR Code
                 </button>
                 <button
                   onClick={handlePrint}
-                  className="flex-1 px-4 py-2 bg-gray-200 hover:bg-gray-300 dark:bg-gray-700 dark:hover:bg-gray-600 text-gray-900 dark:text-white rounded-lg font-medium transition-colors"
+                  className="flex-1 flex items-center justify-center gap-2 px-4 py-3 bg-gray-200 dark:bg-gray-700 hover:bg-gray-300 dark:hover:bg-gray-600 text-gray-900 dark:text-white font-semibold rounded-lg transition-colors"
                 >
-                  Print
+                  <Printer className="w-5 h-5" />
+                  Print QR Code
                 </button>
               </div>
             </div>
