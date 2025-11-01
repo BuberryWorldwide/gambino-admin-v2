@@ -93,19 +93,35 @@ export default function AdminLayout({ children, user }: AdminLayoutProps) {
   }
 };
 
-const navItems: NavItem[] = [
-    { href: '/admin/dashboard', label: 'Dashboard', icon: LayoutDashboard },
-    { href: '/admin/hubs', label: 'Pi Hubs', icon: Activity },
-    { href: '/admin/machines', label: 'Machines', icon: Activity },
-    { href: '/admin/stores', label: 'Venues', icon: Store },
-    { href: '/admin/users', label: 'Users', icon: Users },
-    { href: '/admin/settings', label: 'Settings', icon: Settings },
-  ];
+// Define nav items with their required permissions
+const allNavItems: (NavItem & { permissions?: string[] })[] = [
+  { href: '/admin/dashboard', label: 'Dashboard', icon: LayoutDashboard },
+  { href: '/admin/hubs', label: 'Pi Hubs', icon: Activity, permissions: ['view_all_stores', 'view_assigned_stores'] },
+  { href: '/admin/machines', label: 'Machines', icon: Activity, permissions: ['view_machines'] },
+  { href: '/admin/stores', label: 'Venues', icon: Store, permissions: ['view_all_stores', 'view_assigned_stores'] },
+  { href: '/admin/users', label: 'Users', icon: Users, permissions: ['view_users', 'manage_users'] },
+  { href: '/admin/settings', label: 'Settings', icon: Settings },
+];
 
-  // Add Logs for super_admin only
-  if (user?.role === 'super_admin') {
-    navItems.splice(3, 0, { href: '/admin/logs', label: 'Live Logs', icon: FileText });
-  }
+// Add Logs for super_admin only
+if (user?.role === 'super_admin') {
+  allNavItems.splice(3, 0, { href: '/admin/logs', label: 'Live Logs', icon: FileText });
+}
+
+// Filter based on role permissions
+const rolePermissions: Record<string, string[]> = {
+  super_admin: ['view_users', 'manage_users', 'view_all_stores', 'manage_all_stores', 'view_machines', 'manage_machines'],
+  gambino_ops: ['view_users', 'view_all_stores', 'manage_all_stores', 'view_machines', 'manage_machines'],
+  venue_manager: ['view_assigned_stores', 'manage_assigned_stores', 'view_machines', 'view_store_metrics'],
+  venue_staff: ['view_assigned_stores', 'view_machines', 'view_store_metrics'],
+};
+
+const userPermissions = rolePermissions[user?.role || 'venue_staff'] || [];
+
+const navItems = allNavItems.filter(item => {
+  if (!item.permissions) return true; // Always show items without permission requirements
+  return item.permissions.some(perm => userPermissions.includes(perm));
+});
 
   return (
     <div className="min-h-screen bg-white dark:bg-gray-950 text-gray-900 dark:text-gray-100">

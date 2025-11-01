@@ -75,8 +75,7 @@ export default function MachinesPage() {
   const [registering, setRegistering] = useState<string | null>(null);
 
   useEffect(() => {
-    loadMachines();
-    loadTodayStats();
+    loadMachines().then(() => loadTodayStats());
   }, []);
 
   useEffect(() => {
@@ -85,6 +84,7 @@ export default function MachinesPage() {
 
   const loadTodayStats = async () => {
   try {
+    // Try to load system-wide metrics (only works for super_admin/gambino_ops)
     const response = await api.get('/api/admin/machine-metrics?timeframe=24h');
     if (response.data.success && response.data.summary) {
       const summary = response.data.summary;
@@ -96,8 +96,23 @@ export default function MachinesPage() {
         activeMachines: summary.totalMachines || 0
       });
     }
-  } catch (err) {
-    console.error('Failed to load today stats:', err);
+  } catch (err: any) {
+    // If 403, user doesn't have permission - calculate from their machines instead
+    if (err.response?.status === 403) {
+      console.log('Using venue-scoped metrics');
+      // Calculate from loaded machines instead
+      const totalIn = machines.reduce((sum, m) => sum + (m.totalMoneyIn || 0), 0);
+      const totalOut = machines.reduce((sum, m) => sum + (m.totalMoneyOut || 0), 0);
+      setTodayStats({
+        totalRevenue: totalIn - totalOut,
+        totalMoneyIn: totalIn,
+        totalMoneyOut: totalOut,
+        totalVouchers: 0,
+        activeMachines: machines.filter(m => m.isRegistered).length
+      });
+    } else {
+      console.error('Failed to load today stats:', err);
+    }
   }
 };
 

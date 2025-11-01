@@ -116,8 +116,13 @@ export default function DashboardPage() {
     }
 
     loadUser();
-    loadDashboard();
   }, []);
+  
+  useEffect(() => {
+    if (user) {
+      loadDashboard();
+    }
+  }, [user]); // Only load dashboard after user is loaded
 
   const loadUser = async () => {
     try {
@@ -142,40 +147,73 @@ export default function DashboardPage() {
     setLoading(true);
     setError(null);
 
-    // Load hubs, stores, AND machine metrics in parallel
-    const [hubsRes, storesRes, metricsRes] = await Promise.all([
-      api.get('/api/admin/hubs'),
-      api.get('/api/admin/stores'),
-      api.get(`/api/admin/machine-metrics?timeframe=${metricsTimeframe}`)  // NEW!
-    ]);
+    // Check if user is venue manager/staff
+    const isVenueRole = user?.role === 'venue_manager' || user?.role === 'venue_staff';
 
-    const hubs: Hub[] = hubsRes.data.hubs || [];
+      if (isVenueRole) {
+    // Load only assigned venues data
+    const storesRes = await api.get('/api/admin/stores');
     const stores = storesRes.data.stores || [];
-    const metrics = metricsRes.data;  // NEW!
+      
+    // Filter to only assigned venues
+    const assignedStores = stores.filter((s: Store) => 
+      user?.assignedVenues?.includes(s.storeId)
+    );
 
-    // Calculate stats
-    const onlineHubs = hubs.filter(h => h.isOnline).length;
-    const offlineHubs = hubs.length - onlineHubs;
+    console.log('🔍 assignedStores:', assignedStores);
+    console.log('🔍 user.assignedVenues:', user?.assignedVenues);
 
-    setStats({
-      totalHubs: hubs.length,
+    // Get hubs for assigned stores
+    const hubsRes = await api.get('/api/admin/hubs');
+    const allHubs = hubsRes.data.hubs || [];
+    const assignedHubs = allHubs.filter((h: Hub) => 
+      user?.assignedVenues?.includes(h.storeId)
+    );
+
+    console.log('🔍 allHubs:', allHubs);
+    console.log('🔍 assignedHubs:', assignedHubs);
+
+    // Count machines across assigned venues
+    let totalMachines = 0;
+    for (const hub of assignedHubs) {
+      try {
+        const machinesRes = await api.get(`/api/admin/hubs/${hub.hubId}/discovered-machines`);
+        totalMachines += (machinesRes.data.machines || []).length;
+      } catch (err) {
+        console.error(`Failed to load machines for hub ${hub.hubId}`);
+      }
+    }
+
+
+    const onlineHubs = assignedHubs.filter((h: Hub) => h.isOnline).length;
+
+        console.log('🔍 totalMachines:', totalMachines);
+    console.log('🔍 Final stats:', {
+      totalHubs: assignedHubs.length,
       onlineHubs,
-      offlineHubs,
-      totalMachines: metrics?.summary?.totalMachines || 0,  // Get from metrics now
-      totalStores: stores.length,
+      offlineHubs: assignedHubs.length - onlineHubs,
+      totalMachines,
+      totalStores: assignedStores.length,
     });
 
-    setMachineMetrics(metrics);  // NEW!
 
-    // Generate recent activity from hubs
-    const activity: ActivityItem[] = hubs
-      .sort((a, b) => {
+    setStats({
+      totalHubs: assignedHubs.length,
+      onlineHubs,
+      offlineHubs: assignedHubs.length - onlineHubs,
+      totalMachines,
+      totalStores: assignedStores.length,
+    });
+
+    // Show recent activity for their hubs
+    const activity: ActivityItem[] = assignedHubs
+      .sort((a: Hub, b: Hub) => {
         const aTime = a.lastHeartbeat ? new Date(a.lastHeartbeat).getTime() : 0;
         const bTime = b.lastHeartbeat ? new Date(b.lastHeartbeat).getTime() : 0;
         return bTime - aTime;
       })
       .slice(0, 10)
-      .map((hub, index) => ({
+      .map((hub: Hub, index: number) => ({
         id: `${hub.hubId}-${index}`,
         type: hub.isOnline ? 'hub_online' : 'hub_offline',
         hubId: hub.hubId,
@@ -184,6 +222,49 @@ export default function DashboardPage() {
       }));
 
     setRecentActivity(activity);
+    
+  } else {
+      // Super admin / Gambino ops - load everything
+      const [hubsRes, storesRes, metricsRes] = await Promise.all([
+        api.get('/api/admin/hubs'),
+        api.get('/api/admin/stores'),
+        api.get(`/api/admin/machine-metrics?timeframe=${metricsTimeframe}`)
+      ]);
+
+      const hubs: Hub[] = hubsRes.data.hubs || [];
+      const stores = storesRes.data.stores || [];
+      const metrics = metricsRes.data;
+
+      const onlineHubs = hubs.filter(h => h.isOnline).length;
+      const offlineHubs = hubs.length - onlineHubs;
+
+      setStats({
+        totalHubs: hubs.length,
+        onlineHubs,
+        offlineHubs,
+        totalMachines: metrics?.summary?.totalMachines || 0,
+        totalStores: stores.length,
+      });
+
+      setMachineMetrics(metrics);
+
+      const activity: ActivityItem[] = hubs
+        .sort((a, b) => {
+          const aTime = a.lastHeartbeat ? new Date(a.lastHeartbeat).getTime() : 0;
+          const bTime = b.lastHeartbeat ? new Date(b.lastHeartbeat).getTime() : 0;
+          return bTime - aTime;
+        })
+        .slice(0, 10)
+        .map((hub, index) => ({
+          id: `${hub.hubId}-${index}`,
+          type: hub.isOnline ? 'hub_online' : 'hub_offline',
+          hubId: hub.hubId,
+          storeName: hub.store?.storeName || hub.storeId,
+          timestamp: hub.lastHeartbeat ? new Date(hub.lastHeartbeat) : new Date(),
+        }));
+
+      setRecentActivity(activity);
+    }
   } catch (err: unknown) {
     console.error('Failed to load dashboard:', err);
     
@@ -203,22 +284,22 @@ export default function DashboardPage() {
   }
 };
 
-  const handleRefresh = async () => {
-    setRefreshing(true);
-    await loadDashboard();
-    setRefreshing(false);
-  };
+const handleRefresh = async () => {
+  setRefreshing(true);
+  await loadDashboard();
+  setRefreshing(false);
+};
 
-  const formatTimestamp = (timestamp: Date) => {
-    const now = new Date();
-    const diffMs = now.getTime() - timestamp.getTime();
-    const diffMins = Math.floor(diffMs / 60000);
-    
-    if (diffMins < 1) return 'Just now';
-    if (diffMins < 60) return `${diffMins}m ago`;
-    if (diffMins < 1440) return `${Math.floor(diffMins / 60)}h ago`;
-    return timestamp.toLocaleDateString();
-  };
+const formatTimestamp = (timestamp: Date) => {
+  const now = new Date();
+  const diffMs = now.getTime() - timestamp.getTime();
+  const diffMins = Math.floor(diffMs / 60000);
+  
+  if (diffMins < 1) return 'Just now';
+  if (diffMins < 60) return `${diffMins}m ago`;
+  if (diffMins < 1440) return `${Math.floor(diffMins / 60)}h ago`;
+  return timestamp.toLocaleDateString();
+};
 
   if (loading) {
     return (
@@ -555,6 +636,7 @@ export default function DashboardPage() {
         </div>
 
         {/* Quick Links - Already Responsive */}
+      {!isVenueManager ? (
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3 sm:gap-4">
           <QuickLink
             href="/admin/hubs"
@@ -575,10 +657,27 @@ export default function DashboardPage() {
             icon={<Store className="w-5 h-5 sm:w-6 sm:h-6" />}
           />
         </div>
+      ) : (
+        <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 sm:gap-4">
+          <QuickLink
+            href="/admin/stores"
+            title="My Venues"
+            description="View your assigned venues"
+            icon={<Store className="w-5 h-5 sm:w-6 sm:h-6" />}
+          />
+          <QuickLink
+            href="/admin/machines"
+            title="Machines"
+            description="View machines in your venues"
+            icon={<Cpu className="w-5 h-5 sm:w-6 sm:h-6" />}
+          />
+        </div>
+      )}
       </div>
     </AdminLayout>
   );
 }
+
 
 interface StatCardProps {
   label: string;
@@ -629,3 +728,4 @@ function QuickLink({ href, title, description, icon }: QuickLinkProps) {
     </a>
   );
 }
+
