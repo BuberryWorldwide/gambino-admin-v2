@@ -7,7 +7,6 @@ import { useTheme } from 'next-themes';
 import api from '@/lib/api';
 import AdminLayout from '@/components/layout/AdminLayout';
 import MachineQRModal from '@/components/MachineQRModal';
-
 import { 
   ArrowLeft, 
   RefreshCw, 
@@ -636,14 +635,14 @@ NODE_ENV=production`;
   );
 }
 
-// Main Page Component
+// Main Page Component  
 export default function HubDetailsPage({ params }: { params: Promise<{ hubId: string }> }) {
   const router = useRouter();
   const { theme } = useTheme();
   const isDark = theme === 'dark';
-  const resolvedParams = use(params);
-  const { hubId } = resolvedParams;
   
+  // State for resolved hubId
+  const [hubId, setHubId] = useState<string | null>(null);
   const [mounted, setMounted] = useState(false);
   const [hub, setHub] = useState<Hub | null>(null);
   const [machines, setMachines] = useState<Machine[]>([]);
@@ -657,15 +656,26 @@ export default function HubDetailsPage({ params }: { params: Promise<{ hubId: st
   const [showTokenModal, setShowTokenModal] = useState(false);
   const [selectedMachineForQR, setSelectedMachineForQR] = useState<Machine | null>(null);
 
-  // Prevent hydration mismatch
+  // Resolve params on mount
   useEffect(() => {
     setMounted(true);
-  }, []);
+    params.then((resolvedParams) => {
+      console.log('🔍 Params resolved:', resolvedParams);
+      setHubId(resolvedParams.hubId);
+    });
+  }, [params]);
 
   const fetchHub = useCallback(async () => {
+    if (!hubId) {
+      console.error('❌ hubId is undefined, cannot fetch hub data');
+      return;
+    }
+    
     try {
       setLoading(true);
       setErr('');
+      
+      console.log('🔍 Fetching hub with ID:', hubId);
       
       const hubRes = await api.get(`/api/admin/hubs/${hubId}`);
       console.log('🔍 Hub API Response:', hubRes.data);
@@ -673,17 +683,7 @@ export default function HubDetailsPage({ params }: { params: Promise<{ hubId: st
       console.log('🔑 machineToken value:', hubRes.data.hub?.machineToken ? 'EXISTS (hidden)' : 'MISSING');
       setHub(hubRes.data.hub);
       
-      // Calculate date range (last 7 days)
-      const endDate = new Date();
-      const startDate = new Date();
-      startDate.setDate(startDate.getDate() - 7);
-          
-      const machinesRes = await api.get(`/api/admin/hubs/${hubId}/discovered-machines`, {
-        params: {
-          startDate: startDate.toISOString().split('T')[0],
-          endDate: endDate.toISOString().split('T')[0]
-        }
-      });
+      const machinesRes = await api.get(`/api/admin/hubs/${hubId}/discovered-machines`);
       setMachines(machinesRes.data.machines || []);
       
       const eventsRes = await api.get(`/api/admin/hubs/${hubId}/events?limit=20`);
@@ -698,7 +698,10 @@ export default function HubDetailsPage({ params }: { params: Promise<{ hubId: st
   }, [hubId]);
 
   useEffect(() => {
-    if (hubId) fetchHub();
+    console.log('🔍 useEffect triggered, hubId:', hubId);
+    if (hubId) {
+      fetchHub();
+    }
   }, [hubId, fetchHub]);
 
   const handleRefresh = async () => {
@@ -748,7 +751,7 @@ export default function HubDetailsPage({ params }: { params: Promise<{ hubId: st
     return daysUntilExpiry < 30;
   }, [hub?.tokenExpiresAt]);
 
-  if (!mounted || loading || !hub) {
+  if (!mounted || loading || !hub || !hubId) {
     return (
       <AdminLayout>
         <div className={`min-h-screen transition-colors duration-300 ${
@@ -762,7 +765,7 @@ export default function HubDetailsPage({ params }: { params: Promise<{ hubId: st
                 isDark ? 'text-yellow-400' : 'text-yellow-600'
               }`} />
               <div className={`text-xl font-medium ${isDark ? 'text-white' : 'text-neutral-900'}`}>
-                Loading hub details...
+                {!hubId ? 'Loading parameters...' : 'Loading hub details...'}
               </div>
             </div>
           </div>
@@ -770,8 +773,6 @@ export default function HubDetailsPage({ params }: { params: Promise<{ hubId: st
       </AdminLayout>
     );
   }
-
-  
 
   return (
     <AdminLayout>
@@ -1078,15 +1079,14 @@ export default function HubDetailsPage({ params }: { params: Promise<{ hubId: st
                 {machines.map((machine) => (
                   <div 
                     key={machine.machineId} 
-                    className={`rounded-lg p-4 transition-all cursor-pointer ${
+                    className={`rounded-lg p-4 transition-all ${
                       isDark 
                         ? 'bg-neutral-950/50 hover:bg-neutral-900/70' 
                         : 'bg-neutral-50 hover:bg-neutral-100'
                     }`}
-                    onClick={() => router.push(`/admin/machines/${machine._id}`)}
                   >
                     <div className="flex items-center justify-between">
-                      <div>
+                      <div className="flex-1">
                         <div className="flex items-center gap-2">
                           <p className={`font-medium ${isDark ? 'text-white' : 'text-neutral-900'}`}>
                             {machine.name || machine.machineId}
@@ -1136,9 +1136,12 @@ export default function HubDetailsPage({ params }: { params: Promise<{ hubId: st
                         >
                           <QrCode className="w-5 h-5" />
                         </button>
-                        <div className={isDark ? 'text-neutral-400' : 'text-neutral-600'}>
+                        <button
+                          onClick={() => router.push(`/admin/machines/${machine._id}`)}
+                          className={`${isDark ? 'text-neutral-400 hover:text-white' : 'text-neutral-600 hover:text-neutral-900'}`}
+                        >
                           →
-                        </div>
+                        </button>
                       </div>
                     </div>
                   </div>
@@ -1212,18 +1215,18 @@ export default function HubDetailsPage({ params }: { params: Promise<{ hubId: st
         onRefresh={fetchHub}
         isDark={isDark}
       />
+
       {/* QR Code Modal */}
       {selectedMachineForQR && (
         <MachineQRModal
           machine={{
-            _id: selectedMachineForQR.machineId,
+            _id: selectedMachineForQR._id,
             machineId: selectedMachineForQR.machineId,
             hubMachineId: hubId,
             name: selectedMachineForQR.name
           }}
           storeId={hub.storeId}
           onClose={() => setSelectedMachineForQR(null)}
-          useMachineIdEndpoint={true}
         />
       )}
     </AdminLayout>
