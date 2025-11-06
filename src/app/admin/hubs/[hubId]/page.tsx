@@ -112,6 +112,9 @@ function StatusBadge({ status = 'offline', isDark }: { status?: string; isDark: 
     offline: isDark
       ? 'border-red-500/30 text-red-400 bg-red-500/10'
       : 'border-red-600/40 text-red-700 bg-red-50',
+    restarting: isDark
+      ? 'border-yellow-500/30 text-yellow-400 bg-yellow-500/10'
+      : 'border-yellow-600/40 text-yellow-700 bg-yellow-50',
     maintenance: isDark
       ? 'border-amber-500/30 text-amber-400 bg-amber-500/10'
       : 'border-amber-600/40 text-amber-700 bg-amber-50'
@@ -120,6 +123,7 @@ function StatusBadge({ status = 'offline', isDark }: { status?: string; isDark: 
   const dotStyles = {
     online: isDark ? 'bg-emerald-400' : 'bg-emerald-600',
     offline: isDark ? 'bg-red-400' : 'bg-red-600',
+    restarting: isDark ? 'bg-yellow-400 animate-pulse' : 'bg-yellow-600 animate-pulse',
     maintenance: isDark ? 'bg-amber-400' : 'bg-amber-600'
   };
   
@@ -128,7 +132,7 @@ function StatusBadge({ status = 'offline', isDark }: { status?: string; isDark: 
   
   return (
     <span className={`inline-flex items-center gap-2 px-3 py-1.5 rounded-full text-xs font-medium border ${cls} transition-colors`}>
-      <span className={`h-2 w-2 rounded-full ${dotCls} animate-pulse`} />
+      <span className={`h-2 w-2 rounded-full ${dotCls}`} />
       {s.charAt(0).toUpperCase() + s.slice(1)}
     </span>
   );
@@ -655,6 +659,10 @@ export default function HubDetailsPage({ params }: { params: Promise<{ hubId: st
   const [showEditModal, setShowEditModal] = useState(false);
   const [showTokenModal, setShowTokenModal] = useState(false);
   const [selectedMachineForQR, setSelectedMachineForQR] = useState<Machine | null>(null);
+  
+  // Restart states
+  const [restarting, setRestarting] = useState(false);
+  const [restartMessage, setRestartMessage] = useState<{type: 'success' | 'error', text: string} | null>(null);
 
   // Resolve params on mount
   useEffect(() => {
@@ -709,6 +717,60 @@ export default function HubDetailsPage({ params }: { params: Promise<{ hubId: st
     setRefreshing(true);
     await fetchHub();
     setRefreshing(false);
+  };
+
+  const handleRestartHub = async () => {
+    if (!hub?.hubId) return;
+    
+    const confirmed = window.confirm(
+      `Are you sure you want to restart the Gambino service on ${hub.name || hub.hubId}?\n\n` +
+      'The service will be offline for approximately 30 seconds while it restarts.'
+    );
+    
+    if (!confirmed) return;
+
+    try {
+      setRestarting(true);
+      setRestartMessage(null);
+      
+      console.log('🔄 Initiating service restart:', hub.hubId);
+      
+      const response = await api.post(`/api/admin/hubs/${hub.hubId}/restart`);
+      
+      console.log('✅ Restart response:', response.data);
+      
+      setRestartMessage({
+        type: 'success',
+        text: response.data.message || `Service restart initiated for ${hub.name || hub.hubId}`
+      });
+      
+      // Auto-refresh after 5 seconds
+      setTimeout(() => {
+        handleRefresh();
+      }, 5000);
+      
+      // Clear message after 15 seconds
+      setTimeout(() => {
+        setRestartMessage(null);
+      }, 15000);
+      
+    } catch (error: any) {
+      console.error('❌ Failed to restart service:', error);
+      setRestartMessage({
+        type: 'error',
+        text: error.response?.data?.error || 'Failed to restart service'
+      });
+      
+      // Clear error after 10 seconds
+      setTimeout(() => {
+        setRestartMessage(null);
+      }, 10000);
+    } finally {
+      // Keep restarting state for 30 seconds
+      setTimeout(() => {
+        setRestarting(false);
+      }, 30000);
+    }
   };
 
   // Memoized calculations
@@ -781,7 +843,7 @@ export default function HubDetailsPage({ params }: { params: Promise<{ hubId: st
           ? 'bg-transparent' 
           : 'bg-transparent'
       }`}>
-        <div className="max-w-7xl mx-auto">{/* Remove p-6, AdminLayout provides padding */}
+        <div className="max-w-7xl mx-auto">
           {/* Header */}
           <div className="flex items-center justify-between mb-8">
             <div className="flex items-center space-x-4">
@@ -800,7 +862,7 @@ export default function HubDetailsPage({ params }: { params: Promise<{ hubId: st
                   {hub.name || 'Hub Details'}
                 </h1>
                 <div className="flex items-center space-x-4 mt-2">
-                  <StatusBadge status={isOnline ? 'online' : 'offline'} isDark={isDark} />
+                  <StatusBadge status={restarting ? 'restarting' : (isOnline ? 'online' : 'offline')} isDark={isDark} />
                   <span className={`text-sm font-mono ${isDark ? 'text-neutral-400' : 'text-neutral-600'}`}>
                     ID: {hub.hubId}
                   </span>
@@ -826,6 +888,28 @@ export default function HubDetailsPage({ params }: { params: Promise<{ hubId: st
                 <span>{refreshing ? 'Refreshing...' : 'Refresh'}</span>
               </button>
               
+              <button
+                onClick={handleRestartHub}
+                disabled={restarting || !isOnline}
+                className={`px-4 py-2.5 font-medium rounded-xl transition-colors flex items-center gap-2 ${
+                  restarting
+                    ? isDark
+                      ? 'bg-yellow-600/50 text-yellow-200 cursor-wait'
+                      : 'bg-yellow-500/50 text-yellow-700 cursor-wait'
+                    : !isOnline
+                    ? isDark
+                      ? 'bg-neutral-800 text-neutral-500 cursor-not-allowed'
+                      : 'bg-neutral-200 text-neutral-400 cursor-not-allowed'
+                    : isDark 
+                      ? 'bg-yellow-600/80 hover:bg-yellow-600 text-white' 
+                      : 'bg-yellow-600 hover:bg-yellow-700 text-white'
+                }`}
+                title={!isOnline ? 'Hub must be online to restart' : 'Restart Gambino service'}
+              >
+                <RefreshCw className={`w-4 h-4 ${restarting ? 'animate-spin' : ''}`} />
+                {restarting ? 'Restarting Service...' : 'Restart Service'}
+              </button>
+
               <button
                 onClick={() => setShowEditModal(true)}
                 className={`px-4 py-2.5 font-medium rounded-xl transition-colors flex items-center gap-2 ${
@@ -864,6 +948,49 @@ export default function HubDetailsPage({ params }: { params: Promise<{ hubId: st
                 <p className={`font-medium ${isDark ? 'text-red-200' : 'text-red-700'}`}>
                   {err}
                 </p>
+              </div>
+            </div>
+          )}
+
+          {/* Restart Notification */}
+          {restartMessage && (
+            <div className={`mb-6 rounded-xl p-4 border ${
+              restartMessage.type === 'success'
+                ? isDark 
+                  ? 'bg-green-900/30 border-green-500/30' 
+                  : 'bg-green-50 border-green-200'
+                : isDark 
+                  ? 'bg-red-900/30 border-red-500/30' 
+                  : 'bg-red-50 border-red-200'
+            }`}>
+              <div className="flex items-center justify-between">
+                <div className="flex items-center">
+                  {restartMessage.type === 'success' ? (
+                    <CheckCircle2 className={`w-5 h-5 mr-3 ${isDark ? 'text-green-400' : 'text-green-600'}`} />
+                  ) : (
+                    <XCircle className={`w-5 h-5 mr-3 ${isDark ? 'text-red-400' : 'text-red-600'}`} />
+                  )}
+                  <div>
+                    <p className={`font-medium ${
+                      restartMessage.type === 'success'
+                        ? isDark ? 'text-green-200' : 'text-green-700'
+                        : isDark ? 'text-red-200' : 'text-red-700'
+                    }`}>
+                      {restartMessage.text}
+                    </p>
+                    {restartMessage.type === 'success' && (
+                      <p className={`text-sm mt-1 ${isDark ? 'text-green-300' : 'text-green-600'}`}>
+                        The service will be back online in approximately 30 seconds. Page will auto-refresh.
+                      </p>
+                    )}
+                  </div>
+                </div>
+                <button
+                  onClick={() => setRestartMessage(null)}
+                  className={isDark ? 'text-neutral-400 hover:text-white' : 'text-neutral-600 hover:text-neutral-900'}
+                >
+                  ✕
+                </button>
               </div>
             </div>
           )}

@@ -90,3 +90,23 @@ export interface EdgeEvent {
   timestamp: string;
   metadata?: Record<string, unknown>;
 }
+
+export interface HubStatus {
+  hubId: string;
+  name: string;
+  storeId: string;
+  status: 'online' | 'offline' | 'restarting' | 'error';
+  uptime: number;
+  lastHeartbeat: string | null;
+  version: {
+    appVersion: string;
+    nodeVersion: string;
+    osVersion: string;
+  };
+}
+
+export interface RestartResponse {
+  success: boolean;
+  message: string;
+  timestamp: string;
+}
