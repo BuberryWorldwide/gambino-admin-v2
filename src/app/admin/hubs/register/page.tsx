@@ -10,23 +10,25 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 
-interface Store {
-  _id: string;
-  storeId: string;
-  storeName: string;
-  city?: string;
-  state?: string;
-}
-
 interface RegisterResponse {
   success: boolean;
   hub: {
     hubId: string;
     name: string;
     storeId: string;
-    machineToken: string;
   };
+  machineToken: string; // ✅ Token is at root level, not inside hub object
   message: string;
+  setupInstructions?: {
+    steps: string[];
+  };
+}
+
+interface RegisteredHub {
+  hubId: string;
+  name: string;
+  storeId: string;
+  machineToken: string;
 }
 
 export default function RegisterHubPage() {
@@ -38,7 +40,7 @@ export default function RegisterHubPage() {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [success, setSuccess] = useState(false);
-  const [registeredHub, setRegisteredHub] = useState<RegisterResponse['hub'] | null>(null);
+  const [registeredHub, setRegisteredHub] = useState<RegisteredHub | null>(null);
   const [tokenCopied, setTokenCopied] = useState(false);
 
   const handleSubmit = async (e: React.FormEvent) => {
@@ -54,12 +56,28 @@ export default function RegisterHubPage() {
         serialPort: serialPort.trim()
       });
 
+      console.log('✅ Hub registration response:', response.data);
+
       if (response.data.success) {
+        // ✅ FIX: Properly extract token from root level and merge with hub data
+        const hubWithToken: RegisteredHub = {
+          hubId: response.data.hub.hubId,
+          name: response.data.hub.name,
+          storeId: response.data.hub.storeId,
+          machineToken: response.data.machineToken // ← Token comes from root level
+        };
+
+        console.log('✅ Registered hub with token:', {
+          hubId: hubWithToken.hubId,
+          hasToken: !!hubWithToken.machineToken,
+          tokenLength: hubWithToken.machineToken?.length
+        });
+
         setSuccess(true);
-        setRegisteredHub(response.data.hub);
+        setRegisteredHub(hubWithToken);
       }
     } catch (err: any) {
-      console.error('Registration failed:', err);
+      console.error('❌ Registration failed:', err);
       setError(err.response?.data?.error || 'Failed to register hub');
     } finally {
       setLoading(false);
@@ -97,6 +115,7 @@ NODE_ENV=production`;
     setTimeout(() => setTokenCopied(false), 2000);
   };
 
+  // Success screen after registration
   if (success && registeredHub) {
     return (
       <AdminLayout>
@@ -146,7 +165,7 @@ NODE_ENV=production`;
               </div>
             </div>
 
-            {/* Authentication Token */}
+            {/* Authentication Token - CRITICAL SECTION */}
             <div className="bg-blue-50 dark:bg-blue-950 rounded-lg p-6 mb-6 border border-blue-200 dark:border-blue-900">
               <div className="flex items-center justify-between mb-3">
                 <Label className="text-sm font-semibold text-gray-900 dark:text-gray-100">
@@ -164,7 +183,7 @@ NODE_ENV=production`;
               </div>
               <div className="bg-white dark:bg-gray-900 rounded border border-gray-200 dark:border-gray-800 p-3">
                 <code className="text-xs text-gray-900 dark:text-gray-100 break-all">
-                  {registeredHub.machineToken}
+                  {registeredHub.machineToken || 'ERROR: Token not generated'}
                 </code>
               </div>
               <p className="text-xs text-gray-600 dark:text-gray-400 mt-2">
@@ -217,7 +236,7 @@ NODE_ENV=production`}
                 <li>SSH into your Raspberry Pi: <code className="bg-white dark:bg-gray-900 px-2 py-0.5 rounded text-xs">ssh gambino@your-pi-ip</code></li>
                 <li>Navigate to app directory: <code className="bg-white dark:bg-gray-900 px-2 py-0.5 rounded text-xs">cd ~/gambino-pi-app</code></li>
                 <li>Create/edit .env file: <code className="bg-white dark:bg-gray-900 px-2 py-0.5 rounded text-xs">nano .env</code></li>
-                <li>Paste the configuration above</li>
+                <li>Paste the configuration above (use "Copy .env" button)</li>
                 <li>Save and exit: <code className="bg-white dark:bg-gray-900 px-2 py-0.5 rounded text-xs">Ctrl+X, Y, Enter</code></li>
                 <li>Restart service: <code className="bg-white dark:bg-gray-900 px-2 py-0.5 rounded text-xs">sudo systemctl restart gambino-pi</code></li>
                 <li>Verify status: <code className="bg-white dark:bg-gray-900 px-2 py-0.5 rounded text-xs">sudo systemctl status gambino-pi</code></li>
@@ -246,6 +265,7 @@ NODE_ENV=production`}
     );
   }
 
+  // Registration form
   return (
     <AdminLayout>
       <div className="max-w-2xl mx-auto px-4 sm:px-6 py-8">
@@ -294,12 +314,12 @@ NODE_ENV=production`}
                 type="text"
                 value={hubId}
                 onChange={(e) => setHubId(e.target.value)}
-                placeholder="pi-1 or hub-location-name"
+                placeholder="pi-6-rainesmkt-1"
                 required
                 className="mt-2"
               />
               <p className="text-xs text-gray-500 dark:text-gray-400 mt-1">
-                Unique identifier for this hub (e.g., pi-1, pi-2-nimbus-1)
+                Unique identifier for this hub (e.g., pi-1, pi-2-nimbus-1, pi-6-rainesmkt-1)
               </p>
             </div>
 
@@ -312,7 +332,7 @@ NODE_ENV=production`}
                 type="text"
                 value={hubName}
                 onChange={(e) => setHubName(e.target.value)}
-                placeholder="Main Floor Hub"
+                placeholder="Raines Market 1"
                 required
                 className="mt-2"
               />
@@ -330,7 +350,7 @@ NODE_ENV=production`}
                 type="text"
                 value={storeId}
                 onChange={(e) => setStoreId(e.target.value)}
-                placeholder="store_12345"
+                placeholder="nashville_rainesmarket_557"
                 required
                 className="mt-2"
               />
@@ -347,7 +367,7 @@ NODE_ENV=production`}
                 onChange={(e) => setSerialPort(e.target.value)}
                 className="w-full mt-2 px-3 py-2 bg-white dark:bg-gray-950 border border-gray-300 dark:border-gray-700 rounded-md text-sm focus:outline-none focus:ring-2 focus:ring-yellow-500"
               >
-                <option value="/dev/ttyUSB0">/dev/ttyUSB0</option>
+                <option value="/dev/ttyUSB0">/dev/ttyUSB0 (Default)</option>
                 <option value="/dev/ttyUSB1">/dev/ttyUSB1</option>
                 <option value="/dev/ttyACM0">/dev/ttyACM0</option>
                 <option value="/dev/ttyACM1">/dev/ttyACM1</option>
@@ -363,7 +383,7 @@ NODE_ENV=production`}
                 disabled={loading}
                 className="w-full"
               >
-                {loading ? 'Registering...' : 'Register Hub'}
+                {loading ? 'Registering Hub...' : 'Register Hub'}
               </Button>
             </div>
           </form>
