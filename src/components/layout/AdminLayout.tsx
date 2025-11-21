@@ -4,20 +4,24 @@
 import { useState, ReactNode, useEffect } from 'react';
 import { useRouter, usePathname } from 'next/navigation';
 import ThemeSwitcher from '@/components/ThemeSwitcher';
-import { clearToken } from '@/lib/auth';
+import { clearToken, getToken } from '@/lib/auth';
+import api from '@/lib/api';
+import axios from 'axios';
 
-
-import { 
-  LayoutDashboard, 
-  Activity, 
-  Store, 
-  Users, 
-  Settings, 
+import {
+  LayoutDashboard,
+  Activity,
+  Store,
+  Users,
+  Settings,
   LogOut,
   Menu,
   X,
   LucideIcon,
-  FileText
+  FileText,
+  DollarSign,
+  Receipt,
+  Send
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 
@@ -39,12 +43,40 @@ interface NavItem {
   icon: LucideIcon;
 }
 
-export default function AdminLayout({ children, user }: AdminLayoutProps) {
+export default function AdminLayout({ children, user: userProp }: AdminLayoutProps) {
   const router = useRouter();
   const pathname = usePathname();
   // Start with closed sidebar on mobile, open on desktop
   const [sidebarOpen, setSidebarOpen] = useState(false);
+  // Internal user state - load if not provided via props
+  const [internalUser, setInternalUser] = useState<User | null>(null);
+
+  // Use prop user if provided, otherwise use internal user
+  const user = userProp || internalUser;
   
+  // Load user data if not provided via props
+  useEffect(() => {
+    // Only load user if not provided via props
+    if (!userProp) {
+      const loadUser = async () => {
+        try {
+          const token = getToken();
+          if (!token) return;
+
+          const res = await api.get('/api/users/profile');
+          setInternalUser(res.data.user);
+        } catch (err) {
+          console.error('Failed to load user in AdminLayout:', err);
+          if (axios.isAxiosError(err) && err.response?.status === 401) {
+            clearToken();
+            window.location.href = '/login';
+          }
+        }
+      };
+      loadUser();
+    }
+  }, [userProp]);
+
   // Initialize sidebar state based on screen size
   useEffect(() => {
     const handleResize = () => {
@@ -55,15 +87,15 @@ export default function AdminLayout({ children, user }: AdminLayoutProps) {
         setSidebarOpen(false);
       }
     };
-    
+
     // Set initial state
     handleResize();
-    
+
     // Listen for window resizes
     window.addEventListener('resize', handleResize);
     return () => window.removeEventListener('resize', handleResize);
   }, []);
-  
+
   // Auto-close sidebar on mobile when pathname changes (user navigated)
   useEffect(() => {
     if (typeof window !== 'undefined' && window.innerWidth < 1024) {
@@ -75,14 +107,14 @@ export default function AdminLayout({ children, user }: AdminLayoutProps) {
   try {
     // Clear the token first
     clearToken();
-    
+
     // Try to call logout endpoint (optional)
     try {
       await fetch('/api/auth/logout', { method: 'POST' });
     } catch (err) {
       console.warn('Logout API failed:', err);
     }
-    
+
     // Force redirect to login
     window.location.href = '/login';
   } catch (error) {
@@ -93,30 +125,31 @@ export default function AdminLayout({ children, user }: AdminLayoutProps) {
   }
 };
 
-// Define nav items with their required permissions
+// Define role permissions
+const rolePermissions: Record<string, string[]> = {
+  super_admin: ['view_users', 'manage_users', 'view_all_stores', 'manage_all_stores', 'view_machines', 'manage_machines', 'process_cashouts', 'view_cashout_history', 'reverse_cashouts', 'system_admin'],
+  gambino_ops: ['view_users', 'view_all_stores', 'manage_all_stores', 'view_machines', 'manage_machines', 'process_cashouts', 'view_cashout_history'],
+  venue_manager: ['view_assigned_stores', 'manage_assigned_stores', 'view_machines', 'view_store_metrics', 'process_cashouts', 'view_cashout_history'],
+  venue_staff: ['view_assigned_stores', 'view_machines', 'view_store_metrics', 'process_cashouts', 'view_cashout_history'],
+};
+
+// Calculate nav items based on current user
+const userPermissions = rolePermissions[user?.role || 'venue_staff'] || [];
+
+// Build nav items array with conditional Live Logs
 const allNavItems: (NavItem & { permissions?: string[] })[] = [
   { href: '/admin/dashboard', label: 'Dashboard', icon: LayoutDashboard },
   { href: '/admin/hubs', label: 'Pi Hubs', icon: Activity, permissions: ['view_all_stores', 'view_assigned_stores'] },
   { href: '/admin/machines', label: 'Machines', icon: Activity, permissions: ['view_machines'] },
+  { href: '/admin/cashout', label: 'Token Cashout', icon: DollarSign, permissions: ['process_cashouts'] },
+  { href: '/admin/distributions', label: 'Distributions', icon: Send, permissions: ['system_admin'] },
+  { href: '/admin/transactions', label: 'Transactions', icon: Receipt, permissions: ['view_cashout_history'] },
+  // Add Live Logs for super_admin only
+  ...(user?.role === 'super_admin' ? [{ href: '/admin/logs', label: 'Live Logs', icon: FileText }] : []),
   { href: '/admin/stores', label: 'Venues', icon: Store, permissions: ['view_all_stores', 'view_assigned_stores'] },
   { href: '/admin/users', label: 'Users', icon: Users, permissions: ['view_users', 'manage_users'] },
   { href: '/admin/settings', label: 'Settings', icon: Settings },
 ];
-
-// Add Logs for super_admin only
-if (user?.role === 'super_admin') {
-  allNavItems.splice(3, 0, { href: '/admin/logs', label: 'Live Logs', icon: FileText });
-}
-
-// Filter based on role permissions
-const rolePermissions: Record<string, string[]> = {
-  super_admin: ['view_users', 'manage_users', 'view_all_stores', 'manage_all_stores', 'view_machines', 'manage_machines'],
-  gambino_ops: ['view_users', 'view_all_stores', 'manage_all_stores', 'view_machines', 'manage_machines'],
-  venue_manager: ['view_assigned_stores', 'manage_assigned_stores', 'view_machines', 'view_store_metrics'],
-  venue_staff: ['view_assigned_stores', 'view_machines', 'view_store_metrics'],
-};
-
-const userPermissions = rolePermissions[user?.role || 'venue_staff'] || [];
 
 const navItems = allNavItems.filter(item => {
   if (!item.permissions) return true; // Always show items without permission requirements

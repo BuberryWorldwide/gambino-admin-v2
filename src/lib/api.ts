@@ -3,11 +3,11 @@
 import axios from 'axios';
 import { getToken, clearToken } from './auth';
 
-console.log('🔍 API URL:', process.env.NEXT_PUBLIC_API_URL);
-
+const API_URL = process.env.NEXT_PUBLIC_API_URL || 'https://api.gambino.gold';
+console.log('🔍 API URL:', API_URL);
 
 const api = axios.create({
-  baseURL: 'https://api.gambino.gold',
+  baseURL: API_URL,
   withCredentials: false,  // IMPORTANT: Enable sending cookies with requests
   headers: { 'Content-Type': 'application/json' }
 });
