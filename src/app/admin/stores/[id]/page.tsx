@@ -131,8 +131,8 @@ export default function StoreDashboardPage() {
           .map((m: { machineId: string; moneyIn: number; moneyOut: number }) => ({
             machineId: m.machineId,
             moneyIn: m.moneyIn,
-            moneyOut: m.moneyOut,
-            netRevenue: m.moneyIn - m.moneyOut
+            moneyOut: m.collect,
+            netRevenue: m.moneyIn - m.collect
           }))
           .sort((a: MachineRevenue, b: MachineRevenue) => b.netRevenue - a.netRevenue);
         

@@ -164,12 +164,12 @@ const loadHubs = async () => {
 
   return (
     <AdminLayout>
-      <div className="space-y-4 pb-20">
-        {/* Header */}
-        <div className="flex items-center justify-between">
+      <div className="p-4 sm:p-6 space-y-4 pb-20">
+        {/* Header - Mobile Optimized */}
+        <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
           <div>
-            <h1 className="text-2xl font-bold">Live Event Logs</h1>
-            <p className="text-sm text-gray-500 dark:text-gray-400">
+            <h1 className="text-xl sm:text-2xl font-bold">Live Event Logs</h1>
+            <p className="text-xs sm:text-sm text-gray-500 dark:text-gray-400">
               Real-time monitoring of system events
             </p>
           </div>
@@ -178,6 +178,7 @@ const loadHubs = async () => {
               variant="outline"
               size="sm"
               onClick={() => setAutoRefresh(!autoRefresh)}
+              className="flex-1 sm:flex-none"
             >
               <Activity className={`w-4 h-4 mr-2 ${autoRefresh ? 'text-green-600' : 'text-gray-400'}`} />
               {autoRefresh ? 'Auto' : 'Manual'}
@@ -187,25 +188,26 @@ const loadHubs = async () => {
               size="sm"
               onClick={loadEvents}
               disabled={loading}
+              className="flex-1 sm:flex-none"
             >
               <RefreshCw className={`w-4 h-4 ${loading ? 'animate-spin' : ''}`} />
             </Button>
           </div>
         </div>
 
-        {/* Filters */}
+        {/* Filters - Mobile Optimized */}
         <Card>
           <CardContent className="pt-6">
-            <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
               <div>
-                <label className="text-sm font-medium mb-2 block">Hub</label>
+                <label className="text-xs sm:text-sm font-medium mb-2 block">Hub</label>
                 <Select value={selectedHub} onValueChange={setSelectedHub}>
-                  <SelectTrigger>
+                  <SelectTrigger className="text-sm">
                     <SelectValue />
                   </SelectTrigger>
                   <SelectContent>
                     {hubs.map(hub => (
-                      <SelectItem key={hub.hubId} value={hub.hubId}>
+                      <SelectItem key={hub.hubId} value={hub.hubId} className="text-sm">
                         {hub.name} {hub.isOnline && '🟢'}
                       </SelectItem>
                     ))}
@@ -214,14 +216,14 @@ const loadHubs = async () => {
               </div>
 
               <div>
-                <label className="text-sm font-medium mb-2 block">Event Type</label>
+                <label className="text-xs sm:text-sm font-medium mb-2 block">Event Type</label>
                 <Select value={selectedEventType} onValueChange={setSelectedEventType}>
-                  <SelectTrigger>
+                  <SelectTrigger className="text-sm">
                     <SelectValue />
                   </SelectTrigger>
                   <SelectContent>
                     {eventTypes.map(type => (
-                      <SelectItem key={type} value={type}>
+                      <SelectItem key={type} value={type} className="text-sm">
                         {type === 'all' ? 'All Events' : formatEventType(type)}
                       </SelectItem>
                     ))}
@@ -229,9 +231,9 @@ const loadHubs = async () => {
                 </Select>
               </div>
 
-              <div>
-                <label className="text-sm font-medium mb-2 block">Status</label>
-                <div className="text-sm text-gray-600 dark:text-gray-400 pt-2">
+              <div className="sm:col-span-2 lg:col-span-1">
+                <label className="text-xs sm:text-sm font-medium mb-2 block">Status</label>
+                <div className="text-xs sm:text-sm text-gray-600 dark:text-gray-400 pt-2">
                   {events.length} events • Updated {formatTimeAgo(lastRefresh)}
                 </div>
               </div>
@@ -239,19 +241,19 @@ const loadHubs = async () => {
           </CardContent>
         </Card>
 
-        {/* Hub Status */}
+        {/* Hub Status - Mobile Optimized */}
         {selectedHub !== 'all' && selectedHubData && (
-          <div className={`rounded-lg border p-4 ${
-            selectedHubData.isOnline 
-              ? 'bg-green-50 dark:bg-green-950/20 border-green-200 dark:border-green-800' 
+          <div className={`rounded-lg border p-3 sm:p-4 ${
+            selectedHubData.isOnline
+              ? 'bg-green-50 dark:bg-green-950/20 border-green-200 dark:border-green-800'
               : 'bg-red-50 dark:bg-red-950/20 border-red-200 dark:border-red-800'
           }`}>
-            <div className="flex items-center gap-3">
-              <Activity className={`w-5 h-5 ${
+            <div className="flex items-center gap-2 sm:gap-3">
+              <Activity className={`w-4 h-4 sm:w-5 sm:h-5 ${
                 selectedHubData.isOnline ? 'text-green-600' : 'text-red-600'
               }`} />
               <div>
-                <p className="font-medium">
+                <p className="text-sm sm:text-base font-medium">
                   {selectedHubData.name} is {selectedHubData.isOnline ? 'Online' : 'Offline'}
                 </p>
                 {selectedHubData.lastHeartbeat && (
@@ -264,10 +266,10 @@ const loadHubs = async () => {
           </div>
         )}
 
-        {/* Events List */}
+        {/* Events List - Mobile Optimized */}
         <Card>
           <CardHeader>
-            <CardTitle className="text-base">Recent Events</CardTitle>
+            <CardTitle className="text-sm sm:text-base">Recent Events</CardTitle>
           </CardHeader>
           <CardContent className="p-0">
             {loading && events.length === 0 ? (
@@ -275,50 +277,50 @@ const loadHubs = async () => {
                 <RefreshCw className="w-6 h-6 animate-spin text-gray-400" />
               </div>
             ) : events.length === 0 ? (
-              <div className="text-center py-12 text-gray-500">
+              <div className="text-center py-12 text-sm sm:text-base text-gray-500">
                 No events found
               </div>
             ) : (
               <div className="divide-y divide-gray-200 dark:divide-gray-800 max-h-[600px] overflow-y-auto">
                 {events.map((event) => (
-                  <div key={event._id} className="p-4 hover:bg-gray-50 dark:hover:bg-gray-900/50 transition-colors">
-                    <div className="flex items-start gap-3">
-                      <div className="mt-1">{getEventIcon(event.eventType)}</div>
-                      
+                  <div key={event._id} className="p-3 sm:p-4 hover:bg-gray-50 dark:hover:bg-gray-900/50 transition-colors">
+                    <div className="flex items-start gap-2 sm:gap-3">
+                      <div className="mt-1 shrink-0">{getEventIcon(event.eventType)}</div>
+
                       <div className="flex-1 min-w-0">
-                        <div className="flex items-center gap-2 mb-1">
+                        <div className="flex flex-wrap items-center gap-2 mb-1">
                           <Badge className={`text-xs ${getEventBadgeColor(event.eventType)}`}>
                             {formatEventType(event.eventType)}
                           </Badge>
-                          
+
                           {event.metadata?.isDailyReport && (
                             <Badge variant="outline" className="text-xs">
                               Daily Report
                             </Badge>
                           )}
-                          
+
                           <span className="text-xs text-gray-500 dark:text-gray-400">
                             {formatTimeAgo(event.timestamp)}
                           </span>
                         </div>
-                        
-                        <div className="flex items-center gap-2 text-sm">
-                          <span className="font-medium">{event.gamingMachineId}</span>
+
+                        <div className="flex flex-col sm:flex-row sm:items-center gap-1 sm:gap-2 text-xs sm:text-sm">
+                          <span className="font-medium font-mono break-all">{event.gamingMachineId}</span>
                           {event.amount && (
                             <span className="text-gray-600 dark:text-gray-400">
                               ${event.amount.toFixed(2)}
                             </span>
                           )}
                         </div>
-                        
+
                         {event.rawData && (
                           <p className="text-xs text-gray-500 dark:text-gray-400 mt-1 truncate">
                             {event.rawData}
                           </p>
                         )}
                       </div>
-                      
-                      <div className="text-right text-xs text-gray-500 dark:text-gray-400">
+
+                      <div className="text-right text-xs text-gray-500 dark:text-gray-400 shrink-0 hidden sm:block">
                         {new Date(event.timestamp).toLocaleTimeString()}
                       </div>
                     </div>

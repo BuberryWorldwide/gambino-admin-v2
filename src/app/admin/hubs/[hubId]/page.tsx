@@ -844,54 +844,54 @@ export default function HubDetailsPage({ params }: { params: Promise<{ hubId: st
           : 'bg-transparent'
       }`}>
         <div className="max-w-7xl mx-auto">
-          {/* Header */}
-          <div className="flex items-center justify-between mb-8">
-            <div className="flex items-center space-x-4">
-              <button 
+          {/* Header - Mobile Optimized */}
+          <div className="mb-6 sm:mb-8">
+            <div className="flex items-center gap-3 sm:gap-4 mb-4">
+              <button
                 onClick={() => router.push('/admin/hubs')}
-                className={`w-10 h-10 rounded-xl flex items-center justify-center border transition-all ${
-                  isDark 
-                    ? 'bg-neutral-800/50 hover:bg-neutral-700/50 border-neutral-700 text-white' 
+                className={`w-10 h-10 rounded-xl flex items-center justify-center border transition-all shrink-0 ${
+                  isDark
+                    ? 'bg-neutral-800/50 hover:bg-neutral-700/50 border-neutral-700 text-white'
                     : 'bg-white hover:bg-neutral-50 border-neutral-200 text-neutral-900'
                 }`}
               >
                 <ArrowLeft className="w-5 h-5" />
               </button>
-              <div>
-                <h1 className={`text-3xl font-bold ${isDark ? 'text-white' : 'text-neutral-900'}`}>
+              <div className="flex-1 min-w-0">
+                <h1 className={`text-xl sm:text-2xl lg:text-3xl font-bold truncate ${isDark ? 'text-white' : 'text-neutral-900'}`}>
                   {hub.name || 'Hub Details'}
                 </h1>
-                <div className="flex items-center space-x-4 mt-2">
+                <div className="flex flex-wrap items-center gap-2 sm:gap-4 mt-2">
                   <StatusBadge status={restarting ? 'restarting' : (isOnline ? 'online' : 'offline')} isDark={isDark} />
-                  <span className={`text-sm font-mono ${isDark ? 'text-neutral-400' : 'text-neutral-600'}`}>
+                  <span className={`text-xs sm:text-sm font-mono ${isDark ? 'text-neutral-400' : 'text-neutral-600'}`}>
                     ID: {hub.hubId}
                   </span>
-                  <span className={`text-sm ${isDark ? 'text-neutral-400' : 'text-neutral-600'}`}>
-                    Last seen: {lastSeen}
+                  <span className={`text-xs sm:text-sm ${isDark ? 'text-neutral-400' : 'text-neutral-600'}`}>
+                    {lastSeen}
                   </span>
                 </div>
               </div>
             </div>
 
-            {/* Quick Actions */}
-            <div className="flex items-center space-x-3">
+            {/* Quick Actions - Mobile Optimized */}
+            <div className="grid grid-cols-2 lg:flex lg:items-center gap-2 lg:gap-3">
               <button
                 onClick={handleRefresh}
                 disabled={refreshing}
-                className={`px-4 py-2.5 font-medium rounded-xl transition-all flex items-center space-x-2 ${
-                  isDark 
-                    ? 'bg-neutral-800/80 hover:bg-neutral-700 disabled:bg-neutral-800 text-white border border-neutral-700' 
+                className={`px-3 sm:px-4 py-2 sm:py-2.5 text-sm font-medium rounded-xl transition-all flex items-center justify-center gap-2 ${
+                  isDark
+                    ? 'bg-neutral-800/80 hover:bg-neutral-700 disabled:bg-neutral-800 text-white border border-neutral-700'
                     : 'bg-white hover:bg-neutral-50 disabled:bg-neutral-100 text-neutral-900 border border-neutral-200'
                 }`}
               >
                 <RefreshCw className={`w-4 h-4 ${refreshing ? 'animate-spin' : ''}`} />
-                <span>{refreshing ? 'Refreshing...' : 'Refresh'}</span>
+                <span className="hidden sm:inline">{refreshing ? 'Refreshing...' : 'Refresh'}</span>
               </button>
-              
+
               <button
                 onClick={handleRestartHub}
                 disabled={restarting || !isOnline}
-                className={`px-4 py-2.5 font-medium rounded-xl transition-colors flex items-center gap-2 ${
+                className={`px-3 sm:px-4 py-2 sm:py-2.5 text-sm font-medium rounded-xl transition-colors flex items-center justify-center gap-2 ${
                   restarting
                     ? isDark
                       ? 'bg-yellow-600/50 text-yellow-200 cursor-wait'
@@ -900,38 +900,38 @@ export default function HubDetailsPage({ params }: { params: Promise<{ hubId: st
                     ? isDark
                       ? 'bg-neutral-800 text-neutral-500 cursor-not-allowed'
                       : 'bg-neutral-200 text-neutral-400 cursor-not-allowed'
-                    : isDark 
-                      ? 'bg-yellow-600/80 hover:bg-yellow-600 text-white' 
+                    : isDark
+                      ? 'bg-yellow-600/80 hover:bg-yellow-600 text-white'
                       : 'bg-yellow-600 hover:bg-yellow-700 text-white'
                 }`}
                 title={!isOnline ? 'Hub must be online to restart' : 'Restart Gambino service'}
               >
                 <RefreshCw className={`w-4 h-4 ${restarting ? 'animate-spin' : ''}`} />
-                {restarting ? 'Restarting Service...' : 'Restart Service'}
+                <span className="hidden sm:inline">{restarting ? 'Restarting...' : 'Restart'}</span>
               </button>
 
               <button
                 onClick={() => setShowEditModal(true)}
-                className={`px-4 py-2.5 font-medium rounded-xl transition-colors flex items-center gap-2 ${
-                  isDark 
-                    ? 'bg-blue-600/80 hover:bg-blue-600 text-white' 
+                className={`px-3 sm:px-4 py-2 sm:py-2.5 text-sm font-medium rounded-xl transition-colors flex items-center justify-center gap-2 ${
+                  isDark
+                    ? 'bg-blue-600/80 hover:bg-blue-600 text-white'
                     : 'bg-blue-600 hover:bg-blue-700 text-white'
                 }`}
               >
                 <Settings className="w-4 h-4" />
-                Edit Configuration
+                <span className="hidden sm:inline">Edit</span>
               </button>
 
               <button
                 onClick={() => setShowTokenModal(true)}
-                className={`px-4 py-2.5 font-medium rounded-xl transition-colors flex items-center gap-2 ${
-                  isDark 
-                    ? 'bg-purple-600/80 hover:bg-purple-600 text-white' 
+                className={`px-3 sm:px-4 py-2 sm:py-2.5 text-sm font-medium rounded-xl transition-colors flex items-center justify-center gap-2 ${
+                  isDark
+                    ? 'bg-purple-600/80 hover:bg-purple-600 text-white'
                     : 'bg-purple-600 hover:bg-purple-700 text-white'
                 }`}
               >
                 <Key className="w-4 h-4" />
-                Manage Token
+                <span className="hidden sm:inline">Token</span>
               </button>
             </div>
           </div>
@@ -1017,115 +1017,115 @@ export default function HubDetailsPage({ params }: { params: Promise<{ hubId: st
             </div>
           )}
 
-          {/* Revenue Overview Cards */}
-          <div className="grid grid-cols-1 md:grid-cols-4 gap-6 mb-8">
+          {/* Revenue Overview Cards - Mobile Optimized */}
+          <div className="grid grid-cols-2 lg:grid-cols-4 gap-3 sm:gap-4 lg:gap-6 mb-6 sm:mb-8">
             {/* Money In */}
-            <div className={`rounded-2xl p-6 border transition-all ${
-              isDark 
-                ? 'bg-neutral-900/50 border-neutral-800 hover:border-neutral-700' 
+            <div className={`rounded-2xl p-4 sm:p-6 border transition-all ${
+              isDark
+                ? 'bg-neutral-900/50 border-neutral-800 hover:border-neutral-700'
                 : 'bg-white border-neutral-200 hover:border-neutral-300'
             }`}>
               <div className="flex items-center justify-between mb-2">
-                <span className={`text-sm font-medium ${isDark ? 'text-neutral-400' : 'text-neutral-600'}`}>
+                <span className={`text-xs sm:text-sm font-medium ${isDark ? 'text-neutral-400' : 'text-neutral-600'}`}>
                   Money In
                 </span>
-                <div className={`w-10 h-10 rounded-lg flex items-center justify-center ${
+                <div className={`w-8 h-8 sm:w-10 sm:h-10 rounded-lg flex items-center justify-center ${
                   isDark ? 'bg-green-500/10' : 'bg-green-50'
                 }`}>
-                  <TrendingUp className={`w-5 h-5 ${isDark ? 'text-green-400' : 'text-green-600'}`} />
+                  <TrendingUp className={`w-4 h-4 sm:w-5 sm:h-5 ${isDark ? 'text-green-400' : 'text-green-600'}`} />
                 </div>
               </div>
-              <div className={`text-3xl font-bold ${isDark ? 'text-green-400' : 'text-green-600'}`}>
+              <div className={`text-2xl sm:text-3xl font-bold ${isDark ? 'text-green-400' : 'text-green-600'}`}>
                 ${hubTotals.moneyIn.toLocaleString()}
               </div>
-              <div className={`text-sm mt-1 ${isDark ? 'text-neutral-500' : 'text-neutral-600'}`}>
+              <div className={`text-xs sm:text-sm mt-1 ${isDark ? 'text-neutral-500' : 'text-neutral-600'}`}>
                 {machines.length} machines
               </div>
             </div>
 
             {/* Money Out */}
-            <div className={`rounded-2xl p-6 border transition-all ${
-              isDark 
-                ? 'bg-neutral-900/50 border-neutral-800 hover:border-neutral-700' 
+            <div className={`rounded-2xl p-4 sm:p-6 border transition-all ${
+              isDark
+                ? 'bg-neutral-900/50 border-neutral-800 hover:border-neutral-700'
                 : 'bg-white border-neutral-200 hover:border-neutral-300'
             }`}>
               <div className="flex items-center justify-between mb-2">
-                <span className={`text-sm font-medium ${isDark ? 'text-neutral-400' : 'text-neutral-600'}`}>
+                <span className={`text-xs sm:text-sm font-medium ${isDark ? 'text-neutral-400' : 'text-neutral-600'}`}>
                   Money Out
                 </span>
-                <div className={`w-10 h-10 rounded-lg flex items-center justify-center ${
+                <div className={`w-8 h-8 sm:w-10 sm:h-10 rounded-lg flex items-center justify-center ${
                   isDark ? 'bg-red-500/10' : 'bg-red-50'
                 }`}>
-                  <TrendingDown className={`w-5 h-5 ${isDark ? 'text-red-400' : 'text-red-600'}`} />
+                  <TrendingDown className={`w-4 h-4 sm:w-5 sm:h-5 ${isDark ? 'text-red-400' : 'text-red-600'}`} />
                 </div>
               </div>
-              <div className={`text-3xl font-bold ${isDark ? 'text-red-400' : 'text-red-600'}`}>
+              <div className={`text-2xl sm:text-3xl font-bold ${isDark ? 'text-red-400' : 'text-red-600'}`}>
                 ${hubTotals.moneyOut.toLocaleString()}
               </div>
-              <div className={`text-sm mt-1 ${isDark ? 'text-neutral-500' : 'text-neutral-600'}`}>
+              <div className={`text-xs sm:text-sm mt-1 ${isDark ? 'text-neutral-500' : 'text-neutral-600'}`}>
                 Vouchers paid
               </div>
             </div>
 
             {/* Net Revenue */}
-            <div className={`rounded-2xl p-6 border transition-all ${
-              isDark 
-                ? 'bg-neutral-900/50 border-neutral-800 hover:border-neutral-700' 
+            <div className={`rounded-2xl p-4 sm:p-6 border transition-all ${
+              isDark
+                ? 'bg-neutral-900/50 border-neutral-800 hover:border-neutral-700'
                 : 'bg-white border-neutral-200 hover:border-neutral-300'
             }`}>
               <div className="flex items-center justify-between mb-2">
-                <span className={`text-sm font-medium ${isDark ? 'text-neutral-400' : 'text-neutral-600'}`}>
+                <span className={`text-xs sm:text-sm font-medium ${isDark ? 'text-neutral-400' : 'text-neutral-600'}`}>
                   Net Revenue
                 </span>
-                <div className={`w-10 h-10 rounded-lg flex items-center justify-center ${
+                <div className={`w-8 h-8 sm:w-10 sm:h-10 rounded-lg flex items-center justify-center ${
                   isDark ? 'bg-blue-500/10' : 'bg-blue-50'
                 }`}>
-                  <DollarSign className={`w-5 h-5 ${isDark ? 'text-blue-400' : 'text-blue-600'}`} />
+                  <DollarSign className={`w-4 h-4 sm:w-5 sm:h-5 ${isDark ? 'text-blue-400' : 'text-blue-600'}`} />
                 </div>
               </div>
-              <div className={`text-3xl font-bold ${isDark ? 'text-blue-400' : 'text-blue-600'}`}>
+              <div className={`text-2xl sm:text-3xl font-bold ${isDark ? 'text-blue-400' : 'text-blue-600'}`}>
                 ${hubTotals.revenue.toLocaleString()}
               </div>
-              <div className={`text-sm mt-1 ${isDark ? 'text-neutral-500' : 'text-neutral-600'}`}>
+              <div className={`text-xs sm:text-sm mt-1 ${isDark ? 'text-neutral-500' : 'text-neutral-600'}`}>
                 {profitMargin}% margin
               </div>
             </div>
 
             {/* Events Synced */}
-            <div className={`rounded-2xl p-6 border transition-all ${
-              isDark 
-                ? 'bg-neutral-900/50 border-neutral-800 hover:border-neutral-700' 
+            <div className={`rounded-2xl p-4 sm:p-6 border transition-all ${
+              isDark
+                ? 'bg-neutral-900/50 border-neutral-800 hover:border-neutral-700'
                 : 'bg-white border-neutral-200 hover:border-neutral-300'
             }`}>
               <div className="flex items-center justify-between mb-2">
-                <span className={`text-sm font-medium ${isDark ? 'text-neutral-400' : 'text-neutral-600'}`}>
+                <span className={`text-xs sm:text-sm font-medium ${isDark ? 'text-neutral-400' : 'text-neutral-600'}`}>
                   Events Synced
                 </span>
-                <div className={`w-10 h-10 rounded-lg flex items-center justify-center ${
+                <div className={`w-8 h-8 sm:w-10 sm:h-10 rounded-lg flex items-center justify-center ${
                   isDark ? 'bg-purple-500/10' : 'bg-purple-50'
                 }`}>
-                  <Activity className={`w-5 h-5 ${isDark ? 'text-purple-400' : 'text-purple-600'}`} />
+                  <Activity className={`w-4 h-4 sm:w-5 sm:h-5 ${isDark ? 'text-purple-400' : 'text-purple-600'}`} />
                 </div>
               </div>
-              <div className={`text-3xl font-bold ${isDark ? 'text-purple-400' : 'text-purple-600'}`}>
+              <div className={`text-2xl sm:text-3xl font-bold ${isDark ? 'text-purple-400' : 'text-purple-600'}`}>
                 {hub.stats?.totalEventsSynced?.toLocaleString() || 0}
               </div>
-              <div className={`text-sm mt-1 ${isDark ? 'text-neutral-500' : 'text-neutral-600'}`}>
+              <div className={`text-xs sm:text-sm mt-1 ${isDark ? 'text-neutral-500' : 'text-neutral-600'}`}>
                 {hub.stats?.totalEventsProcessed?.toLocaleString() || 0} processed
               </div>
             </div>
           </div>
 
-          {/* System Info */}
-          <div className={`rounded-2xl p-6 border mb-8 ${
-            isDark 
-              ? 'bg-neutral-900/50 border-neutral-800' 
+          {/* System Info - Mobile Optimized */}
+          <div className={`rounded-2xl p-4 sm:p-6 border mb-6 sm:mb-8 ${
+            isDark
+              ? 'bg-neutral-900/50 border-neutral-800'
               : 'bg-white border-neutral-200'
           }`}>
-            <h2 className={`text-xl font-bold mb-4 ${isDark ? 'text-white' : 'text-neutral-900'}`}>
+            <h2 className={`text-lg sm:text-xl font-bold mb-4 ${isDark ? 'text-white' : 'text-neutral-900'}`}>
               System Information
             </h2>
-            <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
               <div>
                 <span className={`text-sm font-medium ${isDark ? 'text-neutral-500' : 'text-neutral-600'}`}>
                   Hub ID
