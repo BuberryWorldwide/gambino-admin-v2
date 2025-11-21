@@ -11,18 +11,11 @@ import { Badge } from '@/components/ui/badge';
 import api from '@/lib/api';
 import { getToken } from '@/lib/auth';
 
-interface Balance {
-  accountType: string;
+interface TreasuryAccount {
+  name: string;
   address: string;
   balance: number;
-  tokenAddress: string;
-}
-
-interface Balances {
-  miningRewards: Balance;
-  founder: Balance;
-  operations: Balance;
-  community: Balance;
+  type: string;
 }
 
 interface Distribution {
@@ -68,14 +61,14 @@ export default function DistributionsPage() {
   const router = useRouter();
   const [user, setUser] = useState<User | null>(null);
   const [authLoading, setAuthLoading] = useState(true);
-  const [balances, setBalances] = useState<Balances | null>(null);
+  const [balances, setBalances] = useState<TreasuryAccount[]>([]);
   const [distributions, setDistributions] = useState<Distribution[]>([]);
   const [stats, setStats] = useState<Stats | null>(null);
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
 
   // Form state
-  const [selectedAccount, setSelectedAccount] = useState('miningRewards');
+  const [selectedAccount, setSelectedAccount] = useState('mining');
   const [recipient, setRecipient] = useState('');
   const [amount, setAmount] = useState('');
   const [venueId, setVenueId] = useState('');
@@ -204,9 +197,9 @@ export default function DistributionsPage() {
     return new Date(date).toLocaleString();
   };
 
-  const getAccountColor = (account: string) => {
-    switch (account) {
-      case 'miningRewards': return 'bg-blue-500';
+  const getAccountColor = (type: string) => {
+    switch (type) {
+      case 'mining': return 'bg-blue-500';
       case 'founder': return 'bg-green-500';
       case 'operations': return 'bg-amber-500';
       case 'community': return 'bg-purple-500';
@@ -214,14 +207,9 @@ export default function DistributionsPage() {
     }
   };
 
-  const getAccountLabel = (account: string) => {
-    switch (account) {
-      case 'miningRewards': return 'Mining/Jackpot';
-      case 'founder': return 'Team';
-      case 'operations': return 'Operations';
-      case 'community': return 'Community';
-      default: return account;
-    }
+  const getAccountLabel = (type: string) => {
+    const account = balances.find(acc => acc.type === type);
+    return account ? account.name : type;
   };
 
   // Check if user has permission
@@ -231,7 +219,7 @@ export default function DistributionsPage() {
     return (
       <AdminLayout>
         <div className="flex items-center justify-center min-h-screen">
-          <div className="text-xl">Loading...</div>
+          <div className="text-xl text-gray-900 dark:text-gray-100">Loading...</div>
         </div>
       </AdminLayout>
     );
@@ -244,20 +232,20 @@ export default function DistributionsPage() {
         <div className="flex items-center justify-center min-h-screen">
           <Card className="max-w-md">
             <CardHeader>
-              <div className="flex items-center gap-3 text-red-600">
+              <div className="flex items-center gap-3 text-red-600 dark:text-red-400">
                 <ShieldAlert className="w-8 h-8" />
-                <CardTitle className="text-2xl">Access Denied</CardTitle>
+                <CardTitle className="text-2xl text-gray-900 dark:text-gray-100">Access Denied</CardTitle>
               </div>
             </CardHeader>
             <CardContent className="space-y-4">
-              <p className="text-gray-600">
+              <p className="text-gray-600 dark:text-gray-400">
                 You don't have permission to access the Token Distributions system.
               </p>
-              <p className="text-sm text-gray-500">
-                This page requires <span className="font-mono bg-gray-100 px-2 py-1 rounded">system_admin</span> permission.
+              <p className="text-sm text-gray-500 dark:text-gray-400">
+                This page requires <span className="font-mono bg-gray-100 dark:bg-gray-800 px-2 py-1 rounded text-gray-900 dark:text-gray-100">system_admin</span> permission.
                 {user && (
                   <span className="block mt-2">
-                    Your role: <span className="font-mono bg-gray-100 px-2 py-1 rounded capitalize">{user.role?.replace('_', ' ')}</span>
+                    Your role: <span className="font-mono bg-gray-100 dark:bg-gray-800 px-2 py-1 rounded capitalize text-gray-900 dark:text-gray-100">{user.role?.replace('_', ' ')}</span>
                   </span>
                 )}
               </p>
@@ -275,7 +263,7 @@ export default function DistributionsPage() {
     return (
       <AdminLayout>
         <div className="flex items-center justify-center min-h-screen">
-          <div className="text-xl">Loading distributions...</div>
+          <div className="text-xl text-gray-900 dark:text-gray-100">Loading distributions...</div>
         </div>
       </AdminLayout>
     );
@@ -287,8 +275,8 @@ export default function DistributionsPage() {
         {/* Header */}
         <div className="flex items-center justify-between">
           <div>
-            <h1 className="text-3xl font-bold">Token Distributions</h1>
-            <p className="text-gray-600 mt-1">Manage GAMBINO token distributions across treasury accounts</p>
+            <h1 className="text-3xl font-bold text-gray-900 dark:text-gray-100">Token Distributions</h1>
+            <p className="text-gray-600 dark:text-gray-400 mt-1">Manage GAMBINO token distributions across treasury accounts</p>
           </div>
           <Button onClick={() => fetchData(true)} disabled={refreshing} variant="outline">
             <RefreshCw className={`w-4 h-4 mr-2 ${refreshing ? 'animate-spin' : ''}`} />
@@ -298,20 +286,20 @@ export default function DistributionsPage() {
 
         {/* Treasury Balance Cards */}
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
-          {balances && Object.entries(balances).map(([key, data]) => (
-            <Card key={key} className="border-l-4" style={{ borderLeftColor: getAccountColor(key).replace('bg-', '#') }}>
+          {balances.map((account) => (
+            <Card key={account.type} className="border-l-4" style={{ borderLeftColor: getAccountColor(account.type).replace('bg-', '#') }}>
               <CardHeader className="pb-3">
                 <div className="flex items-center justify-between">
-                  <CardTitle className="text-sm font-medium text-gray-600">
-                    {getAccountLabel(key)}
+                  <CardTitle className="text-sm font-medium text-gray-600 dark:text-gray-400">
+                    {account.name}
                   </CardTitle>
-                  <Wallet className="w-5 h-5 text-gray-400" />
+                  <Wallet className="w-5 h-5 text-gray-400 dark:text-gray-500" />
                 </div>
               </CardHeader>
               <CardContent>
-                <div className="text-2xl font-bold mb-1">{formatNumber(data.balance)}</div>
-                <div className="text-xs text-gray-500 truncate font-mono">
-                  {data.address.slice(0, 8)}...{data.address.slice(-6)}
+                <div className="text-2xl font-bold mb-1 text-gray-900 dark:text-gray-100">{formatNumber(account.balance)}</div>
+                <div className="text-xs text-gray-500 dark:text-gray-400 truncate font-mono">
+                  {account.address.slice(0, 8)}...{account.address.slice(-6)}
                 </div>
               </CardContent>
             </Card>
@@ -324,34 +312,34 @@ export default function DistributionsPage() {
             <Card>
               <CardHeader className="pb-3">
                 <div className="flex items-center justify-between">
-                  <CardTitle className="text-sm font-medium text-gray-600">Total Distributed Today</CardTitle>
-                  <TrendingUp className="w-5 h-5 text-green-500" />
+                  <CardTitle className="text-sm font-medium text-gray-600 dark:text-gray-400">Total Distributed Today</CardTitle>
+                  <TrendingUp className="w-5 h-5 text-green-500 dark:text-green-400" />
                 </div>
               </CardHeader>
               <CardContent>
-                <div className="text-2xl font-bold">{formatNumber(stats.totalDistributed)}</div>
+                <div className="text-2xl font-bold text-gray-900 dark:text-gray-100">{formatNumber(stats.totalDistributed)}</div>
               </CardContent>
             </Card>
             <Card>
               <CardHeader className="pb-3">
                 <div className="flex items-center justify-between">
-                  <CardTitle className="text-sm font-medium text-gray-600">Transactions</CardTitle>
-                  <ArrowUpRight className="w-5 h-5 text-blue-500" />
+                  <CardTitle className="text-sm font-medium text-gray-600 dark:text-gray-400">Transactions</CardTitle>
+                  <ArrowUpRight className="w-5 h-5 text-blue-500 dark:text-blue-400" />
                 </div>
               </CardHeader>
               <CardContent>
-                <div className="text-2xl font-bold">{stats.transactionCount}</div>
+                <div className="text-2xl font-bold text-gray-900 dark:text-gray-100">{stats.transactionCount}</div>
               </CardContent>
             </Card>
             <Card>
               <CardHeader className="pb-3">
                 <div className="flex items-center justify-between">
-                  <CardTitle className="text-sm font-medium text-gray-600">Average Amount</CardTitle>
-                  <DollarSign className="w-5 h-5 text-purple-500" />
+                  <CardTitle className="text-sm font-medium text-gray-600 dark:text-gray-400">Average Amount</CardTitle>
+                  <DollarSign className="w-5 h-5 text-purple-500 dark:text-purple-400" />
                 </div>
               </CardHeader>
               <CardContent>
-                <div className="text-2xl font-bold">{formatNumber(stats.averageAmount)}</div>
+                <div className="text-2xl font-bold text-gray-900 dark:text-gray-100">{formatNumber(stats.averageAmount)}</div>
               </CardContent>
             </Card>
           </div>
@@ -360,39 +348,32 @@ export default function DistributionsPage() {
         {/* Distribution Form */}
         <Card>
           <CardHeader>
-            <CardTitle className="flex items-center gap-2">
+            <CardTitle className="flex items-center gap-2 text-gray-900 dark:text-gray-100">
               <Send className="w-5 h-5" />
               Send Tokens
             </CardTitle>
-            <CardDescription>Distribute GAMBINO tokens from treasury to recipients</CardDescription>
+            <CardDescription className="dark:text-gray-400">Distribute GAMBINO tokens from treasury to recipients</CardDescription>
           </CardHeader>
           <CardContent>
             <form onSubmit={handleDistribute} className="space-y-4">
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                 <div>
-                  <label className="block text-sm font-medium mb-2">Source Account</label>
+                  <label className="block text-sm font-medium mb-2 text-gray-700 dark:text-gray-300">Source Account</label>
                   <select
                     value={selectedAccount}
                     onChange={(e) => setSelectedAccount(e.target.value)}
-                    className="w-full p-2 border rounded-lg"
+                    className="w-full p-2 border rounded-lg bg-white dark:bg-gray-800 border-gray-300 dark:border-gray-700 text-gray-900 dark:text-gray-100"
                     required
                   >
-                    <option value="miningRewards">
-                      Mining/Jackpot ({balances?.miningRewards && formatNumber(balances.miningRewards.balance)})
-                    </option>
-                    <option value="founder">
-                      Team ({balances?.founder && formatNumber(balances.founder.balance)})
-                    </option>
-                    <option value="operations">
-                      Operations ({balances?.operations && formatNumber(balances.operations.balance)})
-                    </option>
-                    <option value="community">
-                      Community ({balances?.community && formatNumber(balances.community.balance)})
-                    </option>
+                    {balances.map((account) => (
+                      <option key={account.type} value={account.type}>
+                        {account.name} ({formatNumber(account.balance)})
+                      </option>
+                    ))}
                   </select>
                 </div>
                 <div>
-                  <label className="block text-sm font-medium mb-2">Amount (GAMBINO)</label>
+                  <label className="block text-sm font-medium mb-2 text-gray-700 dark:text-gray-300">Amount (GAMBINO)</label>
                   <Input
                     type="number"
                     value={amount}
@@ -401,17 +382,18 @@ export default function DistributionsPage() {
                     min="0.000001"
                     step="0.000001"
                     required
+                    className="dark:bg-gray-800 dark:border-gray-700 dark:text-gray-100"
                   />
                 </div>
               </div>
 
               <div>
-                <label className="block text-sm font-medium mb-2">Recipient Wallet Address</label>
+                <label className="block text-sm font-medium mb-2 text-gray-700 dark:text-gray-300">Recipient Wallet Address</label>
                 <Input
                   type="text"
                   value={recipient}
                   onChange={(e) => setRecipient(e.target.value)}
-                  className="font-mono text-sm"
+                  className="font-mono text-sm dark:bg-gray-800 dark:border-gray-700 dark:text-gray-100"
                   placeholder="Solana wallet address (e.g., 8VegmY...)"
                   required
                 />
@@ -419,56 +401,60 @@ export default function DistributionsPage() {
 
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                 <div>
-                  <label className="block text-sm font-medium mb-2">Venue ID</label>
+                  <label className="block text-sm font-medium mb-2 text-gray-700 dark:text-gray-300">Venue ID</label>
                   <Input
                     type="text"
                     value={venueId}
                     onChange={(e) => setVenueId(e.target.value)}
                     placeholder="venue_123"
                     required
+                    className="dark:bg-gray-800 dark:border-gray-700 dark:text-gray-100"
                   />
                 </div>
                 <div>
-                  <label className="block text-sm font-medium mb-2">Venue Name</label>
+                  <label className="block text-sm font-medium mb-2 text-gray-700 dark:text-gray-300">Venue Name</label>
                   <Input
                     type="text"
                     value={venueName}
                     onChange={(e) => setVenueName(e.target.value)}
                     placeholder="The Spot Casino"
+                    className="dark:bg-gray-800 dark:border-gray-700 dark:text-gray-100"
                   />
                 </div>
               </div>
 
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                 <div>
-                  <label className="block text-sm font-medium mb-2">Reason</label>
+                  <label className="block text-sm font-medium mb-2 text-gray-700 dark:text-gray-300">Reason</label>
                   <Input
                     type="text"
                     value={reason}
                     onChange={(e) => setReason(e.target.value)}
                     placeholder="Weekly mining rewards"
+                    className="dark:bg-gray-800 dark:border-gray-700 dark:text-gray-100"
                   />
                 </div>
                 <div>
-                  <label className="block text-sm font-medium mb-2">Notes</label>
+                  <label className="block text-sm font-medium mb-2 text-gray-700 dark:text-gray-300">Notes</label>
                   <Input
                     type="text"
                     value={notes}
                     onChange={(e) => setNotes(e.target.value)}
                     placeholder="Optional notes"
+                    className="dark:bg-gray-800 dark:border-gray-700 dark:text-gray-100"
                   />
                 </div>
               </div>
 
               {message && (
-                <div className={`p-4 rounded-lg ${message.type === 'success' ? 'bg-green-50 text-green-800 border border-green-200' : 'bg-red-50 text-red-800 border border-red-200'}`}>
+                <div className={`p-4 rounded-lg ${message.type === 'success' ? 'bg-green-50 dark:bg-green-900/20 text-green-800 dark:text-green-300 border border-green-200 dark:border-green-800' : 'bg-red-50 dark:bg-red-900/20 text-red-800 dark:text-red-300 border border-red-200 dark:border-red-800'}`}>
                   <p className="font-medium">{message.text}</p>
                   {message.signature && (
                     <a
                       href={`https://explorer.solana.com/tx/${message.signature}?cluster=mainnet`}
                       target="_blank"
                       rel="noopener noreferrer"
-                      className="text-sm underline mt-1 inline-flex items-center gap-1"
+                      className="text-sm underline mt-1 inline-flex items-center gap-1 hover:opacity-80"
                     >
                       View on Solana Explorer
                       <ExternalLink className="w-3 h-3" />
@@ -495,40 +481,40 @@ export default function DistributionsPage() {
             <div className="flex items-center justify-between">
               <div className="flex items-center gap-2">
                 <History className="w-5 h-5" />
-                <CardTitle>Recent Distributions</CardTitle>
+                <CardTitle className="text-gray-900 dark:text-gray-100">Recent Distributions</CardTitle>
               </div>
             </div>
           </CardHeader>
           <CardContent>
             <div className="overflow-x-auto">
               <table className="w-full">
-                <thead className="bg-gray-50">
+                <thead className="bg-gray-50 dark:bg-gray-800">
                   <tr>
-                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Date</th>
-                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Venue</th>
-                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Recipient</th>
-                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Amount</th>
-                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Source</th>
-                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Status</th>
-                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Transaction</th>
+                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase">Date</th>
+                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase">Venue</th>
+                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase">Recipient</th>
+                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase">Amount</th>
+                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase">Source</th>
+                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase">Status</th>
+                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase">Transaction</th>
                   </tr>
                 </thead>
-                <tbody className="divide-y divide-gray-200">
+                <tbody className="divide-y divide-gray-200 dark:divide-gray-700">
                   {distributions.length === 0 ? (
                     <tr>
-                      <td colSpan={7} className="px-6 py-8 text-center text-gray-500">
+                      <td colSpan={7} className="px-6 py-8 text-center text-gray-500 dark:text-gray-400">
                         No distributions yet. Send your first tokens above!
                       </td>
                     </tr>
                   ) : (
                     distributions.map((dist) => (
-                      <tr key={dist._id} className="hover:bg-gray-50">
-                        <td className="px-6 py-4 text-sm">{formatDate(dist.createdAt)}</td>
-                        <td className="px-6 py-4 text-sm font-medium">{dist.venueName || dist.venueId}</td>
-                        <td className="px-6 py-4 text-sm font-mono">
+                      <tr key={dist._id} className="hover:bg-gray-50 dark:hover:bg-gray-800">
+                        <td className="px-6 py-4 text-sm text-gray-900 dark:text-gray-100">{formatDate(dist.createdAt)}</td>
+                        <td className="px-6 py-4 text-sm font-medium text-gray-900 dark:text-gray-100">{dist.venueName || dist.venueId}</td>
+                        <td className="px-6 py-4 text-sm font-mono text-gray-700 dark:text-gray-300">
                           {dist.recipient.slice(0, 8)}...{dist.recipient.slice(-6)}
                         </td>
-                        <td className="px-6 py-4 text-sm font-bold">{formatNumber(dist.amount)}</td>
+                        <td className="px-6 py-4 text-sm font-bold text-gray-900 dark:text-gray-100">{formatNumber(dist.amount)}</td>
                         <td className="px-6 py-4 text-sm">
                           <Badge className={getAccountColor(dist.sourceAccount)}>
                             {getAccountLabel(dist.sourceAccount)}
@@ -549,7 +535,7 @@ export default function DistributionsPage() {
                               href={`https://explorer.solana.com/tx/${dist.signature}?cluster=mainnet`}
                               target="_blank"
                               rel="noopener noreferrer"
-                              className="text-blue-600 hover:underline inline-flex items-center gap-1"
+                              className="text-blue-600 dark:text-blue-400 hover:underline inline-flex items-center gap-1"
                             >
                               View
                               <ExternalLink className="w-3 h-3" />
