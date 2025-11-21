@@ -128,7 +128,7 @@ export default function StoreDashboardPage() {
         });
         
         const sortedMachines = (response.data.machines || [])
-          .map((m: { machineId: string; moneyIn: number; moneyOut: number }) => ({
+          .map((m: { machineId: string; moneyIn: number; collect: number }) => ({
             machineId: m.machineId,
             moneyIn: m.moneyIn,
             moneyOut: m.collect,

@@ -63,7 +63,7 @@ const loadHubs = async () => {
     try {
       const res = await api.get('/api/admin/hubs');
       setHubs(res.data.hubs || []);
-      
+
       // Auto-select first hub if available
       if (res.data.hubs && res.data.hubs.length > 0) {
         setSelectedHub(res.data.hubs[0].hubId);
@@ -73,32 +73,32 @@ const loadHubs = async () => {
     } catch (err) {
       console.error('Failed to load hubs:', err);
     }
-  };  
+  };
 
   const loadEvents = async () => {
     try {
       setLoading(true);
-      
+
       // Always use hub-specific endpoint (no global events endpoint)
       const url = selectedHub && selectedHub !== 'all'
         ? `/api/admin/hubs/${selectedHub}/events?limit=100`
-        : hubs.length > 0 
+        : hubs.length > 0
           ? `/api/admin/hubs/${hubs[0].hubId}/events?limit=100`
           : null;
-      
+
       if (!url) {
         setLoading(false);
         return;
       }
-      
+
       const res = await api.get(url);
       let fetchedEvents = res.data.events || [];
-      
+
       // Filter by event type if selected
       if (selectedEventType !== 'all') {
         fetchedEvents = fetchedEvents.filter((e: Event) => e.eventType === selectedEventType);
       }
-      
+
       setEvents(fetchedEvents);
       setLastRefresh(new Date());
     } catch (err) {
@@ -152,7 +152,7 @@ const loadHubs = async () => {
   const formatTimeAgo = (date: Date | string): string => {
     const d = new Date(date);
     const seconds = Math.floor((Date.now() - d.getTime()) / 1000);
-    
+
     if (seconds < 60) return 'just now';
     if (seconds < 3600) return `${Math.floor(seconds / 60)}m ago`;
     if (seconds < 86400) return `${Math.floor(seconds / 3600)}h ago`;

@@ -7,12 +7,12 @@ import { useTheme } from 'next-themes';
 import api from '@/lib/api';
 import AdminLayout from '@/components/layout/AdminLayout';
 import MachineQRModal from '@/components/MachineQRModal';
-import { 
-  ArrowLeft, 
-  RefreshCw, 
-  Settings, 
-  Key, 
-  Wifi, 
+import {
+  ArrowLeft,
+  RefreshCw,
+  Settings,
+  Key,
+  Wifi,
   WifiOff,
   DollarSign,
   TrendingUp,
@@ -38,12 +38,12 @@ interface Hub {
   status?: string;
   lastHeartbeat?: string | Date;
   lastSeen?: string | Date;
-  
+
   // Old token system (deprecated but still supported)
   machineToken?: string;
   tokenGeneratedAt?: string | Date;
   tokenExpiresAt?: string | Date;
-  
+
   // New token system (current)
   accessToken?: string;
   accessTokenExpiresAt?: string | Date;
@@ -52,7 +52,7 @@ interface Hub {
   lastTokenRefresh?: string | Date;
   tokenVersion?: number;
   tokenRefreshCount?: number;
-  
+
   serialConfig?: {
     port: string;
     baudRate?: number;
@@ -104,9 +104,9 @@ interface NewToken {
 
 function StatusBadge({ status = 'offline', isDark }: { status?: string; isDark: boolean }) {
   const s = (status || 'offline').toLowerCase();
-  
+
   const styles = {
-    online: isDark 
+    online: isDark
       ? 'border-emerald-500/30 text-emerald-400 bg-emerald-500/10'
       : 'border-emerald-600/40 text-emerald-700 bg-emerald-50',
     offline: isDark
@@ -126,10 +126,10 @@ function StatusBadge({ status = 'offline', isDark }: { status?: string; isDark: 
     restarting: isDark ? 'bg-yellow-400 animate-pulse' : 'bg-yellow-600 animate-pulse',
     maintenance: isDark ? 'bg-amber-400' : 'bg-amber-600'
   };
-  
+
   const cls = styles[s as keyof typeof styles] || styles.offline;
   const dotCls = dotStyles[s as keyof typeof dotStyles] || dotStyles.offline;
-  
+
   return (
     <span className={`inline-flex items-center gap-2 px-3 py-1.5 rounded-full text-xs font-medium border ${cls} transition-colors`}>
       <span className={`h-2 w-2 rounded-full ${dotCls}`} />
@@ -163,14 +163,14 @@ function EditHubModal({ isOpen, onClose, hub, onUpdate, isDark }: {
 
   const handleSave = async () => {
     if (!hub?.hubId) return;
-    
+
     setSaving(true);
     try {
       const response = await api.put(`/api/admin/hubs/${hub.hubId}`, {
         name: formData.name,
         serialPort: formData.serialPort
       });
-      
+
       if (response.data.success) {
         if (onUpdate) onUpdate();
         onClose();
@@ -188,8 +188,8 @@ function EditHubModal({ isOpen, onClose, hub, onUpdate, isDark }: {
   return (
     <div className="fixed inset-0 bg-black/50 backdrop-blur-sm flex items-center justify-center z-50 p-4">
       <div className={`rounded-2xl p-8 max-w-3xl w-full border max-h-[90vh] overflow-y-auto ${
-        isDark 
-          ? 'bg-neutral-900 border-neutral-800' 
+        isDark
+          ? 'bg-neutral-900 border-neutral-800'
           : 'bg-white border-neutral-200'
       }`}>
         <div className="flex justify-between items-start mb-6">
@@ -201,8 +201,8 @@ function EditHubModal({ isOpen, onClose, hub, onUpdate, isDark }: {
               {hub.hubId}
             </p>
           </div>
-          <button 
-            onClick={onClose} 
+          <button
+            onClick={onClose}
             className={`transition-colors ${isDark ? 'text-neutral-400 hover:text-white' : 'text-neutral-600 hover:text-neutral-900'}`}
           >
             ✕
@@ -237,8 +237,8 @@ function EditHubModal({ isOpen, onClose, hub, onUpdate, isDark }: {
               value={formData.name}
               onChange={(e) => setFormData({...formData, name: e.target.value})}
               className={`w-full rounded-lg px-3 py-2 mt-2 border focus:outline-none focus:ring-2 transition-all ${
-                isDark 
-                  ? 'bg-neutral-800 border-neutral-700 text-white focus:ring-yellow-500/30' 
+                isDark
+                  ? 'bg-neutral-800 border-neutral-700 text-white focus:ring-yellow-500/30'
                   : 'bg-white border-neutral-300 text-neutral-900 focus:ring-yellow-600/30'
               }`}
               placeholder="Casino 1 - Floor 2"
@@ -253,8 +253,8 @@ function EditHubModal({ isOpen, onClose, hub, onUpdate, isDark }: {
               value={formData.serialPort}
               onChange={(e) => setFormData({...formData, serialPort: e.target.value})}
               className={`w-full rounded-lg px-3 py-2 mt-2 border focus:outline-none focus:ring-2 transition-all ${
-                isDark 
-                  ? 'bg-neutral-800 border-neutral-700 text-white focus:ring-yellow-500/30' 
+                isDark
+                  ? 'bg-neutral-800 border-neutral-700 text-white focus:ring-yellow-500/30'
                   : 'bg-white border-neutral-300 text-neutral-900 focus:ring-yellow-600/30'
               }`}
             >
@@ -276,8 +276,8 @@ function EditHubModal({ isOpen, onClose, hub, onUpdate, isDark }: {
               setFormData({ name: hub.name || '', serialPort: hub.serialConfig?.port || '/dev/ttyUSB0' });
             }}
             className={`px-6 py-2.5 font-medium rounded-lg transition-colors ${
-              isDark 
-                ? 'bg-neutral-800 hover:bg-neutral-700 text-white' 
+              isDark
+                ? 'bg-neutral-800 hover:bg-neutral-700 text-white'
                 : 'bg-neutral-100 hover:bg-neutral-200 text-neutral-900'
             }`}
           >
@@ -287,8 +287,8 @@ function EditHubModal({ isOpen, onClose, hub, onUpdate, isDark }: {
             onClick={handleSave}
             disabled={saving}
             className={`px-6 py-2.5 font-medium rounded-lg transition-colors flex items-center gap-2 ${
-              isDark 
-                ? 'bg-yellow-500 hover:bg-yellow-600 disabled:bg-yellow-600/50 text-black' 
+              isDark
+                ? 'bg-yellow-500 hover:bg-yellow-600 disabled:bg-yellow-600/50 text-black'
                 : 'bg-yellow-600 hover:bg-yellow-700 disabled:bg-yellow-700/50 text-white'
             }`}
           >
@@ -336,16 +336,16 @@ function TokenModal({ isOpen, onClose, hub, onRefresh, isDark }: {
     try {
       setGeneratingToken(true);
       console.log('🔑 Calling API: POST /api/admin/hubs/' + hub.hubId + '/regenerate-token');
-      
+
       const res = await api.post(`/api/admin/hubs/${hub.hubId}/regenerate-token`);
-      
+
       console.log('🔑 Token generation response:', res.data);
-      
+
       setNewToken({
         token: res.data.machineToken,
         expiresAt: res.data.expiresAt
       });
-      
+
       console.log('✅ Token set, refreshing hub data...');
       if (onRefresh) onRefresh();
     } catch (err: any) {
@@ -403,8 +403,8 @@ NODE_ENV=production`;
   return (
     <div className="fixed inset-0 bg-black/50 backdrop-blur-sm flex items-center justify-center z-50 p-4">
       <div className={`rounded-2xl p-8 max-w-3xl w-full border max-h-[90vh] overflow-y-auto ${
-        isDark 
-          ? 'bg-neutral-900 border-neutral-800' 
+        isDark
+          ? 'bg-neutral-900 border-neutral-800'
           : 'bg-white border-neutral-200'
       }`}>
         <div className="flex justify-between items-start mb-6">
@@ -416,8 +416,8 @@ NODE_ENV=production`;
               View and manage your hub's authentication token
             </p>
           </div>
-          <button 
-            onClick={onClose} 
+          <button
+            onClick={onClose}
             className={`transition-colors ${isDark ? 'text-neutral-400 hover:text-white' : 'text-neutral-600 hover:text-neutral-900'}`}
           >
             ✕
@@ -452,10 +452,10 @@ NODE_ENV=production`;
               <button
                 onClick={() => copyToken(hub.accessToken || hub.machineToken || '')}
                 className={`px-4 py-2 rounded-lg font-medium transition-colors flex items-center gap-2 ${
-                  tokenCopied 
-                    ? 'bg-green-600 text-white' 
-                    : isDark 
-                      ? 'bg-purple-600 hover:bg-purple-700 text-white' 
+                  tokenCopied
+                    ? 'bg-green-600 text-white'
+                    : isDark
+                      ? 'bg-purple-600 hover:bg-purple-700 text-white'
                       : 'bg-purple-600 hover:bg-purple-700 text-white'
                 }`}
               >
@@ -474,15 +474,15 @@ NODE_ENV=production`;
               <button
                 onClick={() => hub && copyToken(getEnvBlock())}
                 className={`px-4 py-2 rounded-lg font-medium transition-colors ${
-                  isDark 
-                    ? 'bg-neutral-800 hover:bg-neutral-700 text-white' 
+                  isDark
+                    ? 'bg-neutral-800 hover:bg-neutral-700 text-white'
                     : 'bg-neutral-100 hover:bg-neutral-200 text-neutral-900'
                 }`}
               >
                 Copy Full .env
               </button>
             </div>
-            
+
             {/* Show refresh token if available */}
             {hub.refreshToken && (
               <div className={`mt-4 pt-4 border-t ${isDark ? 'border-neutral-800' : 'border-neutral-200'}`}>
@@ -510,16 +510,16 @@ NODE_ENV=production`;
         {/* New Token Display */}
         {newToken && (
           <div className={`rounded-lg p-4 mb-6 border ${
-            isDark 
-              ? 'bg-purple-900/20 border-purple-500/30' 
+            isDark
+              ? 'bg-purple-900/20 border-purple-500/30'
               : 'bg-purple-50 border-purple-200'
           }`}>
             <div className="flex justify-between items-start mb-3">
               <h3 className={`font-semibold ${isDark ? 'text-purple-400' : 'text-purple-700'}`}>
                 New Token Generated!
               </h3>
-              <button 
-                onClick={() => setNewToken(null)} 
+              <button
+                onClick={() => setNewToken(null)}
                 className={isDark ? 'text-neutral-400 hover:text-white' : 'text-neutral-600 hover:text-neutral-900'}
               >
                 ✕
@@ -547,21 +547,21 @@ NODE_ENV=production`;
               <button
                 onClick={() => copyToken(getEnvBlock())}
                 className={`px-4 py-2 rounded-lg font-medium transition-colors ${
-                  tokenCopied 
-                    ? 'bg-green-600 text-white' 
-                    : isDark 
-                      ? 'bg-purple-600 hover:bg-purple-700 text-white' 
+                  tokenCopied
+                    ? 'bg-green-600 text-white'
+                    : isDark
+                      ? 'bg-purple-600 hover:bg-purple-700 text-white'
                       : 'bg-purple-600 hover:bg-purple-700 text-white'
                 }`}
               >
                 {tokenCopied ? 'Copied!' : 'Copy .env Block'}
               </button>
             </div>
-            
+
             {/* Setup Instructions */}
             <div className={`mt-4 rounded-lg p-4 border ${
-              isDark 
-                ? 'bg-amber-900/20 border-amber-500/30' 
+              isDark
+                ? 'bg-amber-900/20 border-amber-500/30'
                 : 'bg-amber-50 border-amber-200'
             }`}>
               <h4 className={`font-semibold mb-2 flex items-center gap-2 ${isDark ? 'text-amber-400' : 'text-amber-700'}`}>
@@ -583,12 +583,12 @@ NODE_ENV=production`;
         {!newToken && (
           <div className="space-y-4">
             <div className={`rounded-lg p-4 border ${
-              isDark 
-                ? 'bg-blue-900/20 border-blue-500/30' 
+              isDark
+                ? 'bg-blue-900/20 border-blue-500/30'
                 : 'bg-blue-50 border-blue-200'
             }`}>
               <h4 className={`font-semibold mb-2 ${isDark ? 'text-blue-400' : 'text-blue-700'}`}>
-                ℹ️ Generate New Token
+                ℹ Generate New Token
               </h4>
               <p className={`text-sm ${isDark ? 'text-neutral-400' : 'text-neutral-700'}`}>
                 Generating a new token will invalidate the current token immediately.
@@ -602,8 +602,8 @@ NODE_ENV=production`;
               }}
               disabled={generatingToken}
               className={`w-full px-4 py-3 font-medium rounded-lg transition-colors flex items-center justify-center gap-2 ${
-                isDark 
-                  ? 'bg-purple-600 hover:bg-purple-700 disabled:bg-purple-600/50 text-white' 
+                isDark
+                  ? 'bg-purple-600 hover:bg-purple-700 disabled:bg-purple-600/50 text-white'
                   : 'bg-purple-600 hover:bg-purple-700 disabled:bg-purple-700/50 text-white'
               }`}
             >
@@ -626,8 +626,8 @@ NODE_ENV=production`;
           <button
             onClick={onClose}
             className={`px-6 py-2.5 font-medium rounded-lg transition-colors ${
-              isDark 
-                ? 'bg-neutral-800 hover:bg-neutral-700 text-white' 
+              isDark
+                ? 'bg-neutral-800 hover:bg-neutral-700 text-white'
                 : 'bg-neutral-100 hover:bg-neutral-200 text-neutral-900'
             }`}
           >
@@ -639,12 +639,12 @@ NODE_ENV=production`;
   );
 }
 
-// Main Page Component  
+// Main Page Component
 export default function HubDetailsPage({ params }: { params: Promise<{ hubId: string }> }) {
   const router = useRouter();
   const { theme } = useTheme();
   const isDark = theme === 'dark';
-  
+
   // State for resolved hubId
   const [hubId, setHubId] = useState<string | null>(null);
   const [mounted, setMounted] = useState(false);
@@ -654,12 +654,12 @@ export default function HubDetailsPage({ params }: { params: Promise<{ hubId: st
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
   const [err, setErr] = useState('');
-  
+
   // Modal states
   const [showEditModal, setShowEditModal] = useState(false);
   const [showTokenModal, setShowTokenModal] = useState(false);
   const [selectedMachineForQR, setSelectedMachineForQR] = useState<Machine | null>(null);
-  
+
   // Restart states
   const [restarting, setRestarting] = useState(false);
   const [restartMessage, setRestartMessage] = useState<{type: 'success' | 'error', text: string} | null>(null);
@@ -678,25 +678,25 @@ export default function HubDetailsPage({ params }: { params: Promise<{ hubId: st
       console.error('❌ hubId is undefined, cannot fetch hub data');
       return;
     }
-    
+
     try {
       setLoading(true);
       setErr('');
-      
+
       console.log('🔍 Fetching hub with ID:', hubId);
-      
+
       const hubRes = await api.get(`/api/admin/hubs/${hubId}`);
       console.log('🔍 Hub API Response:', hubRes.data);
       console.log('🔑 machineToken present?', !!hubRes.data.hub?.machineToken);
       console.log('🔑 machineToken value:', hubRes.data.hub?.machineToken ? 'EXISTS (hidden)' : 'MISSING');
       setHub(hubRes.data.hub);
-      
+
       const machinesRes = await api.get(`/api/admin/hubs/${hubId}/discovered-machines`);
       setMachines(machinesRes.data.machines || []);
-      
+
       const eventsRes = await api.get(`/api/admin/hubs/${hubId}/events?limit=20`);
       setEvents(eventsRes.data.events || []);
-      
+
     } catch (error: any) {
       console.error('Failed to load hub:', error);
       setErr(error?.response?.data?.error || 'Failed to load hub');
@@ -721,46 +721,46 @@ export default function HubDetailsPage({ params }: { params: Promise<{ hubId: st
 
   const handleRestartHub = async () => {
     if (!hub?.hubId) return;
-    
+
     const confirmed = window.confirm(
       `Are you sure you want to restart the Gambino service on ${hub.name || hub.hubId}?\n\n` +
       'The service will be offline for approximately 30 seconds while it restarts.'
     );
-    
+
     if (!confirmed) return;
 
     try {
       setRestarting(true);
       setRestartMessage(null);
-      
+
       console.log('🔄 Initiating service restart:', hub.hubId);
-      
+
       const response = await api.post(`/api/admin/hubs/${hub.hubId}/restart`);
-      
+
       console.log('✅ Restart response:', response.data);
-      
+
       setRestartMessage({
         type: 'success',
         text: response.data.message || `Service restart initiated for ${hub.name || hub.hubId}`
       });
-      
+
       // Auto-refresh after 5 seconds
       setTimeout(() => {
         handleRefresh();
       }, 5000);
-      
+
       // Clear message after 15 seconds
       setTimeout(() => {
         setRestartMessage(null);
       }, 15000);
-      
+
     } catch (error: any) {
       console.error('❌ Failed to restart service:', error);
       setRestartMessage({
         type: 'error',
         text: error.response?.data?.error || 'Failed to restart service'
       });
-      
+
       // Clear error after 10 seconds
       setTimeout(() => {
         setRestartMessage(null);
@@ -774,7 +774,7 @@ export default function HubDetailsPage({ params }: { params: Promise<{ hubId: st
   };
 
   // Memoized calculations
-  const hubTotals = useMemo(() => 
+  const hubTotals = useMemo(() =>
     machines.reduce((acc, m) => ({
       moneyIn: acc.moneyIn + (m.totalMoneyIn || 0),
       moneyOut: acc.moneyOut + (m.totalMoneyOut || 0),
@@ -783,15 +783,15 @@ export default function HubDetailsPage({ params }: { params: Promise<{ hubId: st
     [machines]
   );
 
-  const profitMargin = useMemo(() => 
-    hubTotals.moneyIn > 0 
+  const profitMargin = useMemo(() =>
+    hubTotals.moneyIn > 0
       ? ((hubTotals.revenue / hubTotals.moneyIn) * 100).toFixed(1)
       : '0',
     [hubTotals]
   );
 
-  const isOnline = useMemo(() => 
-    hub?.isOnline && hub.lastHeartbeat && 
+  const isOnline = useMemo(() =>
+    hub?.isOnline && hub.lastHeartbeat &&
     (new Date().getTime() - new Date(hub.lastHeartbeat).getTime()) < 120000,
     [hub?.isOnline, hub?.lastHeartbeat]
   );
@@ -817,8 +817,8 @@ export default function HubDetailsPage({ params }: { params: Promise<{ hubId: st
     return (
       <AdminLayout>
         <div className={`min-h-screen transition-colors duration-300 ${
-          isDark 
-            ? 'bg-black' 
+          isDark
+            ? 'bg-black'
             : 'bg-neutral-50'
         }`}>
           <div className="flex items-center justify-center min-h-screen">
@@ -839,8 +839,8 @@ export default function HubDetailsPage({ params }: { params: Promise<{ hubId: st
   return (
     <AdminLayout>
       <div className={`transition-colors duration-300 ${
-        isDark 
-          ? 'bg-transparent' 
+        isDark
+          ? 'bg-transparent'
           : 'bg-transparent'
       }`}>
         <div className="max-w-7xl mx-auto">
@@ -939,8 +939,8 @@ export default function HubDetailsPage({ params }: { params: Promise<{ hubId: st
           {/* Error Message */}
           {err && (
             <div className={`mb-6 rounded-xl p-4 border ${
-              isDark 
-                ? 'bg-red-900/30 border-red-500/30' 
+              isDark
+                ? 'bg-red-900/30 border-red-500/30'
                 : 'bg-red-50 border-red-200'
             }`}>
               <div className="flex items-center">
@@ -956,11 +956,11 @@ export default function HubDetailsPage({ params }: { params: Promise<{ hubId: st
           {restartMessage && (
             <div className={`mb-6 rounded-xl p-4 border ${
               restartMessage.type === 'success'
-                ? isDark 
-                  ? 'bg-green-900/30 border-green-500/30' 
+                ? isDark
+                  ? 'bg-green-900/30 border-green-500/30'
                   : 'bg-green-50 border-green-200'
-                : isDark 
-                  ? 'bg-red-900/30 border-red-500/30' 
+                : isDark
+                  ? 'bg-red-900/30 border-red-500/30'
                   : 'bg-red-50 border-red-200'
             }`}>
               <div className="flex items-center justify-between">
@@ -998,8 +998,8 @@ export default function HubDetailsPage({ params }: { params: Promise<{ hubId: st
           {/* Token Expiry Warning */}
           {tokenExpiresSoon && (
             <div className={`mb-6 rounded-xl p-4 border ${
-              isDark 
-                ? 'bg-amber-900/30 border-amber-500/30' 
+              isDark
+                ? 'bg-amber-900/30 border-amber-500/30'
                 : 'bg-amber-50 border-amber-200'
             }`}>
               <div className="flex items-center">
@@ -1009,7 +1009,7 @@ export default function HubDetailsPage({ params }: { params: Promise<{ hubId: st
                     Token Expiring Soon
                   </p>
                   <p className={`text-sm mt-1 ${isDark ? 'text-amber-300' : 'text-amber-600'}`}>
-                    Your hub token will expire on {hub.tokenExpiresAt && new Date(hub.tokenExpiresAt).toLocaleDateString()}. 
+                    Your hub token will expire on {hub.tokenExpiresAt && new Date(hub.tokenExpiresAt).toLocaleDateString()}.
                     Generate a new token to maintain connectivity.
                   </p>
                 </div>
@@ -1156,8 +1156,8 @@ export default function HubDetailsPage({ params }: { params: Promise<{ hubId: st
                   Serial Status
                 </span>
                 <div className="mt-1">
-                  <StatusBadge 
-                    status={hub.health?.serialConnected ? 'online' : 'offline'} 
+                  <StatusBadge
+                    status={hub.health?.serialConnected ? 'online' : 'offline'}
                     isDark={isDark}
                   />
                 </div>
@@ -1187,8 +1187,8 @@ export default function HubDetailsPage({ params }: { params: Promise<{ hubId: st
 
           {/* Machines */}
           <div className={`rounded-2xl p-6 border mb-8 ${
-            isDark 
-              ? 'bg-neutral-900/50 border-neutral-800' 
+            isDark
+              ? 'bg-neutral-900/50 border-neutral-800'
               : 'bg-white border-neutral-200'
           }`}>
             <div className="flex items-center justify-between mb-4">
@@ -1204,11 +1204,11 @@ export default function HubDetailsPage({ params }: { params: Promise<{ hubId: st
             ) : (
               <div className="space-y-3">
                 {machines.map((machine) => (
-                  <div 
-                    key={machine.machineId} 
+                  <div
+                    key={machine.machineId}
                     className={`rounded-lg p-4 transition-all ${
-                      isDark 
-                        ? 'bg-neutral-950/50 hover:bg-neutral-900/70' 
+                      isDark
+                        ? 'bg-neutral-950/50 hover:bg-neutral-900/70'
                         : 'bg-neutral-50 hover:bg-neutral-100'
                     }`}
                   >
@@ -1220,16 +1220,16 @@ export default function HubDetailsPage({ params }: { params: Promise<{ hubId: st
                           </p>
                           {machine.isRegistered ? (
                             <span className={`text-xs px-2 py-0.5 rounded-full border ${
-                              isDark 
-                                ? 'border-emerald-600/30 text-emerald-300 bg-emerald-500/15' 
+                              isDark
+                                ? 'border-emerald-600/30 text-emerald-300 bg-emerald-500/15'
                                 : 'border-emerald-600/40 text-emerald-700 bg-emerald-50'
                             }`}>
                               Registered
                             </span>
                           ) : (
                             <span className={`text-xs px-2 py-0.5 rounded-full border ${
-                              isDark 
-                                ? 'border-neutral-600/30 text-neutral-300 bg-neutral-500/15' 
+                              isDark
+                                ? 'border-neutral-600/30 text-neutral-300 bg-neutral-500/15'
                                 : 'border-neutral-400/40 text-neutral-700 bg-neutral-100'
                             }`}>
                               Unregistered
@@ -1255,8 +1255,8 @@ export default function HubDetailsPage({ params }: { params: Promise<{ hubId: st
                             setSelectedMachineForQR(machine);
                           }}
                           className={`p-2 rounded-lg transition-all ${
-                            isDark 
-                              ? 'bg-purple-600/20 hover:bg-purple-600/30 text-purple-400' 
+                            isDark
+                              ? 'bg-purple-600/20 hover:bg-purple-600/30 text-purple-400'
                               : 'bg-purple-100 hover:bg-purple-200 text-purple-700'
                           }`}
                           title="Generate QR Code"
@@ -1280,8 +1280,8 @@ export default function HubDetailsPage({ params }: { params: Promise<{ hubId: st
           {/* Recent Events */}
           {events.length > 0 && (
             <div className={`rounded-2xl p-6 border ${
-              isDark 
-                ? 'bg-neutral-900/50 border-neutral-800' 
+              isDark
+                ? 'bg-neutral-900/50 border-neutral-800'
                 : 'bg-white border-neutral-200'
             }`}>
               <div className="flex items-center justify-between mb-4">
@@ -1292,11 +1292,11 @@ export default function HubDetailsPage({ params }: { params: Promise<{ hubId: st
               </div>
               <div className="space-y-2">
                 {events.slice(0, 10).map((event) => (
-                  <div 
-                    key={event._id} 
+                  <div
+                    key={event._id}
                     className={`rounded-lg p-3 flex items-center justify-between ${
-                      isDark 
-                        ? 'bg-neutral-950/50' 
+                      isDark
+                        ? 'bg-neutral-950/50'
                         : 'bg-neutral-50'
                     }`}
                   >
