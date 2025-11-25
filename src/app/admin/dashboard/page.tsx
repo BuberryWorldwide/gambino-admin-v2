@@ -233,7 +233,7 @@ export default function DashboardPage() {
 
       const hubs: Hub[] = hubsRes.data.hubs || [];
       const stores = storesRes.data.stores || [];
-      const metrics = metricsRes.data;
+      const metrics = metricsRes.data || {};
 
       const onlineHubs = hubs.filter(h => h.isOnline).length;
       const offlineHubs = hubs.length - onlineHubs;
@@ -267,15 +267,11 @@ export default function DashboardPage() {
     }
   } catch (err: unknown) {
     console.error('Failed to load dashboard:', err);
-    
+    // 401 handling is centralized in api.ts interceptor
     if (axios.isAxiosError(err)) {
-      if (err.response?.status === 401) {
-        console.log('Unauthorized - clearing token and redirecting');
-        clearToken();
-        window.location.href = '/login';
-        return;
-      }
-      setError(err.response?.data?.error || 'Failed to load dashboard');
+      setError(err.response?.data?.error || err.message || 'Failed to load dashboard');
+    } else if (err instanceof Error) {
+      setError(err.message);
     } else {
       setError('Failed to load dashboard');
     }

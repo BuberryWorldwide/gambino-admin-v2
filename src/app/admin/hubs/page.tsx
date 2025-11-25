@@ -86,15 +86,7 @@ const loadUser = async () => {
     setUser(res.data.user);
   } catch (err) {
     console.log('Failed to load user profile');
-    
-    // Handle 401 errors - redirect to login
-    if (axios.isAxiosError(err) && err.response?.status === 401) {
-      console.log('Unauthorized - clearing token and redirecting');
-      clearToken();
-      window.location.href = '/login';
-      return;
-    }
-    
+    // 401 handling is centralized in api.ts interceptor
     setUser(null);
   }
 };
@@ -123,17 +115,11 @@ const loadUser = async () => {
     setDiscoveredMachines(machinesData);
   } catch (err: unknown) {
     console.error('Failed to load hubs:', err);
-    
-    // Handle 401 errors
-    if (axios.isAxiosError(err) && err.response?.status === 401) {
-      console.log('Unauthorized - redirecting to login');
-      clearToken();
-      window.location.href = '/login';
-      return;
-    }
-    
+    // 401 handling is centralized in api.ts interceptor
     if (axios.isAxiosError(err)) {
-      setError(err.response?.data?.error || 'Failed to load hubs');
+      setError(err.response?.data?.error || err.message || 'Failed to load hubs');
+    } else if (err instanceof Error) {
+      setError(err.message);
     } else {
       setError('Failed to load hubs');
     }

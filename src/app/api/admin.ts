@@ -7,7 +7,7 @@ export class AdminAPI {
     endpoint: string,
     options: RequestInit = {}
   ): Promise<Response> {
-    const token = localStorage.getItem('token');
+    const token = localStorage.getItem('gambino_token');
     
     const response = await fetch(`${API_BASE}${endpoint}`, {
       ...options,

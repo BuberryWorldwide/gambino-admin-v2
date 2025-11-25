@@ -68,6 +68,7 @@ export default function MachinesPage() {
     activeMachines: 0
   });
   const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
   const [searchTerm, setSearchTerm] = useState('');
   const [statusFilter, setStatusFilter] = useState<string>('all');
   const [editingMachine, setEditingMachine] = useState<string | null>(null);
@@ -119,26 +120,27 @@ export default function MachinesPage() {
 const loadMachines = async () => {
   try {
     setLoading(true);
-    
+    setError(null);
+
     // Get all hubs
     const hubsRes = await api.get('/api/admin/hubs');
     const hubs = hubsRes.data.hubs || [];
-    
+
     const allMachines: Machine[] = [];
-    
+
     // Get machines from each hub
     for (const hub of hubs) {
       try {
         const machinesRes = await api.get(`/api/admin/hubs/${hub.hubId}/discovered-machines`);
         const hubMachines = machinesRes.data.machines || [];
-        
+
         hubMachines.forEach((m: Machine) => {
           m.hubId = hub.hubId;
           m.storeId = hub.storeId;
           m.store = hub.store;
-          
+
           const existingIndex = allMachines.findIndex(existing => existing.machineId === m.machineId);
-          
+
           if (existingIndex === -1) {
             allMachines.push(m);
           }
@@ -147,9 +149,9 @@ const loadMachines = async () => {
         console.error(`Failed to load machines for hub ${hub.hubId}`);
       }
     }
-    
+
     setMachines(allMachines);
-    
+
     const newStats = {
       total: allMachines.length,
       active: allMachines.filter((m: Machine) => m.isRegistered).length,
@@ -157,9 +159,11 @@ const loadMachines = async () => {
       maintenance: 0
     };
     setStats(newStats);
-    
+
   } catch (err) {
     console.error('Failed to load machines:', err);
+    const errorMessage = err instanceof Error ? err.message : 'Failed to load machines';
+    setError(errorMessage);
   } finally {
     setLoading(false);
   }

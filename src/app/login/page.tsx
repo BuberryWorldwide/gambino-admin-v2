@@ -18,15 +18,32 @@ export default function LoginPage() {
   const [loading, setLoading] = useState(false);
 
   const handleLogin = async (e: React.FormEvent) => {
-  e.preventDefault();
-  console.log('Login clicked', { email, password }); // ADD THIS
-  setLoading(true);
-  setError('');
+    e.preventDefault();
+    setLoading(true);
+    setError('');
+
+    // Basic validation
+    if (!email || !email.includes('@')) {
+      setError('Please enter a valid email address');
+      setLoading(false);
+      return;
+    }
+
+    if (!password || password.length < 4) {
+      setError('Please enter your password');
+      setLoading(false);
+      return;
+    }
 
     try {
       // Step 1: Login to backend
       const { data } = await api.post('/api/auth/login', { email, password });
-      
+
+      // Validate response has required fields
+      if (!data?.token || !data?.user) {
+        throw new Error('Invalid response from server');
+      }
+
       // Step 2: Store token and user data in localStorage
       setToken(data.token, data.user);
       
