@@ -1,0 +1,251 @@
+@import 'tailwindcss';
+
+@theme {
+  --color-gold: #ffd700;
+}
+
+:root { 
+  color-scheme: dark; 
+}
+
+body {
+  @apply bg-black text-white;
+  /* Mobile-safe scrolling */
+  overflow-x: hidden;
+  -webkit-overflow-scrolling: touch;
+  
+  /* Simplified background */
+  background: radial-gradient(1000px 600px at 50% -10%, rgba(255,215,0,0.06), transparent),
+              radial-gradient(800px 400px at 110% 10%, rgba(255,215,0,0.04), transparent),
+              radial-gradient(800px 400px at -10% 10%, rgba(255,215,0,0.04), transparent);
+}
+
+/* Buttons - Working styles */
+.btn {
+  @apply inline-flex items-center justify-center rounded-lg font-semibold px-4 py-2;
+  touch-action: manipulation;
+  -webkit-tap-highlight-color: transparent;
+  min-height: 44px; /* iOS minimum */
+}
+
+.btn-gold { 
+  @apply bg-gold text-black hover:brightness-95 transition; 
+}
+
+.btn-ghost { 
+  @apply border border-gold text-gold hover:bg-gold/10 transition; 
+}
+
+/* Cards - Working styles */
+.card { 
+  @apply bg-zinc-900/70 border border-zinc-800 rounded-xl p-6; 
+  backdrop-filter: blur(10px);
+}
+
+.card:hover {
+  @apply border-zinc-700;
+  transform: translateY(-1px);
+  box-shadow: 0 4px 15px rgba(0,0,0,0.2);
+}
+
+/* Inputs - Mobile safe */
+.input { 
+  @apply w-full bg-zinc-900 border border-zinc-800 rounded-lg px-3 py-2;
+  @apply focus:outline-none focus:ring-2 focus:ring-gold/40;
+  font-size: 16px; /* Prevents iOS zoom */
+  -webkit-appearance: none;
+}
+
+.label { 
+  @apply text-sm text-zinc-400; 
+}
+
+/* Text gradient that actually works */
+.text-gradient-gold {
+  background: linear-gradient(45deg, #ffd700, #ffed4e);
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+  background-clip: text;
+}
+
+/* Status indicators */
+.status-live {
+  @apply bg-green-500;
+  animation: pulse 2s cubic-bezier(0.4, 0, 0.6, 1) infinite;
+}
+
+/* Stats boxes - Simple and working */
+.stat-box {
+  @apply rounded-lg border border-zinc-800 bg-black p-6 text-center;
+}
+
+.stat-value {
+  @apply text-3xl font-bold text-gold;
+}
+
+.stat-label {
+  @apply mt-2 text-xs uppercase tracking-wide text-zinc-400;
+}
+
+/* Balance items */
+.balance-item {
+  @apply bg-zinc-800 p-3 rounded border border-zinc-700;
+}
+
+.balance-grid {
+  @apply grid grid-cols-1 sm:grid-cols-3 gap-3;
+}
+
+/* Wallet address display */
+.wallet-address {
+  @apply font-mono break-all text-gold bg-zinc-800 p-3 rounded border border-zinc-700;
+  word-break: break-all;
+}
+
+/* Private key warning */
+.private-key-warning {
+  @apply border border-red-600/30 rounded-lg p-4 bg-red-900/10;
+}
+
+/* Loading spinner */
+.loading-spinner {
+  @apply animate-spin rounded-full border-2 border-current border-r-transparent;
+}
+
+/* Enhanced navbar */
+.navbar {
+  @apply border-b border-zinc-800 sticky top-0 z-40 bg-black/80;
+  backdrop-filter: blur(12px);
+}
+
+/* Mobile optimizations */
+@media (max-width: 768px) {
+  body {
+    /* Lighter background on mobile */
+    background: radial-gradient(600px 400px at 50% -10%, rgba(255,215,0,0.03), transparent);
+  }
+  
+  .card {
+    @apply p-4;
+  }
+  
+  .stat-box {
+    @apply p-4;
+  }
+  
+  .stat-value {
+    @apply text-2xl;
+  }
+  
+  /* Ensure mobile buttons work properly */
+  .btn {
+    @apply px-4 py-3;
+  }
+  
+  /* Better mobile text sizing */
+  .text-gradient-gold {
+    font-size: clamp(1.5rem, 8vw, 2.5rem);
+  }
+}
+
+/* Fix for mobile Safari */
+@supports (-webkit-appearance: none) {
+  .input {
+    -webkit-appearance: none;
+    border-radius: 8px;
+  }
+}
+
+.input {
+  @apply w-full bg-neutral-900/80 border border-neutral-800 rounded-lg px-3 py-2 transition-all duration-200;
+  @apply focus:outline-none focus:ring-2 focus:ring-yellow-500/40 focus:border-yellow-500/30;
+  font-size: 16px; /* Prevents iOS zoom */
+  -webkit-appearance: none;
+  /* Remove any icon padding */
+  padding-left: 12px !important;
+  padding-right: 12px !important;
+}
+
+/* Additional mobile-specific fixes */
+@media screen and (max-width: 768px) {
+  /* Prevent horizontal scroll issues */
+  * {
+    max-width: 100%;
+    word-wrap: break-word;
+  }
+
+  /* Better touch targets */
+  button, .btn, a[class*="btn"] {
+    min-height: 44px;
+    min-width: 44px;
+  }
+
+  /* Mobile modal improvements */
+  .modal-overlay {
+    overflow-y: auto;
+    -webkit-overflow-scrolling: touch;
+  }
+}
+
+/* Modal and overlay styles */
+.modal-overlay {
+  position: fixed;
+  inset: 0;
+  z-index: 50;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 1rem;
+  background-color: rgba(0, 0, 0, 0.8);
+  backdrop-filter: blur(4px);
+  -webkit-backdrop-filter: blur(4px);
+}
+
+/* Prevent body scroll when modal is open */
+body.modal-open {
+  overflow: hidden;
+  position: fixed;
+  width: 100%;
+  height: 100%;
+}
+
+/* Smooth transitions for buttons */
+.btn {
+  transition: all 0.2s ease-in-out;
+}
+
+.btn:active {
+  transform: scale(0.98);
+}
+
+/* Better focus states for accessibility and mobile */
+.input:focus,
+select:focus,
+textarea:focus {
+  outline: none;
+  ring: 2px;
+  ring-color: rgba(234, 179, 8, 0.4);
+  border-color: rgba(234, 179, 8, 0.3);
+}
+
+/* Improved select styling for mobile */
+select.input {
+  -webkit-appearance: none;
+  -moz-appearance: none;
+  appearance: none;
+  background-image: url("data:image/svg+xml;charset=UTF-8,%3csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%23ffd700' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3e%3cpolyline points='6 9 12 15 18 9'%3e%3c/polyline%3e%3c/svg%3e");
+  background-repeat: no-repeat;
+  background-position: right 0.75rem center;
+  background-size: 1.25em 1.25em;
+  padding-right: 2.5rem;
+}
+
+/* Copy button feedback */
+@keyframes copyFeedback {
+  0%, 100% { transform: scale(1); }
+  50% { transform: scale(1.1); }
+}
+
+.copy-success {
+  animation: copyFeedback 0.3s ease-in-out;
+}

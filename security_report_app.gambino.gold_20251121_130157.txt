@@ -1,0 +1,29 @@
+================================
+Security Scan Report
+Domain: app.gambino.gold
+Date: Fri Nov 21 01:01:57 PM EST 2025
+================================
+
+
+=== Site Accessibility ===
+✓ Site is accessible
+
+=== Security Headers Analysis ===
+✓ HTTPS: Enforced
+✓ HSTS: Enabled with includeSubDomains
+✓ CSP: Implemented
+✓ X-Frame-Options: Protected against clickjacking
+✓ X-Content-Type-Options: Enabled
+✓ X-XSS-Protection: Enabled
+✓ Permissions-Policy: Implemented
+✓ Referrer-Policy: Set
+
+=== SSL/TLS Configuration ===
+✓ SSL Certificate: Valid
+ℹ Certificate expires: Jan 23 20:22:36 2026 GMT
+
+=== Common Vulnerabilities Check ===
+⚠ Server header disclosed: cloudflare
+✓ X-Powered-By: Not disclosed
+
+=== Cookie Security ===
