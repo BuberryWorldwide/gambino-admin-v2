@@ -1,11 +1,11 @@
+// src/app/admin/stores/page.tsx
 'use client';
 
 import { useEffect, useState } from 'react';
 import { useRouter } from 'next/navigation';
-import { Search, Store as StoreIcon, MapPin, Activity, DollarSign, Eye } from 'lucide-react';
+import { Search, Store as StoreIcon, MapPin, Activity, DollarSign, Eye, RefreshCw, AlertCircle } from 'lucide-react';
 import api from '@/lib/api';
 import { Button } from '@/components/ui/button';
-import { Card } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
 import { Badge } from '@/components/ui/badge';
 import {
@@ -66,13 +66,13 @@ export default function StoresPage() {
   const getStatusColor = (status: string) => {
     switch (status) {
       case 'active':
-        return 'bg-green-500/10 text-green-600 dark:bg-green-500/20 dark:text-green-400 border-green-500/20';
+        return 'bg-green-100 dark:bg-green-950/50 text-green-700 dark:text-green-300';
       case 'inactive':
-        return 'bg-red-500/10 text-red-600 dark:bg-red-500/20 dark:text-red-400 border-red-500/20';
+        return 'bg-red-100 dark:bg-red-950/50 text-red-700 dark:text-red-300';
       case 'pending':
-        return 'bg-yellow-500/10 text-yellow-600 dark:bg-yellow-500/20 dark:text-yellow-400 border-yellow-500/20';
+        return 'bg-yellow-100 dark:bg-yellow-950/50 text-yellow-700 dark:text-yellow-300';
       default:
-        return 'bg-gray-500/10 text-gray-600 dark:bg-gray-500/20 dark:text-gray-400 border-gray-500/20';
+        return 'bg-neutral-100 dark:bg-neutral-800 text-neutral-600 dark:text-neutral-400';
     }
   };
 
@@ -83,10 +83,10 @@ export default function StoresPage() {
   if (loading) {
     return (
       <AdminLayout>
-        <div className="flex items-center justify-center min-h-[60vh]">
+        <div className="flex items-center justify-center h-[calc(100vh-200px)]">
           <div className="text-center">
-            <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-yellow-500 dark:border-yellow-400 mx-auto mb-4"></div>
-            <p className="text-gray-600 dark:text-gray-400">Loading stores...</p>
+            <RefreshCw className="w-8 h-8 text-neutral-400 animate-spin mx-auto mb-4" />
+            <p className="text-sm text-neutral-500 dark:text-neutral-400">Loading venues...</p>
           </div>
         </div>
       </AdminLayout>
@@ -96,20 +96,16 @@ export default function StoresPage() {
   if (error) {
     return (
       <AdminLayout>
-        <div className="p-4 sm:p-6 lg:p-8 bg-gray-50 dark:bg-gray-950 min-h-screen">
-          <div className="max-w-md mx-auto mt-12">
-            <Card className="p-6 bg-white dark:bg-gray-900 border-red-200 dark:border-red-900">
-              <div className="text-center">
-                <div className="w-12 h-12 mx-auto mb-4 rounded-full bg-red-100 dark:bg-red-900/30 flex items-center justify-center">
-                  <StoreIcon className="w-6 h-6 text-red-600 dark:text-red-400" />
-                </div>
-                <h2 className="text-lg font-semibold text-gray-900 dark:text-white mb-2">Failed to Load Stores</h2>
-                <p className="text-gray-600 dark:text-gray-400 mb-4">{error}</p>
-                <Button onClick={loadStores} className="bg-yellow-500 hover:bg-yellow-600 text-gray-900">
-                  Try Again
-                </Button>
-              </div>
-            </Card>
+        <div className="max-w-md mx-auto mt-12 px-4">
+          <div className="bg-white dark:bg-neutral-900 rounded-2xl border border-neutral-200 dark:border-neutral-800 p-8 text-center">
+            <div className="w-12 h-12 rounded-full bg-red-100 dark:bg-red-950 flex items-center justify-center mx-auto mb-4">
+              <AlertCircle className="w-6 h-6 text-red-600 dark:text-red-400" />
+            </div>
+            <h2 className="text-lg font-semibold text-neutral-900 dark:text-white mb-2">Failed to Load Venues</h2>
+            <p className="text-sm text-neutral-500 dark:text-neutral-400 mb-6">{error}</p>
+            <Button onClick={loadStores} className="bg-neutral-900 dark:bg-white text-white dark:text-neutral-900">
+              Try Again
+            </Button>
           </div>
         </div>
       </AdminLayout>
@@ -118,145 +114,117 @@ export default function StoresPage() {
 
   return (
     <AdminLayout>
-      <div className="p-4 sm:p-6 lg:p-8 bg-gray-50 dark:bg-gray-950 min-h-screen">
+      <div className="p-4 lg:p-6 space-y-6">
         {/* Header */}
-        <div className="mb-8">
-          <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
-            <div>
-              <h1 className="text-3xl lg:text-4xl font-bold text-gray-900 dark:text-white mb-2">
-                Store Management
-              </h1>
-              <p className="text-gray-600 dark:text-gray-400 flex items-center gap-2">
-                <span className="inline-flex items-center justify-center w-6 h-6 rounded-full bg-yellow-500/10 dark:bg-yellow-400/10 text-yellow-600 dark:text-yellow-400 text-sm font-semibold">
-                  {filteredStores.length}
-                </span>
-                total stores
-              </p>
-            </div>
+        <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
+          <div>
+            <h1 className="text-2xl font-semibold text-neutral-900 dark:text-white">Venues</h1>
+            <p className="text-sm text-neutral-500 dark:text-neutral-400 mt-1">
+              {filteredStores.length} total venue{filteredStores.length !== 1 ? 's' : ''}
+            </p>
           </div>
+          <Button
+            variant="outline"
+            onClick={loadStores}
+            className="border-neutral-200 dark:border-neutral-800"
+          >
+            <RefreshCw className="w-4 h-4 mr-2" />
+            Refresh
+          </Button>
+        </div>
+
+        {/* Stats */}
+        <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
+          <StatCard
+            label="Active"
+            value={stores.filter(s => s.status === 'active').length}
+            icon={<Activity className="w-5 h-5" />}
+            color="green"
+          />
+          <StatCard
+            label="Inactive"
+            value={stores.filter(s => s.status === 'inactive').length}
+            icon={<Activity className="w-5 h-5" />}
+            color="red"
+          />
+          <StatCard
+            label="Pending"
+            value={stores.filter(s => s.status === 'pending').length}
+            icon={<Activity className="w-5 h-5" />}
+            color="yellow"
+          />
+          <StatCard
+            label="Total Revenue"
+            value={`$${stores.reduce((sum, s) => sum + (s.totalRevenue || 0), 0).toLocaleString()}`}
+            icon={<DollarSign className="w-5 h-5" />}
+            color="blue"
+          />
         </div>
 
         {/* Search */}
-        <Card className="p-4 mb-6 bg-white dark:bg-gray-900 border-gray-200 dark:border-gray-800 shadow-sm">
+        <div className="bg-white dark:bg-neutral-900 border border-neutral-200 dark:border-neutral-800 rounded-xl p-4">
           <div className="relative">
-            <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-5 h-5 text-gray-400 dark:text-gray-500" />
+            <Search className="absolute left-3.5 top-1/2 -translate-y-1/2 w-4 h-4 text-neutral-400" />
             <Input
-              placeholder="Search stores by name, ID, city, or state..."
+              placeholder="Search venues by name, ID, city, or state..."
               value={searchTerm}
               onChange={(e: React.ChangeEvent<HTMLInputElement>) => setSearchTerm(e.target.value)}
-              className="pl-10 bg-gray-50 dark:bg-gray-800 border-gray-300 dark:border-gray-700 text-gray-900 dark:text-white focus:ring-yellow-500 dark:focus:ring-yellow-400"
+              className="pl-10 h-10 bg-neutral-50 dark:bg-neutral-800 border-neutral-200 dark:border-neutral-700 text-neutral-900 dark:text-white"
             />
           </div>
-        </Card>
-
-        {/* Stats Cards */}
-        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 mb-6">
-          <Card className="p-4 bg-white dark:bg-gray-900 border-gray-200 dark:border-gray-800">
-            <div className="flex items-center gap-3">
-              <div className="p-2 rounded-lg bg-green-500/10 dark:bg-green-500/20">
-                <Activity className="w-5 h-5 text-green-600 dark:text-green-400" />
-              </div>
-              <div>
-                <p className="text-sm text-gray-600 dark:text-gray-400">Active</p>
-                <p className="text-2xl font-bold text-gray-900 dark:text-white">
-                  {stores.filter(s => s.status === 'active').length}
-                </p>
-              </div>
-            </div>
-          </Card>
-
-          <Card className="p-4 bg-white dark:bg-gray-900 border-gray-200 dark:border-gray-800">
-            <div className="flex items-center gap-3">
-              <div className="p-2 rounded-lg bg-red-500/10 dark:bg-red-500/20">
-                <Activity className="w-5 h-5 text-red-600 dark:text-red-400" />
-              </div>
-              <div>
-                <p className="text-sm text-gray-600 dark:text-gray-400">Inactive</p>
-                <p className="text-2xl font-bold text-gray-900 dark:text-white">
-                  {stores.filter(s => s.status === 'inactive').length}
-                </p>
-              </div>
-            </div>
-          </Card>
-
-          <Card className="p-4 bg-white dark:bg-gray-900 border-gray-200 dark:border-gray-800">
-            <div className="flex items-center gap-3">
-              <div className="p-2 rounded-lg bg-yellow-500/10 dark:bg-yellow-500/20">
-                <Activity className="w-5 h-5 text-yellow-600 dark:text-yellow-400" />
-              </div>
-              <div>
-                <p className="text-sm text-gray-600 dark:text-gray-400">Pending</p>
-                <p className="text-2xl font-bold text-gray-900 dark:text-white">
-                  {stores.filter(s => s.status === 'pending').length}
-                </p>
-              </div>
-            </div>
-          </Card>
-
-          <Card className="p-4 bg-white dark:bg-gray-900 border-gray-200 dark:border-gray-800">
-            <div className="flex items-center gap-3">
-              <div className="p-2 rounded-lg bg-blue-500/10 dark:bg-blue-500/20">
-                <DollarSign className="w-5 h-5 text-blue-600 dark:text-blue-400" />
-              </div>
-              <div>
-                <p className="text-sm text-gray-600 dark:text-gray-400">Total Revenue</p>
-                <p className="text-xl font-bold text-gray-900 dark:text-white">
-                  ${stores.reduce((sum, s) => sum + (s.totalRevenue || 0), 0).toLocaleString()}
-                </p>
-              </div>
-            </div>
-          </Card>
         </div>
 
         {/* Table */}
-        <Card className="bg-white dark:bg-gray-900 border-gray-200 dark:border-gray-800 shadow-sm overflow-hidden">
+        <div className="bg-white dark:bg-neutral-900 border border-neutral-200 dark:border-neutral-800 rounded-xl overflow-hidden">
           <div className="overflow-x-auto">
             <Table>
               <TableHeader>
-                <TableRow className="border-gray-200 dark:border-gray-800 hover:bg-gray-50 dark:hover:bg-gray-800/50">
-                  <TableHead className="text-gray-700 dark:text-gray-300 font-semibold">Store</TableHead>
-                  <TableHead className="text-gray-700 dark:text-gray-300 font-semibold">Store ID</TableHead>
-                  <TableHead className="text-gray-700 dark:text-gray-300 font-semibold">Location</TableHead>
-                  <TableHead className="text-gray-700 dark:text-gray-300 font-semibold">Status</TableHead>
-                  <TableHead className="text-gray-700 dark:text-gray-300 font-semibold">Hubs</TableHead>
-                  <TableHead className="text-gray-700 dark:text-gray-300 font-semibold">Machines</TableHead>
-                  <TableHead className="text-gray-700 dark:text-gray-300 font-semibold text-right">Actions</TableHead>
+                <TableRow className="border-neutral-200 dark:border-neutral-800 bg-neutral-50 dark:bg-neutral-800/50">
+                  <TableHead className="text-neutral-600 dark:text-neutral-300 font-medium">Venue</TableHead>
+                  <TableHead className="text-neutral-600 dark:text-neutral-300 font-medium hidden sm:table-cell">ID</TableHead>
+                  <TableHead className="text-neutral-600 dark:text-neutral-300 font-medium">Location</TableHead>
+                  <TableHead className="text-neutral-600 dark:text-neutral-300 font-medium">Status</TableHead>
+                  <TableHead className="text-neutral-600 dark:text-neutral-300 font-medium hidden md:table-cell">Hubs</TableHead>
+                  <TableHead className="text-neutral-600 dark:text-neutral-300 font-medium hidden lg:table-cell">Machines</TableHead>
+                  <TableHead className="text-neutral-600 dark:text-neutral-300 font-medium text-right">Actions</TableHead>
                 </TableRow>
               </TableHeader>
               <TableBody>
                 {filteredStores.length === 0 ? (
                   <TableRow>
                     <TableCell colSpan={7} className="text-center py-12">
-                      <div className="text-gray-500 dark:text-gray-400">
-                        {searchTerm ? 'No stores found matching your search' : 'No stores found'}
+                      <div className="text-neutral-500 dark:text-neutral-400">
+                        {searchTerm ? 'No venues found matching your search' : 'No venues found'}
                       </div>
                     </TableCell>
                   </TableRow>
                 ) : (
                   filteredStores.map((store) => (
-                    <TableRow 
-                      key={store._id} 
-                      className="border-gray-200 dark:border-gray-800 hover:bg-gray-50 dark:hover:bg-gray-800/50 transition-colors"
+                    <TableRow
+                      key={store._id}
+                      className="border-neutral-100 dark:border-neutral-800 hover:bg-neutral-50 dark:hover:bg-neutral-800/50 transition-colors"
                     >
                       <TableCell>
                         <div className="flex items-center gap-3">
-                          <div className="w-10 h-10 rounded-lg bg-gradient-to-br from-yellow-400 to-yellow-600 dark:from-yellow-300 dark:to-yellow-500 flex items-center justify-center text-gray-900 shadow-md">
-                            <StoreIcon className="w-5 h-5" />
+                          <div className="w-9 h-9 rounded-lg bg-gradient-to-br from-yellow-400 to-amber-500 flex items-center justify-center text-neutral-900">
+                            <StoreIcon className="w-4 h-4" />
                           </div>
-                          <div>
-                            <div className="text-gray-900 dark:text-white font-medium">
+                          <div className="min-w-0">
+                            <div className="text-neutral-900 dark:text-white font-medium truncate">
                               {store.storeName}
                             </div>
                           </div>
                         </div>
                       </TableCell>
-                      <TableCell className="font-mono text-gray-600 dark:text-gray-400 text-sm">
-                        {store.storeId}
+                      <TableCell className="hidden sm:table-cell">
+                        <span className="font-mono text-sm text-neutral-600 dark:text-neutral-400">
+                          {store.storeId}
+                        </span>
                       </TableCell>
                       <TableCell>
-                        <div className="flex items-center gap-1.5 text-gray-700 dark:text-gray-300">
-                          <MapPin className="w-4 h-4 text-gray-400" />
-                          <span>
+                        <div className="flex items-center gap-1.5 text-sm text-neutral-700 dark:text-neutral-300">
+                          <MapPin className="w-3.5 h-3.5 text-neutral-400" />
+                          <span className="truncate">
                             {store.city && store.state
                               ? `${store.city}, ${store.state}`
                               : store.city || store.state || '—'}
@@ -264,22 +232,22 @@ export default function StoresPage() {
                         </div>
                       </TableCell>
                       <TableCell>
-                        <Badge className={`${getStatusColor(store.status)} border`}>
+                        <Badge className={`${getStatusColor(store.status)} text-xs font-medium px-2 py-0.5`}>
                           {getStatusLabel(store.status)}
                         </Badge>
                       </TableCell>
-                      <TableCell className="text-gray-700 dark:text-gray-300">
+                      <TableCell className="hidden md:table-cell">
                         {store.hubsCount !== undefined ? (
-                          <span className="font-medium">{store.hubsCount}</span>
+                          <span className="text-neutral-700 dark:text-neutral-300 font-medium">{store.hubsCount}</span>
                         ) : (
-                          <span className="text-gray-400 dark:text-gray-500">—</span>
+                          <span className="text-neutral-400 dark:text-neutral-500">—</span>
                         )}
                       </TableCell>
-                      <TableCell className="text-gray-700 dark:text-gray-300">
+                      <TableCell className="hidden lg:table-cell">
                         {store.machinesCount !== undefined ? (
-                          <span className="font-medium">{store.machinesCount}</span>
+                          <span className="text-neutral-700 dark:text-neutral-300 font-medium">{store.machinesCount}</span>
                         ) : (
-                          <span className="text-gray-400 dark:text-gray-500">—</span>
+                          <span className="text-neutral-400 dark:text-neutral-500">—</span>
                         )}
                       </TableCell>
                       <TableCell className="text-right">
@@ -287,10 +255,10 @@ export default function StoresPage() {
                           onClick={() => router.push(`/admin/stores/${store.storeId}`)}
                           variant="outline"
                           size="sm"
-                          className="border-gray-300 dark:border-gray-700 text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-800 hover:border-yellow-500 dark:hover:border-yellow-400"
+                          className="h-8 border-neutral-200 dark:border-neutral-700 text-neutral-600 dark:text-neutral-400 hover:text-neutral-900 dark:hover:text-white hover:border-neutral-300 dark:hover:border-neutral-600"
                         >
-                          <Eye className="w-4 h-4 mr-1.5" />
-                          View Dashboard
+                          <Eye className="w-3.5 h-3.5 mr-1.5" />
+                          View
                         </Button>
                       </TableCell>
                     </TableRow>
@@ -299,8 +267,38 @@ export default function StoresPage() {
               </TableBody>
             </Table>
           </div>
-        </Card>
+        </div>
       </div>
     </AdminLayout>
+  );
+}
+
+interface StatCardProps {
+  label: string;
+  value: string | number;
+  icon: React.ReactNode;
+  color: 'green' | 'red' | 'yellow' | 'blue';
+}
+
+function StatCard({ label, value, icon, color }: StatCardProps) {
+  const colorClasses = {
+    green: 'bg-green-100 dark:bg-green-950/50 text-green-600 dark:text-green-400',
+    red: 'bg-red-100 dark:bg-red-950/50 text-red-600 dark:text-red-400',
+    yellow: 'bg-yellow-100 dark:bg-yellow-950/50 text-yellow-600 dark:text-yellow-400',
+    blue: 'bg-blue-100 dark:bg-blue-950/50 text-blue-600 dark:text-blue-400',
+  };
+
+  return (
+    <div className="bg-white dark:bg-neutral-900 border border-neutral-200 dark:border-neutral-800 rounded-xl p-4">
+      <div className="flex items-center gap-3">
+        <div className={`w-10 h-10 rounded-lg flex items-center justify-center ${colorClasses[color]}`}>
+          {icon}
+        </div>
+        <div>
+          <p className="text-xs text-neutral-500 dark:text-neutral-400 uppercase tracking-wide font-medium">{label}</p>
+          <p className="text-xl font-bold text-neutral-900 dark:text-white">{value}</p>
+        </div>
+      </div>
+    </div>
   );
 }
