@@ -3,6 +3,7 @@
 
 import { useState, useEffect } from 'react';
 import { Activity, Server, Cpu, Store, AlertCircle, RefreshCw, ArrowRight, TrendingUp, TrendingDown, DollarSign, ChevronDown, Wifi, WifiOff, Users, MapPin, BarChart3 } from 'lucide-react';
+import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, Legend } from 'recharts';
 import api from '@/lib/api';
 import AdminLayout from '@/components/layout/AdminLayout';
 import { Button } from '@/components/ui/button';
@@ -96,6 +97,23 @@ interface MachineMetrics {
   lastUpdated: Date;
 }
 
+interface FinancialTrendData {
+  date: string;
+  moneyIn: number;
+  moneyOut: number;
+  netRevenue: number;
+}
+
+interface FinancialTrends {
+  data: FinancialTrendData[];
+  summary: {
+    totalMoneyIn: number;
+    totalMoneyOut: number;
+    totalNetRevenue: number;
+  };
+  timeframe: string;
+}
+
 export default function DashboardPage() {
   const [user, setUser] = useState<User | null>(null);
   const [stats, setStats] = useState<Stats>({
@@ -111,6 +129,7 @@ export default function DashboardPage() {
   const [error, setError] = useState<string | null>(null);
   const [machineMetrics, setMachineMetrics] = useState<MachineMetrics | null>(null);
   const [metricsTimeframe, setMetricsTimeframe] = useState('7d');
+  const [financialTrends, setFinancialTrends] = useState<FinancialTrends | null>(null);
 
   // Venue manager specific state
   const [assignedStores, setAssignedStores] = useState<StoreData[]>([]);
@@ -166,13 +185,15 @@ export default function DashboardPage() {
       if (isVenueRole) {
         // Load venue manager dashboard
         // NOTE: API routes already filter data based on user's assigned venues
-        const [storesRes, hubsRes, metricsRes] = await Promise.all([
+        const trendDays = metricsTimeframe === '24h' ? 7 : metricsTimeframe === '7d' ? 7 : metricsTimeframe === '30d' ? 30 : 90;
+        const [storesRes, hubsRes, metricsRes, trendsRes] = await Promise.all([
           api.get('/api/admin/stores'),
           api.get('/api/admin/hubs'),
           api.get(`/api/admin/machine-metrics?timeframe=${metricsTimeframe}`).catch((err) => {
             console.log('Metrics fetch failed:', err?.response?.status);
             return { data: null };
-          })
+          }),
+          api.get(`/api/admin/financial-trends?days=${trendDays}${selectedStore !== 'all' ? `&storeId=${selectedStore}` : ''}`).catch(() => ({ data: null }))
         ]);
 
         // API already scopes data to assigned venues for venue managers
@@ -251,6 +272,13 @@ export default function DashboardPage() {
           setMachineMetrics(null);
         }
 
+        // Set financial trends
+        if (trendsRes.data?.success) {
+          setFinancialTrends(trendsRes.data);
+        } else {
+          setFinancialTrends(null);
+        }
+
         // Activity
         const activity: ActivityItem[] = filteredHubs
           .sort((a: Hub, b: Hub) => {
@@ -271,17 +299,20 @@ export default function DashboardPage() {
 
       } else {
         // Super admin / Gambino ops - load everything including users
-        const [hubsRes, storesRes, metricsRes, usersRes] = await Promise.all([
+        const trendDays = metricsTimeframe === '24h' ? 7 : metricsTimeframe === '7d' ? 7 : metricsTimeframe === '30d' ? 30 : 90;
+        const [hubsRes, storesRes, metricsRes, usersRes, trendsRes] = await Promise.all([
           api.get('/api/admin/hubs'),
           api.get('/api/admin/stores'),
           api.get(`/api/admin/machine-metrics?timeframe=${metricsTimeframe}`),
-          api.get('/api/admin/users').catch(() => ({ data: { users: [] } }))
+          api.get('/api/admin/users').catch(() => ({ data: { users: [] } })),
+          api.get(`/api/admin/financial-trends?days=${trendDays}`).catch(() => ({ data: null }))
         ]);
 
         const hubs: Hub[] = hubsRes.data.hubs || [];
         const stores: StoreData[] = storesRes.data.stores || [];
         const metrics = metricsRes.data || {};
         const users: AdminUser[] = usersRes.data.users || [];
+        const trends = trendsRes.data;
 
         const onlineHubs = hubs.filter(h => h.isOnline).length;
         const offlineHubs = hubs.length - onlineHubs;
@@ -300,6 +331,12 @@ export default function DashboardPage() {
         setAllStores(stores);
         setAdminUsers(users);
         setMachineMetrics(metrics);
+
+        if (trends?.success) {
+          setFinancialTrends(trends);
+        } else {
+          setFinancialTrends(null);
+        }
 
         const activity: ActivityItem[] = hubs
           .sort((a, b) => {
@@ -512,6 +549,55 @@ export default function DashboardPage() {
               </div>
             </div>
           </div>
+
+          {/* Financial Trends Chart */}
+          {financialTrends && financialTrends.data.length > 0 && (
+            <div className="bg-white dark:bg-neutral-900 border border-neutral-200 dark:border-neutral-800 rounded-xl overflow-hidden">
+              <div className="px-5 py-4 border-b border-neutral-200 dark:border-neutral-800">
+                <h2 className="font-semibold text-neutral-900 dark:text-white">Revenue Trends</h2>
+                <p className="text-xs text-neutral-500 dark:text-neutral-400 mt-0.5">{financialTrends.timeframe}</p>
+              </div>
+              <div className="p-4" style={{ height: 280 }}>
+                <ResponsiveContainer width="100%" height="100%">
+                  <LineChart data={financialTrends.data} margin={{ top: 5, right: 20, left: 0, bottom: 5 }}>
+                    <CartesianGrid strokeDasharray="3 3" stroke="#374151" opacity={0.3} />
+                    <XAxis
+                      dataKey="date"
+                      tick={{ fontSize: 10, fill: '#9CA3AF' }}
+                      tickFormatter={(value) => {
+                        const date = new Date(value);
+                        return `${date.getMonth() + 1}/${date.getDate()}`;
+                      }}
+                    />
+                    <YAxis
+                      tick={{ fontSize: 10, fill: '#9CA3AF' }}
+                      tickFormatter={(value) => `$${value >= 1000 ? (value / 1000).toFixed(0) + 'k' : value}`}
+                    />
+                    <Tooltip
+                      contentStyle={{
+                        backgroundColor: '#1F2937',
+                        border: '1px solid #374151',
+                        borderRadius: '8px',
+                        fontSize: '12px'
+                      }}
+                      labelFormatter={(value) => new Date(value).toLocaleDateString()}
+                      formatter={(value: number, name: string) => [
+                        `$${value.toLocaleString()}`,
+                        name === 'moneyIn' ? 'Cash In' : name === 'moneyOut' ? 'Cash Out' : 'Net Revenue'
+                      ]}
+                    />
+                    <Legend
+                      formatter={(value) => value === 'moneyIn' ? 'Cash In' : value === 'moneyOut' ? 'Cash Out' : 'Net Revenue'}
+                      wrapperStyle={{ fontSize: '12px' }}
+                    />
+                    <Line type="monotone" dataKey="moneyIn" stroke="#22C55E" strokeWidth={2} dot={false} />
+                    <Line type="monotone" dataKey="moneyOut" stroke="#EF4444" strokeWidth={2} dot={false} />
+                    <Line type="monotone" dataKey="netRevenue" stroke="#F59E0B" strokeWidth={2} dot={false} />
+                  </LineChart>
+                </ResponsiveContainer>
+              </div>
+            </div>
+          )}
 
           {/* System Status - More prominent */}
           <div className="bg-white dark:bg-neutral-900 border border-neutral-200 dark:border-neutral-800 rounded-xl overflow-hidden">
@@ -780,6 +866,55 @@ export default function DashboardPage() {
           <StatCard label="Machines" value={stats.totalMachines} icon={<Cpu className="w-5 h-5" />} />
           <StatCard label="Users" value={stats.totalUsers || 0} icon={<Users className="w-5 h-5" />} />
         </div>
+
+        {/* Financial Trends Chart */}
+        {financialTrends && financialTrends.data.length > 0 && (
+          <div className="bg-white dark:bg-neutral-900 border border-neutral-200 dark:border-neutral-800 rounded-xl overflow-hidden">
+            <div className="px-5 py-4 border-b border-neutral-200 dark:border-neutral-800">
+              <h2 className="font-semibold text-neutral-900 dark:text-white">Revenue Trends</h2>
+              <p className="text-xs text-neutral-500 dark:text-neutral-400 mt-0.5">{financialTrends.timeframe}</p>
+            </div>
+            <div className="p-4" style={{ height: 300 }}>
+              <ResponsiveContainer width="100%" height="100%">
+                <LineChart data={financialTrends.data} margin={{ top: 5, right: 20, left: 0, bottom: 5 }}>
+                  <CartesianGrid strokeDasharray="3 3" stroke="#374151" opacity={0.3} />
+                  <XAxis
+                    dataKey="date"
+                    tick={{ fontSize: 10, fill: '#9CA3AF' }}
+                    tickFormatter={(value) => {
+                      const date = new Date(value);
+                      return `${date.getMonth() + 1}/${date.getDate()}`;
+                    }}
+                  />
+                  <YAxis
+                    tick={{ fontSize: 10, fill: '#9CA3AF' }}
+                    tickFormatter={(value) => `$${value >= 1000 ? (value / 1000).toFixed(0) + 'k' : value}`}
+                  />
+                  <Tooltip
+                    contentStyle={{
+                      backgroundColor: '#1F2937',
+                      border: '1px solid #374151',
+                      borderRadius: '8px',
+                      fontSize: '12px'
+                    }}
+                    labelFormatter={(value) => new Date(value).toLocaleDateString()}
+                    formatter={(value: number, name: string) => [
+                      `$${value.toLocaleString()}`,
+                      name === 'moneyIn' ? 'Cash In' : name === 'moneyOut' ? 'Cash Out' : 'Net Revenue'
+                    ]}
+                  />
+                  <Legend
+                    formatter={(value) => value === 'moneyIn' ? 'Cash In' : value === 'moneyOut' ? 'Cash Out' : 'Net Revenue'}
+                    wrapperStyle={{ fontSize: '12px' }}
+                  />
+                  <Line type="monotone" dataKey="moneyIn" stroke="#22C55E" strokeWidth={2} dot={false} />
+                  <Line type="monotone" dataKey="moneyOut" stroke="#EF4444" strokeWidth={2} dot={false} />
+                  <Line type="monotone" dataKey="netRevenue" stroke="#F59E0B" strokeWidth={2} dot={false} />
+                </LineChart>
+              </ResponsiveContainer>
+            </div>
+          </div>
+        )}
 
         {/* Venue Cards - Location Breakdowns */}
         {machineMetrics && machineMetrics.byStore.length > 0 && (
