@@ -68,6 +68,7 @@ export default function UserEditPage() {
   const [searchTerm, setSearchTerm] = useState('');
   const [error, setError] = useState('');
   const [copied, setCopied] = useState(false);
+  const [verifyingAge, setVerifyingAge] = useState(false);
   
   const [formData, setFormData] = useState({
     firstName: '',
@@ -155,6 +156,25 @@ export default function UserEditPage() {
       navigator.clipboard.writeText(user.walletAddress);
       setCopied(true);
       setTimeout(() => setCopied(false), 2000);
+    }
+  };
+
+  const handleVerifyAge = async (verified: boolean) => {
+    setVerifyingAge(true);
+    setError('');
+    try {
+      await api.post(`/api/admin/users/${userId}/verify-age`, { verified });
+      // Refresh user data
+      await loadUser();
+      setFormData(prev => ({ ...prev, ageVerified: verified }));
+    } catch (err: unknown) {
+      if (axios.isAxiosError(err)) {
+        setError(err.response?.data?.error || 'Failed to update age verification');
+      } else {
+        setError('Failed to update age verification');
+      }
+    } finally {
+      setVerifyingAge(false);
     }
   };
 
@@ -326,6 +346,40 @@ export default function UserEditPage() {
                   <p className="text-sm text-gray-600 dark:text-gray-400">Account Age</p>
                   <p className="text-sm font-medium text-gray-900 dark:text-white">
                     {user.createdAt ? Math.floor((Date.now() - new Date(user.createdAt).getTime()) / (1000 * 60 * 60 * 24)) : 0} days
+                  </p>
+                </div>
+              </div>
+            </Card>
+
+            <Card className={`p-4 border ${user.dateOfBirth ? 'bg-white dark:bg-gray-900 border-gray-200 dark:border-gray-800' : 'bg-yellow-50 dark:bg-yellow-900/20 border-yellow-200 dark:border-yellow-800'}`}>
+              <div className="flex items-center gap-3">
+                <div className={`p-2 rounded-lg ${user.dateOfBirth ? 'bg-pink-500/10 dark:bg-pink-500/20' : 'bg-yellow-500/10 dark:bg-yellow-500/20'}`}>
+                  <Calendar className={`w-5 h-5 ${user.dateOfBirth ? 'text-pink-600 dark:text-pink-400' : 'text-yellow-600 dark:text-yellow-400'}`} />
+                </div>
+                <div>
+                  <p className="text-sm text-gray-600 dark:text-gray-400">Date of Birth</p>
+                  <p className={`text-sm font-medium ${user.dateOfBirth ? 'text-gray-900 dark:text-white' : 'text-yellow-700 dark:text-yellow-400'}`}>
+                    {user.dateOfBirth
+                      ? new Date(user.dateOfBirth).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })
+                      : 'Not provided'}
+                  </p>
+                </div>
+              </div>
+            </Card>
+
+            <Card className={`p-4 border ${user.ageVerified ? 'bg-green-50 dark:bg-green-900/20 border-green-200 dark:border-green-800' : 'bg-yellow-50 dark:bg-yellow-900/20 border-yellow-200 dark:border-yellow-800'}`}>
+              <div className="flex items-center gap-3">
+                <div className={`p-2 rounded-lg ${user.ageVerified ? 'bg-green-500/10 dark:bg-green-500/20' : 'bg-yellow-500/10 dark:bg-yellow-500/20'}`}>
+                  {user.ageVerified ? (
+                    <CheckCircle className="w-5 h-5 text-green-600 dark:text-green-400" />
+                  ) : (
+                    <XCircle className="w-5 h-5 text-yellow-600 dark:text-yellow-400" />
+                  )}
+                </div>
+                <div>
+                  <p className="text-sm text-gray-600 dark:text-gray-400">Age Verified</p>
+                  <p className={`text-sm font-medium ${user.ageVerified ? 'text-green-700 dark:text-green-400' : 'text-yellow-700 dark:text-yellow-400'}`}>
+                    {user.ageVerified ? 'Verified' : 'Not Verified'}
                   </p>
                 </div>
               </div>
@@ -544,10 +598,16 @@ export default function UserEditPage() {
                     </div>
                     <Switch
                       checked={formData.ageVerified}
-                      onCheckedChange={(checked) => setFormData({...formData, ageVerified: checked})}
+                      onCheckedChange={(checked) => handleVerifyAge(checked)}
+                      disabled={verifyingAge || !user?.dateOfBirth}
                     />
                   </div>
-                  {!formData.ageVerified && (
+                  {!user?.dateOfBirth && (
+                    <p className="mt-3 text-xs text-red-700 dark:text-red-300 bg-red-100 dark:bg-red-900/30 p-2 rounded">
+                      Cannot verify age - user has not provided their date of birth yet
+                    </p>
+                  )}
+                  {user?.dateOfBirth && !formData.ageVerified && (
                     <p className="mt-3 text-xs text-yellow-700 dark:text-yellow-300 bg-yellow-100 dark:bg-yellow-900/30 p-2 rounded">
                       Toggle this ON after physically verifying the user&apos;s government-issued ID confirms they are 18+
                     </p>

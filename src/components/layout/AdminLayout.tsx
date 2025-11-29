@@ -110,10 +110,10 @@ export default function AdminLayout({ children, user: userProp }: AdminLayoutPro
   };
 
   const rolePermissions: Record<string, string[]> = {
-    super_admin: ['view_users', 'manage_users', 'view_all_stores', 'manage_all_stores', 'view_machines', 'manage_machines', 'process_cashouts', 'view_cashout_history', 'reverse_cashouts', 'system_admin'],
-    gambino_ops: ['view_users', 'view_all_stores', 'manage_all_stores', 'view_machines', 'manage_machines', 'process_cashouts', 'view_cashout_history'],
-    venue_manager: ['view_assigned_stores', 'manage_assigned_stores', 'view_machines', 'view_store_metrics', 'process_cashouts', 'view_cashout_history'],
-    venue_staff: ['view_assigned_stores', 'view_machines', 'view_store_metrics', 'process_cashouts', 'view_cashout_history'],
+    super_admin: ['view_users', 'manage_users', 'verify_user_age', 'view_all_stores', 'manage_all_stores', 'view_machines', 'manage_machines', 'process_cashouts', 'view_cashout_history', 'reverse_cashouts', 'system_admin'],
+    gambino_ops: ['view_users', 'verify_user_age', 'view_all_stores', 'manage_all_stores', 'view_machines', 'manage_machines', 'process_cashouts', 'view_cashout_history'],
+    venue_manager: ['view_users', 'verify_user_age', 'view_assigned_stores', 'manage_assigned_stores', 'view_machines', 'view_store_metrics', 'process_cashouts', 'view_cashout_history'],
+    venue_staff: ['view_users', 'verify_user_age', 'view_assigned_stores', 'view_machines', 'view_store_metrics', 'process_cashouts', 'view_cashout_history'],
   };
 
   const userPermissions = rolePermissions[user?.role || 'venue_staff'] || [];
