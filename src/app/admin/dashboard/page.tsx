@@ -571,7 +571,11 @@ export default function DashboardPage() {
                     />
                     <YAxis
                       tick={{ fontSize: 10, fill: '#9CA3AF' }}
-                      tickFormatter={(value) => `$${value >= 1000 ? (value / 1000).toFixed(0) + 'k' : value}`}
+                      tickFormatter={(value) => {
+                        const absValue = Math.abs(value);
+                        const formatted = absValue >= 1000 ? (absValue / 1000).toFixed(1) + 'k' : absValue.toString();
+                        return value < 0 ? `-$${formatted}` : `$${formatted}`;
+                      }}
                     />
                     <Tooltip
                       contentStyle={{
@@ -888,7 +892,11 @@ export default function DashboardPage() {
                   />
                   <YAxis
                     tick={{ fontSize: 10, fill: '#9CA3AF' }}
-                    tickFormatter={(value) => `$${value >= 1000 ? (value / 1000).toFixed(0) + 'k' : value}`}
+                    tickFormatter={(value) => {
+                      const absValue = Math.abs(value);
+                      const formatted = absValue >= 1000 ? (absValue / 1000).toFixed(1) + 'k' : absValue.toString();
+                      return value < 0 ? `-$${formatted}` : `$${formatted}`;
+                    }}
                   />
                   <Tooltip
                     contentStyle={{
