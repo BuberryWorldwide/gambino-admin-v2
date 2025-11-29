@@ -897,7 +897,7 @@ export default function DashboardPage() {
                               ? 'bg-yellow-100 dark:bg-yellow-900/50 text-yellow-700 dark:text-yellow-400'
                               : 'bg-neutral-100 dark:bg-neutral-800 text-neutral-500 dark:text-neutral-400'
                       }`}>
-                        {(adminUser.firstName?.[0] || adminUser.email[0]).toUpperCase()}
+                        {(adminUser.firstName?.[0] || adminUser.email?.[0] || 'U').toUpperCase()}
                       </div>
                       <div className="min-w-0">
                         <p className="text-sm font-medium text-neutral-900 dark:text-white truncate">
@@ -906,7 +906,7 @@ export default function DashboardPage() {
                             : adminUser.email}
                         </p>
                         <p className="text-xs text-neutral-500 dark:text-neutral-400">
-                          {adminUser.role.replace('_', ' ')}
+                          {adminUser.role?.replace('_', ' ') || 'User'}
                           {adminUser.assignedVenues?.length ? ` • ${adminUser.assignedVenues.length} venues` : ''}
                         </p>
                       </div>
