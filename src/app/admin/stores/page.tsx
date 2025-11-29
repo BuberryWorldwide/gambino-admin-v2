@@ -3,19 +3,11 @@
 
 import { useEffect, useState } from 'react';
 import { useRouter } from 'next/navigation';
-import { Search, Store as StoreIcon, MapPin, Activity, DollarSign, Eye, RefreshCw, AlertCircle } from 'lucide-react';
+import { Search, Store as StoreIcon, MapPin, Activity, DollarSign, RefreshCw, AlertCircle, ChevronRight } from 'lucide-react';
 import api from '@/lib/api';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Badge } from '@/components/ui/badge';
-import {
-  Table,
-  TableBody,
-  TableCell,
-  TableHead,
-  TableHeader,
-  TableRow,
-} from '@/components/ui/table';
 import AdminLayout from '@/components/layout/AdminLayout';
 
 interface Store {
@@ -114,159 +106,120 @@ export default function StoresPage() {
 
   return (
     <AdminLayout>
-      <div className="p-4 lg:p-6 space-y-6">
+      <div className="p-4 lg:p-6 space-y-4">
         {/* Header */}
-        <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
+        <div className="flex items-center justify-between">
           <div>
-            <h1 className="text-2xl font-semibold text-neutral-900 dark:text-white">Venues</h1>
-            <p className="text-sm text-neutral-500 dark:text-neutral-400 mt-1">
-              {filteredStores.length} total venue{filteredStores.length !== 1 ? 's' : ''}
+            <h1 className="text-xl font-semibold text-neutral-900 dark:text-white">Venues</h1>
+            <p className="text-sm text-neutral-500 dark:text-neutral-400">
+              {filteredStores.length} total
             </p>
           </div>
           <Button
             variant="outline"
+            size="sm"
             onClick={loadStores}
             className="border-neutral-200 dark:border-neutral-800"
           >
-            <RefreshCw className="w-4 h-4 mr-2" />
-            Refresh
+            <RefreshCw className="w-4 h-4" />
           </Button>
         </div>
 
-        {/* Stats */}
-        <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
+        {/* Stats - 2x2 grid on mobile */}
+        <div className="grid grid-cols-2 gap-3">
           <StatCard
             label="Active"
             value={stores.filter(s => s.status === 'active').length}
-            icon={<Activity className="w-5 h-5" />}
+            icon={<Activity className="w-4 h-4" />}
             color="green"
           />
           <StatCard
             label="Inactive"
             value={stores.filter(s => s.status === 'inactive').length}
-            icon={<Activity className="w-5 h-5" />}
+            icon={<Activity className="w-4 h-4" />}
             color="red"
           />
           <StatCard
             label="Pending"
             value={stores.filter(s => s.status === 'pending').length}
-            icon={<Activity className="w-5 h-5" />}
+            icon={<Activity className="w-4 h-4" />}
             color="yellow"
           />
           <StatCard
-            label="Total Revenue"
+            label="Revenue"
             value={`$${stores.reduce((sum, s) => sum + (s.totalRevenue || 0), 0).toLocaleString()}`}
-            icon={<DollarSign className="w-5 h-5" />}
+            icon={<DollarSign className="w-4 h-4" />}
             color="blue"
           />
         </div>
 
         {/* Search */}
-        <div className="bg-white dark:bg-neutral-900 border border-neutral-200 dark:border-neutral-800 rounded-xl p-4">
-          <div className="relative">
-            <Search className="absolute left-3.5 top-1/2 -translate-y-1/2 w-4 h-4 text-neutral-400" />
-            <Input
-              placeholder="Search venues by name, ID, city, or state..."
-              value={searchTerm}
-              onChange={(e: React.ChangeEvent<HTMLInputElement>) => setSearchTerm(e.target.value)}
-              className="pl-10 h-10 bg-neutral-50 dark:bg-neutral-800 border-neutral-200 dark:border-neutral-700 text-neutral-900 dark:text-white"
-            />
-          </div>
+        <div className="relative">
+          <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-neutral-400" />
+          <Input
+            placeholder="Search venues..."
+            value={searchTerm}
+            onChange={(e: React.ChangeEvent<HTMLInputElement>) => setSearchTerm(e.target.value)}
+            className="pl-9 h-10 bg-white dark:bg-neutral-900 border-neutral-200 dark:border-neutral-800"
+          />
         </div>
 
-        {/* Table */}
-        <div className="bg-white dark:bg-neutral-900 border border-neutral-200 dark:border-neutral-800 rounded-xl overflow-hidden">
-          <div className="overflow-x-auto">
-            <Table>
-              <TableHeader>
-                <TableRow className="border-neutral-200 dark:border-neutral-800 bg-neutral-50 dark:bg-neutral-800/50">
-                  <TableHead className="text-neutral-600 dark:text-neutral-300 font-medium">Venue</TableHead>
-                  <TableHead className="text-neutral-600 dark:text-neutral-300 font-medium hidden sm:table-cell">ID</TableHead>
-                  <TableHead className="text-neutral-600 dark:text-neutral-300 font-medium">Location</TableHead>
-                  <TableHead className="text-neutral-600 dark:text-neutral-300 font-medium">Status</TableHead>
-                  <TableHead className="text-neutral-600 dark:text-neutral-300 font-medium hidden md:table-cell">Hubs</TableHead>
-                  <TableHead className="text-neutral-600 dark:text-neutral-300 font-medium hidden lg:table-cell">Machines</TableHead>
-                  <TableHead className="text-neutral-600 dark:text-neutral-300 font-medium text-right">Actions</TableHead>
-                </TableRow>
-              </TableHeader>
-              <TableBody>
-                {filteredStores.length === 0 ? (
-                  <TableRow>
-                    <TableCell colSpan={7} className="text-center py-12">
-                      <div className="text-neutral-500 dark:text-neutral-400">
-                        {searchTerm ? 'No venues found matching your search' : 'No venues found'}
-                      </div>
-                    </TableCell>
-                  </TableRow>
-                ) : (
-                  filteredStores.map((store) => (
-                    <TableRow
-                      key={store._id}
-                      className="border-neutral-100 dark:border-neutral-800 hover:bg-neutral-50 dark:hover:bg-neutral-800/50 transition-colors"
-                    >
-                      <TableCell>
-                        <div className="flex items-center gap-3">
-                          <div className="w-9 h-9 rounded-lg bg-gradient-to-br from-yellow-400 to-amber-500 flex items-center justify-center text-neutral-900">
-                            <StoreIcon className="w-4 h-4" />
-                          </div>
-                          <div className="min-w-0">
-                            <div className="text-neutral-900 dark:text-white font-medium truncate">
-                              {store.storeName}
-                            </div>
-                          </div>
-                        </div>
-                      </TableCell>
-                      <TableCell className="hidden sm:table-cell">
-                        <span className="font-mono text-sm text-neutral-600 dark:text-neutral-400">
-                          {store.storeId}
-                        </span>
-                      </TableCell>
-                      <TableCell>
-                        <div className="flex items-center gap-1.5 text-sm text-neutral-700 dark:text-neutral-300">
-                          <MapPin className="w-3.5 h-3.5 text-neutral-400" />
-                          <span className="truncate">
-                            {store.city && store.state
-                              ? `${store.city}, ${store.state}`
-                              : store.city || store.state || '—'}
-                          </span>
-                        </div>
-                      </TableCell>
-                      <TableCell>
-                        <Badge className={`${getStatusColor(store.status)} text-xs font-medium px-2 py-0.5`}>
-                          {getStatusLabel(store.status)}
-                        </Badge>
-                      </TableCell>
-                      <TableCell className="hidden md:table-cell">
-                        {store.hubsCount !== undefined ? (
-                          <span className="text-neutral-700 dark:text-neutral-300 font-medium">{store.hubsCount}</span>
-                        ) : (
-                          <span className="text-neutral-400 dark:text-neutral-500">—</span>
-                        )}
-                      </TableCell>
-                      <TableCell className="hidden lg:table-cell">
-                        {store.machinesCount !== undefined ? (
-                          <span className="text-neutral-700 dark:text-neutral-300 font-medium">{store.machinesCount}</span>
-                        ) : (
-                          <span className="text-neutral-400 dark:text-neutral-500">—</span>
-                        )}
-                      </TableCell>
-                      <TableCell className="text-right">
-                        <Button
-                          onClick={() => router.push(`/admin/stores/${store.storeId}`)}
-                          variant="outline"
-                          size="sm"
-                          className="h-8 border-neutral-200 dark:border-neutral-700 text-neutral-600 dark:text-neutral-400 hover:text-neutral-900 dark:hover:text-white hover:border-neutral-300 dark:hover:border-neutral-600"
-                        >
-                          <Eye className="w-3.5 h-3.5 mr-1.5" />
-                          View
-                        </Button>
-                      </TableCell>
-                    </TableRow>
-                  ))
-                )}
-              </TableBody>
-            </Table>
-          </div>
+        {/* Venue Cards - Mobile First */}
+        <div className="space-y-3">
+          {filteredStores.length === 0 ? (
+            <div className="bg-white dark:bg-neutral-900 border border-neutral-200 dark:border-neutral-800 rounded-xl p-8 text-center">
+              <p className="text-neutral-500 dark:text-neutral-400">
+                {searchTerm ? 'No venues found matching your search' : 'No venues found'}
+              </p>
+            </div>
+          ) : (
+            filteredStores.map((store) => (
+              <button
+                key={store._id}
+                onClick={() => router.push(`/admin/stores/${store.storeId}`)}
+                className="w-full bg-white dark:bg-neutral-900 border border-neutral-200 dark:border-neutral-800 rounded-xl p-4 text-left hover:border-neutral-300 dark:hover:border-neutral-700 transition-colors"
+              >
+                <div className="flex items-center gap-3">
+                  {/* Icon */}
+                  <div className="w-10 h-10 rounded-lg bg-gradient-to-br from-yellow-400 to-amber-500 flex items-center justify-center text-neutral-900 flex-shrink-0">
+                    <StoreIcon className="w-5 h-5" />
+                  </div>
+
+                  {/* Content */}
+                  <div className="flex-1 min-w-0">
+                    <div className="flex items-center gap-2 mb-1">
+                      <span className="font-medium text-neutral-900 dark:text-white truncate">
+                        {store.storeName}
+                      </span>
+                      <Badge className={`${getStatusColor(store.status)} text-xs px-1.5 py-0 flex-shrink-0`}>
+                        {getStatusLabel(store.status)}
+                      </Badge>
+                    </div>
+                    <div className="flex items-center gap-1 text-sm text-neutral-500 dark:text-neutral-400">
+                      <MapPin className="w-3 h-3 flex-shrink-0" />
+                      <span className="truncate">
+                        {store.city && store.state
+                          ? `${store.city}, ${store.state}`
+                          : store.city || store.state || 'No location'}
+                      </span>
+                    </div>
+                    {/* Stats row */}
+                    <div className="flex items-center gap-4 mt-2 text-xs text-neutral-500 dark:text-neutral-400">
+                      {store.hubsCount !== undefined && (
+                        <span>{store.hubsCount} hub{store.hubsCount !== 1 ? 's' : ''}</span>
+                      )}
+                      {store.machinesCount !== undefined && (
+                        <span>{store.machinesCount} machine{store.machinesCount !== 1 ? 's' : ''}</span>
+                      )}
+                    </div>
+                  </div>
+
+                  {/* Chevron */}
+                  <ChevronRight className="w-5 h-5 text-neutral-400 flex-shrink-0" />
+                </div>
+              </button>
+            ))
+          )}
         </div>
       </div>
     </AdminLayout>
@@ -289,14 +242,14 @@ function StatCard({ label, value, icon, color }: StatCardProps) {
   };
 
   return (
-    <div className="bg-white dark:bg-neutral-900 border border-neutral-200 dark:border-neutral-800 rounded-xl p-4">
-      <div className="flex items-center gap-3">
-        <div className={`w-10 h-10 rounded-lg flex items-center justify-center ${colorClasses[color]}`}>
+    <div className="bg-white dark:bg-neutral-900 border border-neutral-200 dark:border-neutral-800 rounded-xl p-3">
+      <div className="flex items-center gap-2">
+        <div className={`w-8 h-8 rounded-lg flex items-center justify-center ${colorClasses[color]}`}>
           {icon}
         </div>
-        <div>
-          <p className="text-xs text-neutral-500 dark:text-neutral-400 uppercase tracking-wide font-medium">{label}</p>
-          <p className="text-xl font-bold text-neutral-900 dark:text-white">{value}</p>
+        <div className="min-w-0">
+          <p className="text-xs text-neutral-500 dark:text-neutral-400 truncate">{label}</p>
+          <p className="text-lg font-bold text-neutral-900 dark:text-white truncate">{value}</p>
         </div>
       </div>
     </div>

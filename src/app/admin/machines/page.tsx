@@ -2,7 +2,7 @@
 'use client';
 
 import { useState, useEffect } from 'react';
-import { Search, RefreshCw, DollarSign, Edit2, Check, X, Plus, Cpu, Activity, Ticket, Eye, AlertCircle } from 'lucide-react';
+import { Search, RefreshCw, DollarSign, Edit2, Check, X, Plus, Cpu, Activity, Ticket, Eye, AlertCircle, BookOpen } from 'lucide-react';
 import api from '@/lib/api';
 import AdminLayout from '@/components/layout/AdminLayout';
 import { Button } from '@/components/ui/button';
@@ -54,6 +54,19 @@ interface TodayStats {
   activeMachines: number;
 }
 
+interface BooksClearedData {
+  lastCleared: string;
+  clearCount: number;
+  lastClearedDate: string;
+  lastClearedTime: string;
+  daysSinceCleared: number;
+  status: 'recent' | 'warning' | 'overdue' | 'unknown';
+}
+
+interface BooksClearedMap {
+  [machineId: string]: BooksClearedData;
+}
+
 export default function MachinesPage() {
   const [machines, setMachines] = useState<Machine[]>([]);
   const [filteredMachines, setFilteredMachines] = useState<Machine[]>([]);
@@ -72,9 +85,13 @@ export default function MachinesPage() {
   const [editingMachine, setEditingMachine] = useState<string | null>(null);
   const [editName, setEditName] = useState('');
   const [registering, setRegistering] = useState<string | null>(null);
+  const [booksCleared, setBooksCleared] = useState<BooksClearedMap>({});
 
   useEffect(() => {
-    loadMachines().then(() => loadTodayStats());
+    loadMachines().then(() => {
+      loadTodayStats();
+      loadBooksCleared();
+    });
   }, []);
 
   useEffect(() => {
@@ -108,6 +125,17 @@ export default function MachinesPage() {
       } else {
         console.error('Failed to load today stats:', err);
       }
+    }
+  };
+
+  const loadBooksCleared = async () => {
+    try {
+      const response = await api.get('/api/admin/events/books-cleared');
+      if (response.data.success) {
+        setBooksCleared(response.data.data || {});
+      }
+    } catch (err) {
+      console.error('Failed to load books cleared data:', err);
     }
   };
 
@@ -254,6 +282,34 @@ export default function MachinesPage() {
     }).format(amount);
   };
 
+  const getBooksStatusColor = (status?: string) => {
+    switch (status) {
+      case 'recent':
+        return 'bg-green-100 dark:bg-green-950/50 text-green-700 dark:text-green-300';
+      case 'warning':
+        return 'bg-yellow-100 dark:bg-yellow-950/50 text-yellow-700 dark:text-yellow-300';
+      case 'overdue':
+        return 'bg-red-100 dark:bg-red-950/50 text-red-700 dark:text-red-300';
+      default:
+        return 'bg-neutral-100 dark:bg-neutral-800 text-neutral-600 dark:text-neutral-400';
+    }
+  };
+
+  const formatBooksCleared = (machineId: string) => {
+    const data = booksCleared[machineId];
+    if (!data) return { text: '—', status: 'unknown' };
+
+    if (data.daysSinceCleared === 0) {
+      return { text: 'Today', status: data.status };
+    } else if (data.daysSinceCleared === 1) {
+      return { text: 'Yesterday', status: data.status };
+    } else if (data.daysSinceCleared < 7) {
+      return { text: `${data.daysSinceCleared}d ago`, status: data.status };
+    } else {
+      return { text: data.lastClearedDate || `${data.daysSinceCleared}d ago`, status: data.status };
+    }
+  };
+
   if (loading) {
     return (
       <AdminLayout>
@@ -299,7 +355,7 @@ export default function MachinesPage() {
           </div>
           <Button
             variant="outline"
-            onClick={() => { loadMachines(); loadTodayStats(); }}
+            onClick={() => { loadMachines(); loadTodayStats(); loadBooksCleared(); }}
             className="border-neutral-200 dark:border-neutral-800"
           >
             <RefreshCw className="w-4 h-4 mr-2" />
@@ -441,7 +497,7 @@ export default function MachinesPage() {
                     </div>
                   ) : null}
 
-                  <div className="grid grid-cols-3 gap-3 py-3 border-t border-neutral-100 dark:border-neutral-800 mb-3">
+                  <div className="grid grid-cols-2 gap-3 py-3 border-t border-neutral-100 dark:border-neutral-800 mb-3">
                     <div>
                       <p className="text-xs text-neutral-500 dark:text-neutral-400 mb-0.5">Hub</p>
                       <p className="text-sm font-mono text-neutral-700 dark:text-neutral-300 truncate">
@@ -459,6 +515,17 @@ export default function MachinesPage() {
                       <p className="text-sm font-medium text-neutral-700 dark:text-neutral-300">
                         {machine.muthaGooseNumber ? `MG${machine.muthaGooseNumber}` : '—'}
                       </p>
+                    </div>
+                    <div>
+                      <p className="text-xs text-neutral-500 dark:text-neutral-400 mb-0.5">Last Cleared</p>
+                      {(() => {
+                        const cleared = formatBooksCleared(machine.machineId);
+                        return (
+                          <Badge className={`${getBooksStatusColor(cleared.status)} text-xs font-medium px-2 py-0.5`}>
+                            {cleared.text}
+                          </Badge>
+                        );
+                      })()}
                     </div>
                   </div>
 
@@ -506,6 +573,7 @@ export default function MachinesPage() {
                       <TableHead className="text-neutral-600 dark:text-neutral-300 font-medium">Hub</TableHead>
                       <TableHead className="text-neutral-600 dark:text-neutral-300 font-medium">Status</TableHead>
                       <TableHead className="text-neutral-600 dark:text-neutral-300 font-medium">Last Seen</TableHead>
+                      <TableHead className="text-neutral-600 dark:text-neutral-300 font-medium">Last Cleared</TableHead>
                       <TableHead className="text-neutral-600 dark:text-neutral-300 font-medium">MG #</TableHead>
                       <TableHead className="text-neutral-600 dark:text-neutral-300 font-medium text-right">Actions</TableHead>
                     </TableRow>
@@ -587,6 +655,19 @@ export default function MachinesPage() {
                           <span className="text-sm text-neutral-600 dark:text-neutral-400">
                             {formatLastSeen(machine.lastSeen)}
                           </span>
+                        </TableCell>
+                        <TableCell>
+                          {(() => {
+                            const cleared = formatBooksCleared(machine.machineId);
+                            return (
+                              <div className="flex items-center gap-1.5">
+                                <BookOpen className="w-3.5 h-3.5 text-neutral-400" />
+                                <Badge className={`${getBooksStatusColor(cleared.status)} text-xs font-medium px-2 py-0.5`}>
+                                  {cleared.text}
+                                </Badge>
+                              </div>
+                            );
+                          })()}
                         </TableCell>
                         <TableCell>
                           <span className="text-neutral-700 dark:text-neutral-300 font-medium">

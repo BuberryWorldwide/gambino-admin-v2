@@ -2,32 +2,24 @@
 
 import { useEffect, useState } from 'react';
 import { useParams, useRouter } from 'next/navigation';
-import { 
-  ArrowLeft, 
-  Calendar, 
-  ChevronLeft, 
-  ChevronRight, 
-  TrendingUp, 
+import {
+  ArrowLeft,
+  Calendar,
+  ChevronLeft,
+  ChevronRight,
+  TrendingUp,
   TrendingDown,
   DollarSign,
   Activity,
   MapPin,
   Edit,
   RefreshCw,
-  Download
+  Download,
+  Cpu
 } from 'lucide-react';
 import api from '@/lib/api';
 import { Button } from '@/components/ui/button';
-import { Card } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
-import {
-  Table,
-  TableBody,
-  TableCell,
-  TableHead,
-  TableHeader,
-  TableRow,
-} from '@/components/ui/table';
 import AdminLayout from '@/components/layout/AdminLayout';
 
 interface Store {
@@ -58,24 +50,17 @@ interface MachineRevenue {
   netRevenue: number;
 }
 
-interface EventData {
-  eventType: string;
-  gamingMachineId?: string;
-  machineId?: string;
-  amount?: number;
-}
-
 export default function StoreDashboardPage() {
   const params = useParams();
   const router = useRouter();
   const storeId = params.id as string;
-  
+
   const [store, setStore] = useState<Store | null>(null);
   const [todayStats, setTodayStats] = useState<VenueStats | null>(null);
   const [machineRevenue, setMachineRevenue] = useState<MachineRevenue[]>([]);
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
-  
+
   // Date navigation
   const [selectedDate, setSelectedDate] = useState(new Date());
 
@@ -90,7 +75,7 @@ export default function StoreDashboardPage() {
       // Load store details
       const storeRes = await api.get(`/api/admin/stores/${storeId}`);
       setStore(storeRes.data.store);
-      
+
       // Load venue events for selected date
       await loadVenueStats();
     } catch (err) {
@@ -102,31 +87,18 @@ export default function StoreDashboardPage() {
 
   const loadVenueStats = async () => {
     try {
-      // Calculate start and end of selected day
-      const startDate = new Date(selectedDate);
-      startDate.setHours(0, 0, 0, 0);
-      
-      const endDate = new Date(selectedDate);
-      endDate.setHours(23, 59, 59, 999);
-
       const response = await api.get(`/api/admin/reports/${storeId}/cumulative/${selectedDate.toISOString().split('T')[0]}`);
 
-
-
       if (response.data) {
-        // Count vouchers from machines
-        const voucherCount = 0;
-        const voucherTotal = 0;
-            
         setTodayStats({
           totalMachines: response.data.machines?.length || 0,
           moneyIn: response.data.totalMoneyIn || 0,
           moneyOut: response.data.totalMoneyOut || 0,
-          voucherCount: voucherCount,
-          voucherTotal: voucherTotal,
+          voucherCount: 0,
+          voucherTotal: 0,
           netRevenue: response.data.netRevenue || 0
         });
-        
+
         const sortedMachines = (response.data.machines || [])
           .map((m: { machineId: string; moneyIn: number; collect: number }) => ({
             machineId: m.machineId,
@@ -135,7 +107,7 @@ export default function StoreDashboardPage() {
             netRevenue: m.moneyIn - m.collect
           }))
           .sort((a: MachineRevenue, b: MachineRevenue) => b.netRevenue - a.netRevenue);
-        
+
         setMachineRevenue(sortedMachines);
       }
     } catch (err) {
@@ -183,10 +155,10 @@ export default function StoreDashboardPage() {
   if (loading) {
     return (
       <AdminLayout>
-        <div className="flex items-center justify-center min-h-[60vh]">
+        <div className="flex items-center justify-center h-[calc(100vh-200px)]">
           <div className="text-center">
-            <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-yellow-500 dark:border-yellow-400 mx-auto mb-4"></div>
-            <p className="text-gray-600 dark:text-gray-400">Loading store data...</p>
+            <RefreshCw className="w-8 h-8 text-neutral-400 animate-spin mx-auto mb-4" />
+            <p className="text-sm text-neutral-500 dark:text-neutral-400">Loading venue...</p>
           </div>
         </div>
       </AdminLayout>
@@ -196,8 +168,11 @@ export default function StoreDashboardPage() {
   if (!store) {
     return (
       <AdminLayout>
-        <div className="p-6 text-center">
-          <p className="text-red-500">Store not found</p>
+        <div className="p-4 text-center">
+          <p className="text-red-500">Venue not found</p>
+          <Button onClick={() => router.push('/admin/stores')} className="mt-4">
+            Back to Venues
+          </Button>
         </div>
       </AdminLayout>
     );
@@ -210,261 +185,287 @@ export default function StoreDashboardPage() {
 
   return (
     <AdminLayout>
-      <div className="p-4 sm:p-6 lg:p-8 bg-gray-50 dark:bg-gray-950 min-h-screen">
+      <div className="p-4 lg:p-6 space-y-4">
         {/* Header */}
-        <div className="mb-6">
-          <div className="flex items-center gap-3 mb-4">
-            <Button
-              onClick={() => router.push('/admin/stores')}
-              variant="outline"
-              size="sm"
-              className="border-gray-300 dark:border-gray-700"
-            >
-              <ArrowLeft className="w-4 h-4 mr-1" />
-              Back
-            </Button>
-          </div>
+        <div className="space-y-3">
+          <button
+            onClick={() => router.push('/admin/stores')}
+            className="text-neutral-500 dark:text-neutral-400 hover:text-neutral-900 dark:hover:text-white flex items-center gap-1 text-sm"
+          >
+            <ArrowLeft className="w-4 h-4" />
+            Venues
+          </button>
 
-          <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
-            <div>
-              <h1 className="text-3xl lg:text-4xl font-bold text-gray-900 dark:text-white mb-2">
+          <div className="flex items-start justify-between gap-3">
+            <div className="min-w-0 flex-1">
+              <h1 className="text-xl font-semibold text-neutral-900 dark:text-white truncate">
                 {store.storeName}
               </h1>
-              <div className="flex items-center gap-4 text-gray-600 dark:text-gray-400">
-                <div className="flex items-center gap-1.5">
-                  <MapPin className="w-4 h-4" />
-                  <span>{store.city}, {store.state}</span>
-                </div>
-                <Badge className="bg-green-500/10 text-green-600 dark:bg-green-500/20 dark:text-green-400 border-green-500/20">
+              <div className="flex items-center gap-2 mt-1">
+                <MapPin className="w-3.5 h-3.5 text-neutral-400" />
+                <span className="text-sm text-neutral-500 dark:text-neutral-400">
+                  {store.city}, {store.state}
+                </span>
+                <Badge className="bg-green-100 dark:bg-green-950/50 text-green-700 dark:text-green-300 text-xs">
                   {store.status}
                 </Badge>
               </div>
             </div>
 
-            <div className="flex items-center gap-3">
-              <Button
-                onClick={handleRefresh}
-                disabled={refreshing}
-                variant="outline"
-                size="sm"
-                className="border-gray-300 dark:border-gray-700"
-              >
-                <RefreshCw className={`w-4 h-4 mr-2 ${refreshing ? 'animate-spin' : ''}`} />
-                Refresh
-              </Button>
-              <Button
-                onClick={() => router.push(`/admin/stores/${storeId}/export`)}
-                variant="outline"
-                size="sm"
-                className="border-gray-300 dark:border-gray-700"
-              >
-                <Download className="w-4 h-4 mr-2" />
-                Export
-              </Button>
-              <Button
-                onClick={() => router.push(`/admin/stores/${storeId}/edit`)}
-                size="sm"
-                className="bg-yellow-500 hover:bg-yellow-600 text-gray-900"
-              >
-                <Edit className="w-4 h-4 mr-2" />
-                Edit Store
-              </Button>
-            </div>
+            <Button
+              onClick={() => router.push(`/admin/stores/${storeId}/edit`)}
+              size="sm"
+              className="bg-yellow-500 hover:bg-yellow-600 text-black flex-shrink-0"
+            >
+              <Edit className="w-4 h-4" />
+            </Button>
           </div>
         </div>
 
-        {/* Date Selector */}
-        <Card className="p-4 mb-6 bg-white dark:bg-gray-900 border-gray-200 dark:border-gray-800">
-          <div className="flex items-center justify-between">
-            <Button
-              onClick={goToPrevDay}
-              variant="outline"
-              size="sm"
-              className="border-gray-300 dark:border-gray-700"
-            >
-              <ChevronLeft className="w-4 h-4 mr-1" />
-              Previous
-            </Button>
+        {/* Action Buttons - Mobile Stacked */}
+        <div className="flex gap-2">
+          <Button
+            onClick={handleRefresh}
+            disabled={refreshing}
+            variant="outline"
+            size="sm"
+            className="flex-1 border-neutral-200 dark:border-neutral-800"
+          >
+            <RefreshCw className={`w-4 h-4 mr-1.5 ${refreshing ? 'animate-spin' : ''}`} />
+            Refresh
+          </Button>
+          <Button
+            onClick={() => router.push(`/admin/stores/${storeId}/export`)}
+            variant="outline"
+            size="sm"
+            className="flex-1 border-neutral-200 dark:border-neutral-800"
+          >
+            <Download className="w-4 h-4 mr-1.5" />
+            Export
+          </Button>
+        </div>
 
-            <div className="flex items-center gap-3">
-              <Calendar className="w-5 h-5 text-gray-400" />
-              <span className="text-lg font-semibold text-gray-900 dark:text-white">
-                {selectedDate.toLocaleDateString('en-US', { 
-                  weekday: 'long', 
-                  year: 'numeric', 
-                  month: 'long', 
-                  day: 'numeric' 
-                })}
-              </span>
+        {/* Date Selector - Mobile Optimized */}
+        <div className="bg-white dark:bg-neutral-900 border border-neutral-200 dark:border-neutral-800 rounded-xl p-3">
+          <div className="flex items-center justify-between gap-2">
+            <button
+              onClick={goToPrevDay}
+              className="p-2 rounded-lg bg-neutral-100 dark:bg-neutral-800 text-neutral-600 dark:text-neutral-400 hover:bg-neutral-200 dark:hover:bg-neutral-700"
+            >
+              <ChevronLeft className="w-5 h-5" />
+            </button>
+
+            <div className="flex-1 text-center min-w-0">
+              <div className="flex items-center justify-center gap-2">
+                <Calendar className="w-4 h-4 text-neutral-400 flex-shrink-0" />
+                <span className="text-sm font-medium text-neutral-900 dark:text-white truncate">
+                  {selectedDate.toLocaleDateString('en-US', {
+                    weekday: 'short',
+                    month: 'short',
+                    day: 'numeric'
+                  })}
+                </span>
+              </div>
               {!isToday() && (
                 <button
                   onClick={goToToday}
-                  className="text-sm text-yellow-600 dark:text-yellow-400 hover:underline"
+                  className="text-xs text-yellow-600 dark:text-yellow-400 hover:underline mt-1"
                 >
-                  Jump to Today
+                  Today
                 </button>
               )}
             </div>
 
-            <Button
+            <button
               onClick={goToNextDay}
               disabled={isToday()}
-              variant="outline"
-              size="sm"
-              className="border-gray-300 dark:border-gray-700"
+              className="p-2 rounded-lg bg-neutral-100 dark:bg-neutral-800 text-neutral-600 dark:text-neutral-400 hover:bg-neutral-200 dark:hover:bg-neutral-700 disabled:opacity-50"
             >
-              Next
-              <ChevronRight className="w-4 h-4 ml-1" />
-            </Button>
+              <ChevronRight className="w-5 h-5" />
+            </button>
           </div>
-        </Card>
-
-        {/* Daily Summary Cards */}
-        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 mb-6">
-          <Card className="p-6 bg-white dark:bg-gray-900 border-gray-200 dark:border-gray-800">
-            <div className="flex items-center justify-between mb-2">
-              <p className="text-sm font-medium text-gray-600 dark:text-gray-400">Money IN</p>
-              <div className="p-2 rounded-lg bg-green-500/10">
-                <TrendingUp className="w-4 h-4 text-green-600 dark:text-green-400" />
-              </div>
-            </div>
-            <p className="text-3xl font-bold text-gray-900 dark:text-white">
-              {formatCurrency(todayStats?.moneyIn || 0)}
-            </p>
-            <p className="text-xs text-gray-500 dark:text-gray-400 mt-1">Cash inserted today</p>
-          </Card>
-
-          <Card className="p-6 bg-white dark:bg-gray-900 border-gray-200 dark:border-gray-800">
-            <div className="flex items-center justify-between mb-2">
-              <p className="text-sm font-medium text-gray-600 dark:text-gray-400">Money OUT</p>
-              <div className="p-2 rounded-lg bg-red-500/10">
-                <TrendingDown className="w-4 h-4 text-red-600 dark:text-red-400" />
-              </div>
-            </div>
-            <p className="text-3xl font-bold text-gray-900 dark:text-white">
-              {formatCurrency(todayStats?.moneyOut || 0)}
-            </p>
-            <p className="text-xs text-gray-500 dark:text-gray-400 mt-1">
-              {todayStats?.voucherCount || 0} vouchers paid out
-            </p>
-          </Card>
-
-          <Card className="p-6 bg-white dark:bg-gray-900 border-gray-200 dark:border-gray-800">
-            <div className="flex items-center justify-between mb-2">
-              <p className="text-sm font-medium text-gray-600 dark:text-gray-400">Net Revenue</p>
-              <div className="p-2 rounded-lg bg-yellow-500/10">
-                <DollarSign className="w-4 h-4 text-yellow-600 dark:text-yellow-400" />
-              </div>
-            </div>
-            <p className="text-3xl font-bold text-gray-900 dark:text-white">
-              {formatCurrency(netRevenue)}
-            </p>
-            <p className="text-xs text-gray-500 dark:text-gray-400 mt-1">
-              {feePercentage}% fee = {formatCurrency(storeFee)}
-            </p>
-          </Card>
-
-          <Card className="p-6 bg-white dark:bg-gray-900 border-gray-200 dark:border-gray-800">
-            <div className="flex items-center justify-between mb-2">
-              <p className="text-sm font-medium text-gray-600 dark:text-gray-400">Machines</p>
-              <div className="p-2 rounded-lg bg-blue-500/10">
-                <Activity className="w-4 h-4 text-blue-600 dark:text-blue-400" />
-              </div>
-            </div>
-            <p className="text-3xl font-bold text-gray-900 dark:text-white">
-              {todayStats?.totalMachines || 0}
-            </p>
-            <p className="text-xs text-gray-500 dark:text-gray-400 mt-1">
-              {machineRevenue.length} active today
-            </p>
-          </Card>
         </div>
 
-        {/* Machine Breakdown Table */}
-        <Card className="bg-white dark:bg-gray-900 border-gray-200 dark:border-gray-800">
-          <div className="p-6 border-b border-gray-200 dark:border-gray-800">
-            <h2 className="text-xl font-bold text-gray-900 dark:text-white">Machine Breakdown</h2>
-            <p className="text-sm text-gray-600 dark:text-gray-400 mt-1">
-              Revenue by machine for {selectedDate.toLocaleDateString()}
+        {/* Daily Summary Cards - 2x2 Grid */}
+        <div className="grid grid-cols-2 gap-3">
+          <div className="bg-white dark:bg-neutral-900 border border-neutral-200 dark:border-neutral-800 rounded-xl p-4">
+            <div className="flex items-center gap-2 mb-2">
+              <div className="w-8 h-8 rounded-lg bg-green-100 dark:bg-green-950/50 flex items-center justify-center">
+                <TrendingUp className="w-4 h-4 text-green-600 dark:text-green-400" />
+              </div>
+              <span className="text-xs text-neutral-500 dark:text-neutral-400 uppercase">In</span>
+            </div>
+            <p className="text-xl font-bold text-green-600 dark:text-green-400">
+              {formatCurrency(todayStats?.moneyIn || 0)}
+            </p>
+          </div>
+
+          <div className="bg-white dark:bg-neutral-900 border border-neutral-200 dark:border-neutral-800 rounded-xl p-4">
+            <div className="flex items-center gap-2 mb-2">
+              <div className="w-8 h-8 rounded-lg bg-red-100 dark:bg-red-950/50 flex items-center justify-center">
+                <TrendingDown className="w-4 h-4 text-red-600 dark:text-red-400" />
+              </div>
+              <span className="text-xs text-neutral-500 dark:text-neutral-400 uppercase">Out</span>
+            </div>
+            <p className="text-xl font-bold text-red-600 dark:text-red-400">
+              {formatCurrency(todayStats?.moneyOut || 0)}
+            </p>
+          </div>
+
+          <div className="bg-white dark:bg-neutral-900 border border-neutral-200 dark:border-neutral-800 rounded-xl p-4">
+            <div className="flex items-center gap-2 mb-2">
+              <div className="w-8 h-8 rounded-lg bg-yellow-100 dark:bg-yellow-950/50 flex items-center justify-center">
+                <DollarSign className="w-4 h-4 text-yellow-600 dark:text-yellow-400" />
+              </div>
+              <span className="text-xs text-neutral-500 dark:text-neutral-400 uppercase">Net</span>
+            </div>
+            <p className="text-xl font-bold text-yellow-600 dark:text-yellow-400">
+              {formatCurrency(netRevenue)}
+            </p>
+            <p className="text-xs text-neutral-500 dark:text-neutral-400 mt-1">
+              {feePercentage}% fee
+            </p>
+          </div>
+
+          <div className="bg-white dark:bg-neutral-900 border border-neutral-200 dark:border-neutral-800 rounded-xl p-4">
+            <div className="flex items-center gap-2 mb-2">
+              <div className="w-8 h-8 rounded-lg bg-blue-100 dark:bg-blue-950/50 flex items-center justify-center">
+                <Activity className="w-4 h-4 text-blue-600 dark:text-blue-400" />
+              </div>
+              <span className="text-xs text-neutral-500 dark:text-neutral-400 uppercase">Machines</span>
+            </div>
+            <p className="text-xl font-bold text-neutral-900 dark:text-white">
+              {machineRevenue.length}
+            </p>
+            <p className="text-xs text-neutral-500 dark:text-neutral-400 mt-1">
+              active today
+            </p>
+          </div>
+        </div>
+
+        {/* Revenue Split Card */}
+        <div className="bg-gradient-to-br from-yellow-400 to-amber-500 rounded-xl p-4 text-neutral-900">
+          <div className="flex items-center justify-between mb-3">
+            <span className="text-sm font-medium opacity-80">Venue Share</span>
+            <span className="text-xs opacity-70">{100 - feePercentage}%</span>
+          </div>
+          <p className="text-3xl font-bold">{formatCurrency(venueShare)}</p>
+          <div className="flex items-center justify-between mt-2 text-sm opacity-80">
+            <span>Gambino Fee ({feePercentage}%)</span>
+            <span>{formatCurrency(storeFee)}</span>
+          </div>
+        </div>
+
+        {/* Machine Breakdown - Card Layout for Mobile */}
+        <div className="bg-white dark:bg-neutral-900 border border-neutral-200 dark:border-neutral-800 rounded-xl overflow-hidden">
+          <div className="px-4 py-3 border-b border-neutral-200 dark:border-neutral-800">
+            <h2 className="font-semibold text-neutral-900 dark:text-white">Machine Breakdown</h2>
+            <p className="text-xs text-neutral-500 dark:text-neutral-400 mt-0.5">
+              {selectedDate.toLocaleDateString('en-US', { month: 'short', day: 'numeric' })}
             </p>
           </div>
 
           {machineRevenue.length === 0 ? (
-            <div className="p-12 text-center">
-              <Activity className="w-16 h-16 text-gray-300 dark:text-gray-700 mx-auto mb-4" />
-              <h3 className="font-medium text-gray-900 dark:text-white mb-2">No Machine Data</h3>
-              <p className="text-sm text-gray-600 dark:text-gray-400">
-                No events recorded for this date. Data is automatically collected from your Pi devices.
+            <div className="p-8 text-center">
+              <Cpu className="w-12 h-12 text-neutral-300 dark:text-neutral-700 mx-auto mb-3" />
+              <h3 className="font-medium text-neutral-900 dark:text-white mb-1">No Data</h3>
+              <p className="text-sm text-neutral-500 dark:text-neutral-400">
+                No events recorded for this date
               </p>
             </div>
           ) : (
-            <div className="overflow-x-auto">
-              <Table>
-                <TableHeader>
-                  <TableRow className="border-gray-200 dark:border-gray-800">
-                    <TableHead className="text-gray-700 dark:text-gray-300 font-semibold">Machine ID</TableHead>
-                    <TableHead className="text-gray-700 dark:text-gray-300 font-semibold text-right">Money IN</TableHead>
-                    <TableHead className="text-gray-700 dark:text-gray-300 font-semibold text-right">Money OUT</TableHead>
-                    <TableHead className="text-gray-700 dark:text-gray-300 font-semibold text-right">Net Revenue</TableHead>
-                    <TableHead className="text-gray-700 dark:text-gray-300 font-semibold text-right">Store Fee ({feePercentage}%)</TableHead>
-                    <TableHead className="text-gray-700 dark:text-gray-300 font-semibold text-right">Venue Share</TableHead>
-                  </TableRow>
-                </TableHeader>
-                <TableBody>
-                  {machineRevenue.map((machine) => {
-                    const machineFee = machine.netRevenue * (feePercentage / 100);
-                    const machineShare = machine.netRevenue - machineFee;
-                    return (
-                      <TableRow
-                        key={machine.machineId}
-                        className="border-gray-200 dark:border-gray-800 hover:bg-gray-50 dark:hover:bg-gray-800/50"
-                      >
-                        <TableCell className="font-mono font-medium text-gray-900 dark:text-white">
+            <div className="divide-y divide-neutral-100 dark:divide-neutral-800">
+              {machineRevenue.map((machine, index) => {
+                const machineFee = machine.netRevenue * (feePercentage / 100);
+                const machineShare = machine.netRevenue - machineFee;
+                return (
+                  <div key={machine.machineId} className="p-4">
+                    <div className="flex items-center justify-between mb-3">
+                      <div className="flex items-center gap-2">
+                        <span className={`w-6 h-6 rounded-full flex items-center justify-center text-xs font-bold ${
+                          index < 3
+                            ? 'bg-yellow-100 dark:bg-yellow-900/50 text-yellow-700 dark:text-yellow-400'
+                            : 'bg-neutral-100 dark:bg-neutral-800 text-neutral-500'
+                        }`}>
+                          {index + 1}
+                        </span>
+                        <span className="font-mono text-sm font-medium text-neutral-900 dark:text-white">
                           {machine.machineId}
-                        </TableCell>
-                        <TableCell className="text-right text-green-600 dark:text-green-400 font-medium">
-                          {formatCurrency(machine.moneyIn)}
-                        </TableCell>
-                        <TableCell className="text-right text-red-600 dark:text-red-400 font-medium">
-                          {formatCurrency(machine.moneyOut)}
-                        </TableCell>
-                        <TableCell className="text-right text-yellow-600 dark:text-yellow-400 font-bold">
-                          {formatCurrency(machine.netRevenue)}
-                        </TableCell>
-                        <TableCell className="text-right text-purple-600 dark:text-purple-400 font-medium">
-                          {formatCurrency(machineFee)}
-                        </TableCell>
-                        <TableCell className="text-right text-blue-600 dark:text-blue-400 font-medium">
-                          {formatCurrency(machineShare)}
-                        </TableCell>
-                      </TableRow>
-                    );
-                  })}
+                        </span>
+                      </div>
+                      <span className={`text-sm font-bold ${machine.netRevenue >= 0 ? 'text-yellow-600 dark:text-yellow-400' : 'text-red-600 dark:text-red-400'}`}>
+                        {formatCurrency(machine.netRevenue)}
+                      </span>
+                    </div>
 
-                  {/* Totals Row */}
-                  <TableRow className="border-t-2 border-gray-300 dark:border-gray-700 bg-gray-100 dark:bg-gray-800">
-                    <TableCell className="font-bold text-gray-900 dark:text-white">TOTALS</TableCell>
-                    <TableCell className="text-right text-green-600 dark:text-green-400 font-bold">
+                    <div className="grid grid-cols-4 gap-2 text-xs">
+                      <div>
+                        <span className="text-neutral-500 dark:text-neutral-400 block">In</span>
+                        <span className="text-green-600 dark:text-green-400 font-medium">
+                          {formatCurrency(machine.moneyIn)}
+                        </span>
+                      </div>
+                      <div>
+                        <span className="text-neutral-500 dark:text-neutral-400 block">Out</span>
+                        <span className="text-red-600 dark:text-red-400 font-medium">
+                          {formatCurrency(machine.moneyOut)}
+                        </span>
+                      </div>
+                      <div>
+                        <span className="text-neutral-500 dark:text-neutral-400 block">Fee</span>
+                        <span className="text-purple-600 dark:text-purple-400 font-medium">
+                          {formatCurrency(machineFee)}
+                        </span>
+                      </div>
+                      <div>
+                        <span className="text-neutral-500 dark:text-neutral-400 block">Share</span>
+                        <span className="text-blue-600 dark:text-blue-400 font-medium">
+                          {formatCurrency(machineShare)}
+                        </span>
+                      </div>
+                    </div>
+                  </div>
+                );
+              })}
+
+              {/* Totals Card */}
+              <div className="p-4 bg-neutral-50 dark:bg-neutral-800/50">
+                <div className="flex items-center justify-between mb-3">
+                  <span className="font-semibold text-neutral-900 dark:text-white">Total</span>
+                  <span className="text-lg font-bold text-yellow-600 dark:text-yellow-400">
+                    {formatCurrency(netRevenue)}
+                  </span>
+                </div>
+                <div className="grid grid-cols-4 gap-2 text-xs">
+                  <div>
+                    <span className="text-neutral-500 dark:text-neutral-400 block">In</span>
+                    <span className="text-green-600 dark:text-green-400 font-bold">
                       {formatCurrency(todayStats?.moneyIn || 0)}
-                    </TableCell>
-                    <TableCell className="text-right text-red-600 dark:text-red-400 font-bold">
+                    </span>
+                  </div>
+                  <div>
+                    <span className="text-neutral-500 dark:text-neutral-400 block">Out</span>
+                    <span className="text-red-600 dark:text-red-400 font-bold">
                       {formatCurrency(todayStats?.moneyOut || 0)}
-                    </TableCell>
-                    <TableCell className="text-right text-yellow-600 dark:text-yellow-400 font-bold text-lg">
-                      {formatCurrency(netRevenue)}
-                    </TableCell>
-                    <TableCell className="text-right text-purple-600 dark:text-purple-400 font-bold">
+                    </span>
+                  </div>
+                  <div>
+                    <span className="text-neutral-500 dark:text-neutral-400 block">Fee</span>
+                    <span className="text-purple-600 dark:text-purple-400 font-bold">
                       {formatCurrency(storeFee)}
-                    </TableCell>
-                    <TableCell className="text-right text-blue-600 dark:text-blue-400 font-bold">
+                    </span>
+                  </div>
+                  <div>
+                    <span className="text-neutral-500 dark:text-neutral-400 block">Share</span>
+                    <span className="text-blue-600 dark:text-blue-400 font-bold">
                       {formatCurrency(venueShare)}
-                    </TableCell>
-                  </TableRow>
-                </TableBody>
-              </Table>
+                    </span>
+                  </div>
+                </div>
+              </div>
             </div>
           )}
-        </Card>
+        </div>
       </div>
     </AdminLayout>
   );

@@ -2,7 +2,7 @@
 'use client';
 
 import { useState, useEffect } from 'react';
-import { Activity, Server, Cpu, Store, AlertCircle, RefreshCw, ArrowRight, TrendingUp, TrendingDown, DollarSign, ChevronDown, Wifi, WifiOff } from 'lucide-react';
+import { Activity, Server, Cpu, Store, AlertCircle, RefreshCw, ArrowRight, TrendingUp, TrendingDown, DollarSign, ChevronDown, Wifi, WifiOff, Users, MapPin, BarChart3 } from 'lucide-react';
 import api from '@/lib/api';
 import AdminLayout from '@/components/layout/AdminLayout';
 import { Button } from '@/components/ui/button';
@@ -17,11 +17,23 @@ interface User {
   assignedVenues?: string[];
 }
 
+interface AdminUser {
+  _id: string;
+  firstName?: string;
+  lastName?: string;
+  email: string;
+  role: string;
+  isActive: boolean;
+  lastLogin?: string;
+  assignedVenues?: string[];
+}
+
 interface StoreData {
   storeId: string;
   storeName: string;
   city?: string;
   state?: string;
+  status?: string;
 }
 
 interface Hub {
@@ -38,6 +50,8 @@ interface Stats {
   offlineHubs: number;
   totalMachines: number;
   totalStores: number;
+  totalUsers?: number;
+  activeUsers?: number;
 }
 
 interface ActivityItem {
@@ -101,6 +115,10 @@ export default function DashboardPage() {
   // Venue manager specific state
   const [assignedStores, setAssignedStores] = useState<StoreData[]>([]);
   const [selectedStore, setSelectedStore] = useState<string>('all');
+
+  // Gambino ops / admin specific state
+  const [allStores, setAllStores] = useState<StoreData[]>([]);
+  const [adminUsers, setAdminUsers] = useState<AdminUser[]>([]);
 
   useEffect(() => {
     const token = getToken();
@@ -252,19 +270,22 @@ export default function DashboardPage() {
         setRecentActivity(activity);
 
       } else {
-        // Super admin / Gambino ops - load everything
-        const [hubsRes, storesRes, metricsRes] = await Promise.all([
+        // Super admin / Gambino ops - load everything including users
+        const [hubsRes, storesRes, metricsRes, usersRes] = await Promise.all([
           api.get('/api/admin/hubs'),
           api.get('/api/admin/stores'),
-          api.get(`/api/admin/machine-metrics?timeframe=${metricsTimeframe}`)
+          api.get(`/api/admin/machine-metrics?timeframe=${metricsTimeframe}`),
+          api.get('/api/admin/users').catch(() => ({ data: { users: [] } }))
         ]);
 
         const hubs: Hub[] = hubsRes.data.hubs || [];
-        const stores = storesRes.data.stores || [];
+        const stores: StoreData[] = storesRes.data.stores || [];
         const metrics = metricsRes.data || {};
+        const users: AdminUser[] = usersRes.data.users || [];
 
         const onlineHubs = hubs.filter(h => h.isOnline).length;
         const offlineHubs = hubs.length - onlineHubs;
+        const activeUsers = users.filter(u => u.isActive).length;
 
         setStats({
           totalHubs: hubs.length,
@@ -272,8 +293,12 @@ export default function DashboardPage() {
           offlineHubs,
           totalMachines: metrics?.summary?.totalMachines || 0,
           totalStores: stores.length,
+          totalUsers: users.length,
+          activeUsers,
         });
 
+        setAllStores(stores);
+        setAdminUsers(users);
         setMachineMetrics(metrics);
 
         const activity: ActivityItem[] = hubs
@@ -366,6 +391,8 @@ export default function DashboardPage() {
   }
 
   const isVenueManager = user?.role === 'venue_manager' || user?.role === 'venue_staff';
+  const isGambinoOps = user?.role === 'gambino_ops';
+  const isSuperAdmin = user?.role === 'super_admin';
   const growth = calculateGrowth();
 
   // ==================== VENUE MANAGER DASHBOARD ====================
@@ -670,7 +697,12 @@ export default function DashboardPage() {
     );
   }
 
-  // ==================== SUPER ADMIN DASHBOARD ====================
+  // ==================== GAMBINO OPS / SUPER ADMIN DASHBOARD ====================
+  const netProfit = machineMetrics?.summary?.systemNetRevenue || 0;
+  const cashIn = machineMetrics?.summary?.systemMoneyIn || 0;
+  const cashOut = machineMetrics?.summary?.systemMoneyOut || 0;
+  const profitMargin = cashIn > 0 ? ((netProfit / cashIn) * 100) : 0;
+
   return (
     <AdminLayout user={user}>
       <div className="p-4 lg:p-6 space-y-6">
@@ -678,7 +710,9 @@ export default function DashboardPage() {
         <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
           <div>
             <h1 className="text-2xl font-semibold text-neutral-900 dark:text-white">Dashboard</h1>
-            <p className="text-sm text-neutral-500 dark:text-neutral-400 mt-1">System overview and metrics</p>
+            <p className="text-sm text-neutral-500 dark:text-neutral-400 mt-1">
+              {isSuperAdmin ? 'System administration' : 'Operations overview'} • {stats.totalStores} venues
+            </p>
           </div>
           <Button
             variant="outline"
@@ -691,109 +725,195 @@ export default function DashboardPage() {
           </Button>
         </div>
 
+        {/* Timeframe Selector */}
+        <div className="flex gap-2 p-1 bg-neutral-100 dark:bg-neutral-800 rounded-xl">
+          {['24h', '7d', '30d', '90d'].map((tf) => (
+            <button
+              key={tf}
+              onClick={() => setMetricsTimeframe(tf)}
+              className={`flex-1 py-2.5 px-4 rounded-lg text-sm font-medium transition-all ${
+                metricsTimeframe === tf
+                  ? 'bg-white dark:bg-neutral-900 text-neutral-900 dark:text-white shadow-sm'
+                  : 'text-neutral-500 dark:text-neutral-400 hover:text-neutral-700 dark:hover:text-neutral-300'
+              }`}
+            >
+              {tf === '24h' ? '24H' : tf === '7d' ? '7D' : tf === '30d' ? '30D' : '90D'}
+            </button>
+          ))}
+        </div>
+
+        {/* Net Revenue Card */}
+        <div className={`rounded-2xl p-6 ${netProfit >= 0 ? 'bg-gradient-to-br from-yellow-400 to-amber-500 text-neutral-900' : 'bg-gradient-to-br from-red-500 to-red-600 text-white'}`}>
+          <div className="flex items-center justify-between mb-3">
+            <div className="flex items-center gap-2">
+              <DollarSign className="w-5 h-5" />
+              <span className="text-sm font-medium opacity-80">System Net Revenue</span>
+            </div>
+            <span className="text-xs font-medium opacity-70 uppercase">
+              {metricsTimeframe === '24h' ? 'Today' : metricsTimeframe === '7d' ? '7 Days' : metricsTimeframe === '30d' ? '30 Days' : '90 Days'}
+            </span>
+          </div>
+          <div className="text-4xl font-bold mb-2">
+            ${formatCurrency(netProfit)}
+          </div>
+          <div className="flex items-center gap-4 text-sm">
+            <div className="flex items-center gap-1">
+              <TrendingUp className="w-4 h-4" />
+              <span className="font-medium">${formatCurrency(cashIn)} in</span>
+            </div>
+            <div className="flex items-center gap-1">
+              <TrendingDown className="w-4 h-4" />
+              <span className="font-medium">${formatCurrency(cashOut)} out</span>
+            </div>
+            <span className="ml-auto font-medium">
+              {profitMargin >= 0 ? '+' : ''}{profitMargin.toFixed(1)}% margin
+            </span>
+          </div>
+        </div>
+
         {/* Stats Grid */}
-        <div className="grid grid-cols-2 lg:grid-cols-5 gap-4">
-          <StatCard label="Total Hubs" value={stats.totalHubs} icon={<Server className="w-5 h-5" />} />
+        <div className="grid grid-cols-2 lg:grid-cols-6 gap-4">
+          <StatCard label="Venues" value={stats.totalStores} icon={<Store className="w-5 h-5" />} />
+          <StatCard label="Hubs" value={stats.totalHubs} icon={<Server className="w-5 h-5" />} />
           <StatCard label="Online" value={stats.onlineHubs} icon={<Wifi className="w-5 h-5" />} variant="success" />
           <StatCard label="Offline" value={stats.offlineHubs} icon={<WifiOff className="w-5 h-5" />} variant="warning" />
           <StatCard label="Machines" value={stats.totalMachines} icon={<Cpu className="w-5 h-5" />} />
-          <StatCard label="Venues" value={stats.totalStores} icon={<Store className="w-5 h-5" />} />
+          <StatCard label="Users" value={stats.totalUsers || 0} icon={<Users className="w-5 h-5" />} />
         </div>
 
-        {/* Revenue Overview */}
-        {machineMetrics && (
+        {/* Venue Cards - Location Breakdowns */}
+        {machineMetrics && machineMetrics.byStore.length > 0 && (
           <div className="bg-white dark:bg-neutral-900 border border-neutral-200 dark:border-neutral-800 rounded-xl overflow-hidden">
-            <div className="px-5 py-4 border-b border-neutral-200 dark:border-neutral-800 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
+            <div className="px-5 py-4 border-b border-neutral-200 dark:border-neutral-800 flex items-center justify-between">
               <div>
-                <h2 className="font-semibold text-neutral-900 dark:text-white">Revenue Overview</h2>
-                <p className="text-xs text-neutral-500 dark:text-neutral-400 mt-0.5">Financial metrics across all venues</p>
+                <h2 className="font-semibold text-neutral-900 dark:text-white">Venue Performance</h2>
+                <p className="text-xs text-neutral-500 dark:text-neutral-400 mt-0.5">
+                  {machineMetrics.byStore.length} venues • {metricsTimeframe === '24h' ? 'Today' : metricsTimeframe === '7d' ? '7 days' : metricsTimeframe === '30d' ? '30 days' : '90 days'}
+                </p>
               </div>
-              <select
-                value={metricsTimeframe}
-                onChange={(e) => setMetricsTimeframe(e.target.value)}
-                className="px-3 py-2 text-sm border border-neutral-200 dark:border-neutral-700 rounded-lg bg-white dark:bg-neutral-800 text-neutral-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-yellow-500/20"
-              >
-                <option value="24h">Last 24 Hours</option>
-                <option value="7d">Last 7 Days</option>
-                <option value="30d">Last 30 Days</option>
-                <option value="90d">Last 90 Days</option>
-              </select>
+              <a href="/admin/stores" className="text-xs text-yellow-600 dark:text-yellow-400 hover:underline font-medium">
+                View All →
+              </a>
             </div>
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4 p-5">
+              {machineMetrics.byStore
+                .sort((a, b) => b.netRevenue - a.netRevenue)
+                .slice(0, 6)
+                .map((storeMetric, index) => {
+                  const storeInfo = allStores.find(s => s.storeId === storeMetric.storeId);
+                  const machineCount = machineMetrics.byMachine.filter(m => m.storeId === storeMetric.storeId).length;
+                  const storeMargin = storeMetric.moneyIn > 0 ? ((storeMetric.netRevenue / storeMetric.moneyIn) * 100) : 0;
 
-            <div className="grid grid-cols-2 lg:grid-cols-4 divide-y lg:divide-y-0 lg:divide-x divide-neutral-200 dark:divide-neutral-800">
-              <div className="p-5">
-                <div className="flex items-center justify-between mb-2">
-                  <p className="text-sm text-neutral-500 dark:text-neutral-400">Money IN</p>
-                  <TrendingUp className="w-4 h-4 text-green-500" />
-                </div>
-                <p className="text-2xl font-bold text-green-600 dark:text-green-400">
-                  ${formatCurrency(machineMetrics.summary.systemMoneyIn)}
-                </p>
-              </div>
+                  return (
+                    <div
+                      key={storeMetric.storeId}
+                      className="bg-neutral-50 dark:bg-neutral-800/50 rounded-xl p-4 border border-neutral-100 dark:border-neutral-700/50"
+                    >
+                      <div className="flex items-start justify-between mb-3">
+                        <div className="min-w-0 flex-1">
+                          <div className="flex items-center gap-2">
+                            <span className={`w-5 h-5 rounded-full flex items-center justify-center text-xs font-bold ${
+                              index < 3
+                                ? 'bg-yellow-100 dark:bg-yellow-900/50 text-yellow-700 dark:text-yellow-400'
+                                : 'bg-neutral-200 dark:bg-neutral-700 text-neutral-500 dark:text-neutral-400'
+                            }`}>
+                              {index + 1}
+                            </span>
+                            <h3 className="font-semibold text-neutral-900 dark:text-white text-sm truncate">
+                              {storeInfo?.storeName || storeMetric.storeId}
+                            </h3>
+                          </div>
+                          {storeInfo?.city && storeInfo?.state && (
+                            <div className="flex items-center gap-1 text-xs text-neutral-500 dark:text-neutral-400 mt-1 ml-7">
+                              <MapPin className="w-3 h-3" />
+                              {storeInfo.city}, {storeInfo.state}
+                            </div>
+                          )}
+                        </div>
+                        <span className={`text-xs font-medium px-2 py-0.5 rounded-full ${
+                          storeInfo?.status === 'active'
+                            ? 'bg-green-100 dark:bg-green-900/50 text-green-700 dark:text-green-400'
+                            : 'bg-neutral-100 dark:bg-neutral-700 text-neutral-500 dark:text-neutral-400'
+                        }`}>
+                          {machineCount} machines
+                        </span>
+                      </div>
 
-              <div className="p-5">
-                <div className="flex items-center justify-between mb-2">
-                  <p className="text-sm text-neutral-500 dark:text-neutral-400">Money OUT</p>
-                  <TrendingDown className="w-4 h-4 text-red-500" />
-                </div>
-                <p className="text-2xl font-bold text-red-600 dark:text-red-400">
-                  ${formatCurrency(machineMetrics.summary.systemMoneyOut)}
-                </p>
-              </div>
-
-              <div className="p-5">
-                <div className="flex items-center justify-between mb-2">
-                  <p className="text-sm text-neutral-500 dark:text-neutral-400">Net Revenue</p>
-                  <DollarSign className="w-4 h-4 text-yellow-500" />
-                </div>
-                <p className="text-2xl font-bold text-yellow-600 dark:text-yellow-400">
-                  ${formatCurrency(machineMetrics.summary.systemNetRevenue)}
-                </p>
-              </div>
-
-              <div className="p-5">
-                <div className="flex items-center justify-between mb-2">
-                  <p className="text-sm text-neutral-500 dark:text-neutral-400">Profit Margin</p>
-                  <Activity className="w-4 h-4 text-blue-500" />
-                </div>
-                <p className="text-2xl font-bold text-blue-600 dark:text-blue-400">
-                  {machineMetrics.summary.systemMoneyIn > 0
-                    ? ((machineMetrics.summary.systemNetRevenue / machineMetrics.summary.systemMoneyIn) * 100).toFixed(1)
-                    : '0.0'}%
-                </p>
-              </div>
+                      <div className="space-y-2">
+                        <div className="flex items-center justify-between text-sm">
+                          <span className="text-neutral-500 dark:text-neutral-400">Net Revenue</span>
+                          <span className={`font-bold ${storeMetric.netRevenue >= 0 ? 'text-yellow-600 dark:text-yellow-400' : 'text-red-600 dark:text-red-400'}`}>
+                            ${formatCurrency(storeMetric.netRevenue)}
+                          </span>
+                        </div>
+                        <div className="flex items-center gap-3 text-xs">
+                          <span className="text-green-600 dark:text-green-400">+${formatCurrency(storeMetric.moneyIn)}</span>
+                          <span className="text-red-600 dark:text-red-400">-${formatCurrency(storeMetric.moneyOut)}</span>
+                          <span className="ml-auto text-neutral-500 dark:text-neutral-400">
+                            {storeMargin.toFixed(1)}% margin
+                          </span>
+                        </div>
+                      </div>
+                    </div>
+                  );
+                })}
             </div>
+            {machineMetrics.byStore.length > 6 && (
+              <div className="px-5 py-3 border-t border-neutral-100 dark:border-neutral-800 text-center">
+                <a href="/admin/stores" className="text-sm text-yellow-600 dark:text-yellow-400 hover:underline font-medium">
+                  View all {machineMetrics.byStore.length} venues →
+                </a>
+              </div>
+            )}
           </div>
         )}
 
-        {/* Store Breakdown & Activity */}
+        {/* Users & Activity Row */}
         <div className="grid lg:grid-cols-2 gap-6">
-          {/* Revenue by Store */}
-          {machineMetrics && machineMetrics.byStore.length > 0 && (
+          {/* Recent Users */}
+          {adminUsers.length > 0 && (
             <div className="bg-white dark:bg-neutral-900 border border-neutral-200 dark:border-neutral-800 rounded-xl overflow-hidden">
-              <div className="px-5 py-4 border-b border-neutral-200 dark:border-neutral-800">
-                <h2 className="font-semibold text-neutral-900 dark:text-white">Revenue by Venue</h2>
+              <div className="px-5 py-4 border-b border-neutral-200 dark:border-neutral-800 flex items-center justify-between">
+                <div>
+                  <h2 className="font-semibold text-neutral-900 dark:text-white">Users</h2>
+                  <p className="text-xs text-neutral-500 dark:text-neutral-400 mt-0.5">
+                    {stats.activeUsers} active of {stats.totalUsers}
+                  </p>
+                </div>
+                <a href="/admin/users" className="text-xs text-yellow-600 dark:text-yellow-400 hover:underline font-medium">
+                  View All →
+                </a>
               </div>
-              <div className="divide-y divide-neutral-100 dark:divide-neutral-800 max-h-96 overflow-y-auto">
-                {machineMetrics.byStore
-                  .sort((a, b) => b.netRevenue - a.netRevenue)
-                  .map((store) => (
-                    <div key={store.storeId} className="px-5 py-4">
-                      <div className="flex items-center justify-between mb-2">
-                        <span className="font-medium text-neutral-900 dark:text-white text-sm">{store.storeId}</span>
-                        <span className="text-xs text-neutral-500 dark:text-neutral-400">
-                          {machineMetrics.byMachine.filter(m => m.storeId === store.storeId).length} machines
-                        </span>
+              <div className="divide-y divide-neutral-100 dark:divide-neutral-800 max-h-80 overflow-y-auto">
+                {adminUsers.slice(0, 8).map((adminUser) => (
+                  <div key={adminUser._id} className="px-5 py-3 flex items-center justify-between">
+                    <div className="flex items-center gap-3">
+                      <div className={`w-8 h-8 rounded-full flex items-center justify-center text-xs font-bold ${
+                        adminUser.role === 'super_admin'
+                          ? 'bg-purple-100 dark:bg-purple-900/50 text-purple-700 dark:text-purple-400'
+                          : adminUser.role === 'gambino_ops'
+                            ? 'bg-blue-100 dark:bg-blue-900/50 text-blue-700 dark:text-blue-400'
+                            : adminUser.role === 'venue_manager'
+                              ? 'bg-yellow-100 dark:bg-yellow-900/50 text-yellow-700 dark:text-yellow-400'
+                              : 'bg-neutral-100 dark:bg-neutral-800 text-neutral-500 dark:text-neutral-400'
+                      }`}>
+                        {(adminUser.firstName?.[0] || adminUser.email[0]).toUpperCase()}
                       </div>
-                      <div className="flex items-center gap-4 text-sm">
-                        <span className="text-green-600 dark:text-green-400">+${formatCurrency(store.moneyIn)}</span>
-                        <span className="text-red-600 dark:text-red-400">-${formatCurrency(store.moneyOut)}</span>
-                        <span className="ml-auto font-semibold text-yellow-600 dark:text-yellow-400">
-                          ${formatCurrency(store.netRevenue)}
-                        </span>
+                      <div className="min-w-0">
+                        <p className="text-sm font-medium text-neutral-900 dark:text-white truncate">
+                          {adminUser.firstName && adminUser.lastName
+                            ? `${adminUser.firstName} ${adminUser.lastName}`
+                            : adminUser.email}
+                        </p>
+                        <p className="text-xs text-neutral-500 dark:text-neutral-400">
+                          {adminUser.role.replace('_', ' ')}
+                          {adminUser.assignedVenues?.length ? ` • ${adminUser.assignedVenues.length} venues` : ''}
+                        </p>
                       </div>
                     </div>
-                  ))}
+                    <div className={`w-2 h-2 rounded-full ${adminUser.isActive ? 'bg-green-500' : 'bg-neutral-300 dark:bg-neutral-600'}`} />
+                  </div>
+                ))}
               </div>
             </div>
           )}
@@ -801,7 +921,7 @@ export default function DashboardPage() {
           {/* Recent Activity */}
           <div className="bg-white dark:bg-neutral-900 border border-neutral-200 dark:border-neutral-800 rounded-xl overflow-hidden">
             <div className="px-5 py-4 border-b border-neutral-200 dark:border-neutral-800">
-              <h2 className="font-semibold text-neutral-900 dark:text-white">Recent Activity</h2>
+              <h2 className="font-semibold text-neutral-900 dark:text-white">System Activity</h2>
               <p className="text-xs text-neutral-500 dark:text-neutral-400 mt-0.5">Latest hub heartbeats</p>
             </div>
 
@@ -810,9 +930,9 @@ export default function DashboardPage() {
                 No recent activity
               </div>
             ) : (
-              <div className="divide-y divide-neutral-100 dark:divide-neutral-800 max-h-96 overflow-y-auto">
+              <div className="divide-y divide-neutral-100 dark:divide-neutral-800 max-h-80 overflow-y-auto">
                 {recentActivity.map((item) => (
-                  <div key={item.id} className="px-5 py-4 flex items-center justify-between">
+                  <div key={item.id} className="px-5 py-3 flex items-center justify-between">
                     <div className="flex items-center gap-3">
                       <div className={`w-2.5 h-2.5 rounded-full ${
                         item.type === 'hub_online' ? 'bg-green-500' : 'bg-neutral-300 dark:bg-neutral-600'
@@ -833,10 +953,11 @@ export default function DashboardPage() {
         </div>
 
         {/* Quick Links */}
-        <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
-          <QuickLink href="/admin/hubs" title="Manage Hubs" description="View and manage Pi hubs" icon={<Server className="w-5 h-5" />} />
-          <QuickLink href="/admin/machines" title="Manage Machines" description="View and manage machines" icon={<Cpu className="w-5 h-5" />} />
-          <QuickLink href="/admin/stores" title="Manage Venues" description="View and manage venues" icon={<Store className="w-5 h-5" />} />
+        <div className="grid grid-cols-2 sm:grid-cols-4 gap-4">
+          <QuickLink href="/admin/hubs" title="Pi Hubs" description="View and manage hubs" icon={<Server className="w-5 h-5" />} />
+          <QuickLink href="/admin/machines" title="Machines" description="View machine metrics" icon={<Cpu className="w-5 h-5" />} />
+          <QuickLink href="/admin/stores" title="Venues" description="Manage venues" icon={<Store className="w-5 h-5" />} />
+          <QuickLink href="/admin/users" title="Users" description="Manage users" icon={<Users className="w-5 h-5" />} />
         </div>
       </div>
     </AdminLayout>

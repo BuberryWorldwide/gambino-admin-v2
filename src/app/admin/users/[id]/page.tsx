@@ -40,6 +40,10 @@ interface User {
   lastActivity?: string;
   walletCreatedAt?: string;
   walletType?: 'generated' | 'connected';
+  dateOfBirth?: string;
+  ageVerified?: boolean;
+  ageVerifiedAt?: string;
+  ageVerifiedBy?: string;
 }
 
 interface Store {
@@ -73,6 +77,7 @@ export default function UserEditPage() {
     role: 'user',
     isActive: true,
     assignedVenues: [] as string[],
+    ageVerified: false,
   });
 
   useEffect(() => {
@@ -93,6 +98,7 @@ export default function UserEditPage() {
         role: userData.role || 'user',
         isActive: userData.isActive !== false,
         assignedVenues: userData.assignedVenues || [],
+        ageVerified: userData.ageVerified || false,
       });
     } catch (err) {
       console.error('Failed to load user:', err);
@@ -480,6 +486,72 @@ export default function UserEditPage() {
                       onCheckedChange={(checked) => setFormData({...formData, isActive: checked})}
                     />
                   </div>
+                </div>
+              </div>
+
+              {/* Age Verification Section */}
+              <div className="mt-6 pt-6 border-t border-gray-200 dark:border-gray-700">
+                <h3 className="text-lg font-semibold text-gray-900 dark:text-white mb-4">Age Verification</h3>
+
+                {/* Date of Birth Display */}
+                {user?.dateOfBirth && (
+                  <div className="mb-4 p-4 bg-gray-50 dark:bg-gray-800 rounded-lg border border-gray-200 dark:border-gray-700">
+                    <div className="flex items-center gap-3">
+                      <Calendar className="w-5 h-5 text-gray-500" />
+                      <div>
+                        <p className="text-sm text-gray-600 dark:text-gray-400">Date of Birth</p>
+                        <p className="font-medium text-gray-900 dark:text-white">
+                          {new Date(user.dateOfBirth).toLocaleDateString('en-US', {
+                            month: 'long',
+                            day: 'numeric',
+                            year: 'numeric'
+                          })}
+                        </p>
+                      </div>
+                    </div>
+                  </div>
+                )}
+
+                {/* Age Verification Toggle */}
+                <div className={`p-4 rounded-lg border ${
+                  formData.ageVerified
+                    ? 'bg-green-50 dark:bg-green-900/20 border-green-200 dark:border-green-800'
+                    : 'bg-yellow-50 dark:bg-yellow-900/20 border-yellow-200 dark:border-yellow-800'
+                }`}>
+                  <div className="flex items-center justify-between">
+                    <div className="flex items-center gap-3">
+                      {formData.ageVerified ? (
+                        <CheckCircle className="w-6 h-6 text-green-600 dark:text-green-400" />
+                      ) : (
+                        <XCircle className="w-6 h-6 text-yellow-600 dark:text-yellow-400" />
+                      )}
+                      <div>
+                        <p className="font-semibold text-gray-900 dark:text-white">
+                          {formData.ageVerified ? 'Age Verified' : 'Age Not Verified'}
+                        </p>
+                        <p className="text-sm text-gray-600 dark:text-gray-400">
+                          {formData.ageVerified
+                            ? 'ID has been physically verified by staff'
+                            : 'User has not been ID verified in person'}
+                        </p>
+                        {user?.ageVerifiedAt && formData.ageVerified && (
+                          <p className="text-xs text-gray-500 dark:text-gray-500 mt-1">
+                            Verified on {new Date(user.ageVerifiedAt).toLocaleDateString()}
+                            {user.ageVerifiedBy && ` by ${user.ageVerifiedBy}`}
+                          </p>
+                        )}
+                      </div>
+                    </div>
+                    <Switch
+                      checked={formData.ageVerified}
+                      onCheckedChange={(checked) => setFormData({...formData, ageVerified: checked})}
+                    />
+                  </div>
+                  {!formData.ageVerified && (
+                    <p className="mt-3 text-xs text-yellow-700 dark:text-yellow-300 bg-yellow-100 dark:bg-yellow-900/30 p-2 rounded">
+                      Toggle this ON after physically verifying the user&apos;s government-issued ID confirms they are 18+
+                    </p>
+                  )}
                 </div>
               </div>
             </div>
