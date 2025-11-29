@@ -323,7 +323,7 @@ export default function StoreDashboardPage() {
               {formatCurrency(netRevenue)}
             </p>
             <p className="text-xs text-neutral-500 dark:text-neutral-400 mt-1">
-              {feePercentage}% fee
+              {100 - feePercentage}% venue share
             </p>
           </div>
 
@@ -351,7 +351,7 @@ export default function StoreDashboardPage() {
           </div>
           <p className="text-3xl font-bold">{formatCurrency(venueShare)}</p>
           <div className="flex items-center justify-between mt-2 text-sm opacity-80">
-            <span>Gambino Fee ({feePercentage}%)</span>
+            <span>Platform Share ({feePercentage}%)</span>
             <span>{formatCurrency(storeFee)}</span>
           </div>
         </div>
@@ -412,13 +412,13 @@ export default function StoreDashboardPage() {
                         </span>
                       </div>
                       <div>
-                        <span className="text-neutral-500 dark:text-neutral-400 block">Fee</span>
+                        <span className="text-neutral-500 dark:text-neutral-400 block">Platform</span>
                         <span className="text-purple-600 dark:text-purple-400 font-medium">
                           {formatCurrency(machineFee)}
                         </span>
                       </div>
                       <div>
-                        <span className="text-neutral-500 dark:text-neutral-400 block">Share</span>
+                        <span className="text-neutral-500 dark:text-neutral-400 block">Venue</span>
                         <span className="text-blue-600 dark:text-blue-400 font-medium">
                           {formatCurrency(machineShare)}
                         </span>
@@ -450,13 +450,13 @@ export default function StoreDashboardPage() {
                     </span>
                   </div>
                   <div>
-                    <span className="text-neutral-500 dark:text-neutral-400 block">Fee</span>
+                    <span className="text-neutral-500 dark:text-neutral-400 block">Platform</span>
                     <span className="text-purple-600 dark:text-purple-400 font-bold">
                       {formatCurrency(storeFee)}
                     </span>
                   </div>
                   <div>
-                    <span className="text-neutral-500 dark:text-neutral-400 block">Share</span>
+                    <span className="text-neutral-500 dark:text-neutral-400 block">Venue</span>
                     <span className="text-blue-600 dark:text-blue-400 font-bold">
                       {formatCurrency(venueShare)}
                     </span>

@@ -295,10 +295,10 @@ export default function StoreEditPage({ params }: { params: Promise<{ id: string
               />
             </div>
 
-            {/* Fee Percentage */}
+            {/* Revenue Split */}
             <div>
               <label className="block text-sm font-medium text-neutral-700 dark:text-neutral-300 mb-2">
-                Gambino Fee (%)
+                Platform Share (%)
               </label>
               <Input
                 type="number"
@@ -310,7 +310,7 @@ export default function StoreEditPage({ params }: { params: Promise<{ id: string
                 step="0.1"
               />
               <p className="text-xs text-neutral-500 dark:text-neutral-400 mt-1">
-                Venue keeps {100 - Number(formData.feePercentage)}% of revenue
+                Venue Share: {100 - Number(formData.feePercentage)}% of revenue
               </p>
             </div>
 

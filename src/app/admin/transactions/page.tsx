@@ -152,7 +152,7 @@ export default function TransactionsPage() {
       'Customer Email',
       'Tokens Converted',
       'Cash Amount',
-      'Commission',
+      'Venue Earnings',
       'Exchange Rate',
       'Status',
       'Notes'
@@ -243,7 +243,7 @@ export default function TransactionsPage() {
             </div>
 
             <div className="bg-white rounded-lg shadow p-4 sm:p-5">
-              <p className="text-xs sm:text-sm text-gray-600">Commission Earned</p>
+              <p className="text-xs sm:text-sm text-gray-600">Venue Earnings</p>
               <p className="text-xl sm:text-2xl font-bold text-purple-600 mt-1">
                 ${summary.totalCommission.toFixed(2)}
               </p>
@@ -394,7 +394,7 @@ export default function TransactionsPage() {
                           </div>
                           {txn.metadata?.venueCommission ? (
                             <div className="text-xs text-gray-500">
-                              Commission: ${txn.metadata.venueCommission.toFixed(2)}
+                              Venue Earnings: ${txn.metadata.venueCommission.toFixed(2)}
                             </div>
                           ) : null}
                         </td>

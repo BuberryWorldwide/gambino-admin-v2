@@ -79,7 +79,7 @@ interface StoreMetric {
   moneyIn: number;
   moneyOut: number;
   netRevenue: number;
-  gambinoCut: number;
+  platformShare: number;
 }
 
 interface MachineMetrics {

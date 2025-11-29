@@ -259,7 +259,7 @@ export default function CashoutPage() {
                 </div>
                 {completedTransaction.venueCommission > 0 && (
                   <div className="flex justify-between text-xs text-gray-500">
-                    <span>Venue Commission:</span>
+                    <span>Venue Earnings:</span>
                     <span>${completedTransaction.venueCommission.toFixed(2)}</span>
                   </div>
                 )}
@@ -338,7 +338,7 @@ export default function CashoutPage() {
                 </div>
                 {commission > 0 && (
                   <div className="flex justify-between text-xs text-gray-500">
-                    <span>Commission ({exchangeRate.venueCommissionPercent}%):</span>
+                    <span>Venue Earnings ({exchangeRate.venueCommissionPercent}%):</span>
                     <span>${commission.toFixed(2)}</span>
                   </div>
                 )}
