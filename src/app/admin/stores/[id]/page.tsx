@@ -17,6 +17,19 @@ import {
   Download,
   Cpu
 } from 'lucide-react';
+import {
+  BarChart,
+  Bar,
+  XAxis,
+  YAxis,
+  Tooltip,
+  ResponsiveContainer,
+  Cell,
+  PieChart,
+  Pie,
+  LineChart,
+  Line
+} from 'recharts';
 import api from '@/lib/api';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
@@ -50,6 +63,11 @@ interface MachineRevenue {
   netRevenue: number;
 }
 
+interface TrendData {
+  date: string;
+  netRevenue: number;
+}
+
 export default function StoreDashboardPage() {
   const params = useParams();
   const router = useRouter();
@@ -58,6 +76,7 @@ export default function StoreDashboardPage() {
   const [store, setStore] = useState<Store | null>(null);
   const [todayStats, setTodayStats] = useState<VenueStats | null>(null);
   const [machineRevenue, setMachineRevenue] = useState<MachineRevenue[]>([]);
+  const [trendData, setTrendData] = useState<TrendData[]>([]);
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
 
@@ -78,10 +97,45 @@ export default function StoreDashboardPage() {
 
       // Load venue events for selected date
       await loadVenueStats();
+
+      // Load 7-day trend data
+      await load7DayTrend();
     } catch (err) {
       console.error('Failed to load store data:', err);
     } finally {
       setLoading(false);
+    }
+  };
+
+  const load7DayTrend = async () => {
+    try {
+      // Fetch last 7 days of data
+      const trends: TrendData[] = [];
+      const today = new Date();
+
+      for (let i = 6; i >= 0; i--) {
+        const date = new Date(today);
+        date.setDate(date.getDate() - i);
+        const dateStr = date.toISOString().split('T')[0];
+
+        try {
+          const response = await api.get(`/api/admin/reports/${storeId}/cumulative/${dateStr}`);
+          trends.push({
+            date: date.toLocaleDateString('en-US', { weekday: 'short' }),
+            netRevenue: response.data?.netRevenue || 0
+          });
+        } catch {
+          trends.push({
+            date: date.toLocaleDateString('en-US', { weekday: 'short' }),
+            netRevenue: 0
+          });
+        }
+      }
+
+      setTrendData(trends);
+    } catch (err) {
+      console.error('Failed to load 7-day trend:', err);
+      setTrendData([]);
     }
   };
 
@@ -286,6 +340,50 @@ export default function StoreDashboardPage() {
           </div>
         </div>
 
+        {/* 7-Day Revenue Trend */}
+        {trendData.length > 0 && (
+          <div className="bg-white dark:bg-neutral-900 border border-neutral-200 dark:border-neutral-800 rounded-xl p-4">
+            <div className="flex items-center justify-between mb-3">
+              <h3 className="font-semibold text-neutral-900 dark:text-white text-sm">7-Day Trend</h3>
+              <span className="text-xs text-neutral-500 dark:text-neutral-400">
+                Net Revenue
+              </span>
+            </div>
+            <div className="h-24">
+              <ResponsiveContainer width="100%" height="100%">
+                <LineChart data={trendData} margin={{ top: 5, right: 5, left: 5, bottom: 5 }}>
+                  <XAxis
+                    dataKey="date"
+                    tick={{ fill: '#9ca3af', fontSize: 10 }}
+                    axisLine={false}
+                    tickLine={false}
+                  />
+                  <YAxis hide domain={['auto', 'auto']} />
+                  <Tooltip
+                    formatter={(value: number) => [formatCurrency(value), 'Net Revenue']}
+                    contentStyle={{
+                      backgroundColor: 'rgba(0, 0, 0, 0.8)',
+                      border: 'none',
+                      borderRadius: '8px',
+                      color: '#fff',
+                      fontSize: '12px'
+                    }}
+                    labelStyle={{ color: '#fff', fontWeight: 'bold' }}
+                  />
+                  <Line
+                    type="monotone"
+                    dataKey="netRevenue"
+                    stroke="#eab308"
+                    strokeWidth={2}
+                    dot={{ fill: '#eab308', strokeWidth: 0, r: 3 }}
+                    activeDot={{ r: 5, fill: '#eab308' }}
+                  />
+                </LineChart>
+              </ResponsiveContainer>
+            </div>
+          </div>
+        )}
+
         {/* Daily Summary Cards - 2x2 Grid */}
         <div className="grid grid-cols-2 gap-3">
           <div className="bg-white dark:bg-neutral-900 border border-neutral-200 dark:border-neutral-800 rounded-xl p-4">
@@ -343,18 +441,117 @@ export default function StoreDashboardPage() {
           </div>
         </div>
 
-        {/* Revenue Split Card */}
-        <div className="bg-gradient-to-br from-yellow-400 to-amber-500 rounded-xl p-4 text-neutral-900">
-          <div className="flex items-center justify-between mb-3">
-            <span className="text-sm font-medium opacity-80">Venue Share</span>
-            <span className="text-xs opacity-70">{100 - feePercentage}%</span>
-          </div>
-          <p className="text-3xl font-bold">{formatCurrency(venueShare)}</p>
-          <div className="flex items-center justify-between mt-2 text-sm opacity-80">
-            <span>Platform Share ({feePercentage}%)</span>
-            <span>{formatCurrency(storeFee)}</span>
+        {/* Revenue Split Card with Donut Chart */}
+        <div className="bg-white dark:bg-neutral-900 border border-neutral-200 dark:border-neutral-800 rounded-xl p-4">
+          <h3 className="font-semibold text-neutral-900 dark:text-white mb-4">Revenue Split</h3>
+          <div className="flex items-center gap-4">
+            {/* Donut Chart */}
+            <div className="w-32 h-32 flex-shrink-0">
+              <ResponsiveContainer width="100%" height="100%">
+                <PieChart>
+                  <Pie
+                    data={[
+                      { name: 'Venue', value: venueShare, color: '#eab308' },
+                      { name: 'Platform', value: storeFee, color: '#a855f7' }
+                    ]}
+                    cx="50%"
+                    cy="50%"
+                    innerRadius={30}
+                    outerRadius={50}
+                    paddingAngle={2}
+                    dataKey="value"
+                  >
+                    <Cell fill="#eab308" />
+                    <Cell fill="#a855f7" />
+                  </Pie>
+                  <Tooltip
+                    formatter={(value: number) => formatCurrency(value)}
+                    contentStyle={{
+                      backgroundColor: 'rgba(0, 0, 0, 0.8)',
+                      border: 'none',
+                      borderRadius: '8px',
+                      color: '#fff',
+                      fontSize: '12px'
+                    }}
+                  />
+                </PieChart>
+              </ResponsiveContainer>
+            </div>
+            {/* Legend and Values */}
+            <div className="flex-1 space-y-3">
+              <div className="flex items-center justify-between">
+                <div className="flex items-center gap-2">
+                  <div className="w-3 h-3 rounded-full bg-yellow-500"></div>
+                  <span className="text-sm text-neutral-600 dark:text-neutral-400">Venue ({100 - feePercentage}%)</span>
+                </div>
+                <span className="text-sm font-bold text-yellow-600 dark:text-yellow-400">{formatCurrency(venueShare)}</span>
+              </div>
+              <div className="flex items-center justify-between">
+                <div className="flex items-center gap-2">
+                  <div className="w-3 h-3 rounded-full bg-purple-500"></div>
+                  <span className="text-sm text-neutral-600 dark:text-neutral-400">Platform ({feePercentage}%)</span>
+                </div>
+                <span className="text-sm font-bold text-purple-600 dark:text-purple-400">{formatCurrency(storeFee)}</span>
+              </div>
+              <div className="pt-2 border-t border-neutral-200 dark:border-neutral-700">
+                <div className="flex items-center justify-between">
+                  <span className="text-sm font-medium text-neutral-700 dark:text-neutral-300">Total Net</span>
+                  <span className="text-lg font-bold text-neutral-900 dark:text-white">{formatCurrency(netRevenue)}</span>
+                </div>
+              </div>
+            </div>
           </div>
         </div>
+
+        {/* Machine Performance Bar Chart */}
+        {machineRevenue.length > 0 && (
+          <div className="bg-white dark:bg-neutral-900 border border-neutral-200 dark:border-neutral-800 rounded-xl p-4">
+            <h3 className="font-semibold text-neutral-900 dark:text-white mb-1">Machine Performance</h3>
+            <p className="text-xs text-neutral-500 dark:text-neutral-400 mb-4">Net revenue by machine</p>
+            <div style={{ height: Math.max(200, machineRevenue.length * 40) }}>
+              <ResponsiveContainer width="100%" height="100%">
+                <BarChart
+                  layout="vertical"
+                  data={machineRevenue.slice(0, 10)}
+                  margin={{ top: 5, right: 30, left: 60, bottom: 5 }}
+                >
+                  <XAxis
+                    type="number"
+                    tickFormatter={(value) => `$${value >= 1000 ? `${(value / 1000).toFixed(1)}k` : value}`}
+                    tick={{ fill: '#9ca3af', fontSize: 11 }}
+                    axisLine={{ stroke: '#374151' }}
+                  />
+                  <YAxis
+                    type="category"
+                    dataKey="machineId"
+                    tick={{ fill: '#9ca3af', fontSize: 11 }}
+                    axisLine={{ stroke: '#374151' }}
+                    width={55}
+                  />
+                  <Tooltip
+                    formatter={(value: number) => [formatCurrency(value), 'Net Revenue']}
+                    contentStyle={{
+                      backgroundColor: 'rgba(0, 0, 0, 0.8)',
+                      border: 'none',
+                      borderRadius: '8px',
+                      color: '#fff',
+                      fontSize: '12px'
+                    }}
+                    labelStyle={{ color: '#fff', fontWeight: 'bold' }}
+                  />
+                  <Bar dataKey="netRevenue" radius={[0, 4, 4, 0]}>
+                    {machineRevenue.slice(0, 10).map((entry, index) => (
+                      <Cell
+                        key={`cell-${index}`}
+                        fill={entry.netRevenue >= 0 ? '#eab308' : '#ef4444'}
+                      />
+                    ))}
+                  </Bar>
+                </BarChart>
+              </ResponsiveContainer>
+            </div>
+          </div>
+        )}
 
         {/* Machine Breakdown - Card Layout for Mobile */}
         <div className="bg-white dark:bg-neutral-900 border border-neutral-200 dark:border-neutral-800 rounded-xl overflow-hidden">
