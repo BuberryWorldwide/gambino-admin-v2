@@ -1,9 +1,9 @@
 // src/app/admin/hubs/register/page.tsx
 'use client';
 
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
-import { ArrowLeft, Server, AlertCircle, CheckCircle2, Copy } from 'lucide-react';
+import { ArrowLeft, Server, AlertCircle, CheckCircle2, Copy, QrCode, Download } from 'lucide-react';
 import api from '@/lib/api';
 import AdminLayout from '@/components/layout/AdminLayout';
 import { Button } from '@/components/ui/button';
@@ -17,10 +17,24 @@ interface RegisterResponse {
     name: string;
     storeId: string;
   };
-  machineToken: string; // ✅ Token is at root level, not inside hub object
+  tokens: {
+    accessToken: string;
+    refreshToken: string;
+    accessTokenExpiresAt: string;
+    refreshTokenExpiresAt: string;
+  };
+  machineToken?: string; // Legacy fallback
   message: string;
   setupInstructions?: {
     steps: string[];
+    envConfig?: {
+      MACHINE_ID: string;
+      STORE_ID: string;
+      API_ENDPOINT: string;
+      MACHINE_TOKEN: string;
+      REFRESH_TOKEN: string;
+      SERIAL_PORT: string;
+    };
   };
 }
 
@@ -29,6 +43,7 @@ interface RegisteredHub {
   name: string;
   storeId: string;
   machineToken: string;
+  refreshToken: string;
 }
 
 export default function RegisterHubPage() {
@@ -42,6 +57,39 @@ export default function RegisterHubPage() {
   const [success, setSuccess] = useState(false);
   const [registeredHub, setRegisteredHub] = useState<RegisteredHub | null>(null);
   const [tokenCopied, setTokenCopied] = useState(false);
+  const [qrCodeUrl, setQrCodeUrl] = useState<string | null>(null);
+
+  // Generate QR code when hub is registered
+  useEffect(() => {
+    if (registeredHub) {
+      const envConfig = generateEnvConfig();
+      // Use a simple QR code API or generate locally
+      const qrData = encodeURIComponent(envConfig);
+      setQrCodeUrl(`https://api.qrserver.com/v1/create-qr-code/?size=200x200&data=${qrData}`);
+    }
+  }, [registeredHub]);
+
+  const generateEnvConfig = () => {
+    if (!registeredHub) return '';
+    return `# Gambino Pi Configuration
+MACHINE_ID=${registeredHub.hubId}
+STORE_ID=${registeredHub.storeId}
+API_ENDPOINT=https://api.gambino.gold
+
+# Authentication
+MACHINE_TOKEN=${registeredHub.machineToken}
+REFRESH_TOKEN=${registeredHub.refreshToken}
+
+# Hardware Configuration
+SERIAL_PORT=${serialPort}
+PRINTER_PORT=/dev/ttyUSB1
+ENABLE_SERIAL_LOGGING=true
+
+# Application Settings
+LOG_LEVEL=info
+NODE_ENV=production
+API_BASE_URL=https://api.gambino.gold/api`;
+  };
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -59,17 +107,22 @@ export default function RegisterHubPage() {
       console.log('✅ Hub registration response:', response.data);
 
       if (response.data.success) {
-        // ✅ FIX: Properly extract token from root level and merge with hub data
+        // Handle both new tokens object and legacy machineToken
+        const accessToken = response.data.tokens?.accessToken || response.data.machineToken || '';
+        const refreshToken = response.data.tokens?.refreshToken || '';
+
         const hubWithToken: RegisteredHub = {
           hubId: response.data.hub.hubId,
           name: response.data.hub.name,
           storeId: response.data.hub.storeId,
-          machineToken: response.data.machineToken // ← Token comes from root level
+          machineToken: accessToken,
+          refreshToken: refreshToken
         };
 
-        console.log('✅ Registered hub with token:', {
+        console.log('✅ Registered hub with tokens:', {
           hubId: hubWithToken.hubId,
-          hasToken: !!hubWithToken.machineToken,
+          hasAccessToken: !!hubWithToken.machineToken,
+          hasRefreshToken: !!hubWithToken.refreshToken,
           tokenLength: hubWithToken.machineToken?.length
         });
 
@@ -92,27 +145,32 @@ export default function RegisterHubPage() {
     }
   };
 
+  const copyRefreshToken = () => {
+    if (registeredHub?.refreshToken) {
+      navigator.clipboard.writeText(registeredHub.refreshToken);
+      setTokenCopied(true);
+      setTimeout(() => setTokenCopied(false), 2000);
+    }
+  };
+
   const copyEnvBlock = () => {
     if (!registeredHub) return;
-    
-    const envBlock = `# Gambino Pi Configuration
-MACHINE_ID=${registeredHub.hubId}
-STORE_ID=${registeredHub.storeId}
-API_ENDPOINT=https://api.gambino.gold
-
-# Authentication
-MACHINE_TOKEN=${registeredHub.machineToken}
-
-# Hardware Configuration
-SERIAL_PORT=${serialPort}
-
-# Application Settings
-LOG_LEVEL=info
-NODE_ENV=production`;
-
-    navigator.clipboard.writeText(envBlock);
+    navigator.clipboard.writeText(generateEnvConfig());
     setTokenCopied(true);
     setTimeout(() => setTokenCopied(false), 2000);
+  };
+
+  const downloadEnvFile = () => {
+    if (!registeredHub) return;
+    const blob = new Blob([generateEnvConfig()], { type: 'text/plain' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = `.env.${registeredHub.hubId}`;
+    document.body.appendChild(a);
+    a.click();
+    document.body.removeChild(a);
+    URL.revokeObjectURL(url);
   };
 
   // Success screen after registration
@@ -165,31 +223,84 @@ NODE_ENV=production`;
               </div>
             </div>
 
-            {/* Authentication Token - CRITICAL SECTION */}
+            {/* Authentication Tokens - CRITICAL SECTION */}
             <div className="bg-blue-50 dark:bg-blue-950 rounded-lg p-6 mb-6 border border-blue-200 dark:border-blue-900">
-              <div className="flex items-center justify-between mb-3">
-                <Label className="text-sm font-semibold text-gray-900 dark:text-gray-100">
-                  Machine Token
-                </Label>
-                <Button
-                  size="sm"
-                  variant="outline"
-                  onClick={copyToken}
-                  className="text-xs"
-                >
-                  <Copy className="w-3 h-3 mr-1" />
-                  {tokenCopied ? 'Copied!' : 'Copy Token'}
-                </Button>
+              <h3 className="text-sm font-semibold text-gray-900 dark:text-gray-100 mb-4">
+                Authentication Tokens
+              </h3>
+
+              {/* Access Token */}
+              <div className="mb-4">
+                <div className="flex items-center justify-between mb-2">
+                  <Label className="text-xs text-gray-600 dark:text-gray-400">
+                    Access Token (MACHINE_TOKEN) - Expires in 7 days
+                  </Label>
+                  <Button
+                    size="sm"
+                    variant="outline"
+                    onClick={copyToken}
+                    className="text-xs"
+                  >
+                    <Copy className="w-3 h-3 mr-1" />
+                    Copy
+                  </Button>
+                </div>
+                <div className="bg-white dark:bg-gray-900 rounded border border-gray-200 dark:border-gray-800 p-3">
+                  <code className="text-xs text-gray-900 dark:text-gray-100 break-all">
+                    {registeredHub.machineToken || 'ERROR: Token not generated'}
+                  </code>
+                </div>
               </div>
-              <div className="bg-white dark:bg-gray-900 rounded border border-gray-200 dark:border-gray-800 p-3">
-                <code className="text-xs text-gray-900 dark:text-gray-100 break-all">
-                  {registeredHub.machineToken || 'ERROR: Token not generated'}
-                </code>
+
+              {/* Refresh Token */}
+              <div className="mb-4">
+                <div className="flex items-center justify-between mb-2">
+                  <Label className="text-xs text-gray-600 dark:text-gray-400">
+                    Refresh Token (REFRESH_TOKEN) - Valid for 1 year
+                  </Label>
+                  <Button
+                    size="sm"
+                    variant="outline"
+                    onClick={copyRefreshToken}
+                    className="text-xs"
+                  >
+                    <Copy className="w-3 h-3 mr-1" />
+                    Copy
+                  </Button>
+                </div>
+                <div className="bg-white dark:bg-gray-900 rounded border border-gray-200 dark:border-gray-800 p-3">
+                  <code className="text-xs text-gray-900 dark:text-gray-100 break-all">
+                    {registeredHub.refreshToken || 'No refresh token'}
+                  </code>
+                </div>
               </div>
-              <p className="text-xs text-gray-600 dark:text-gray-400 mt-2">
-                ⚠️ Save this token securely. You won't be able to see it again.
+
+              <p className="text-xs text-gray-600 dark:text-gray-400">
+                The Pi will automatically refresh the access token before it expires using the refresh token.
               </p>
             </div>
+
+            {/* QR Code for Quick Setup */}
+            {qrCodeUrl && (
+              <div className="bg-purple-50 dark:bg-purple-950 rounded-lg p-6 mb-6 border border-purple-200 dark:border-purple-900">
+                <div className="flex items-center justify-between mb-4">
+                  <h3 className="text-sm font-semibold text-gray-900 dark:text-gray-100 flex items-center">
+                    <QrCode className="w-4 h-4 mr-2" />
+                    Quick Setup QR Code
+                  </h3>
+                </div>
+                <div className="flex flex-col items-center">
+                  <img
+                    src={qrCodeUrl}
+                    alt="Configuration QR Code"
+                    className="w-48 h-48 border rounded-lg bg-white p-2"
+                  />
+                  <p className="text-xs text-gray-500 dark:text-gray-400 mt-2 text-center">
+                    Scan this QR code with your phone to copy the .env configuration
+                  </p>
+                </div>
+              </div>
+            )}
 
             {/* Full .env Configuration */}
             <div className="bg-gray-50 dark:bg-gray-950 rounded-lg p-6 mb-6">
@@ -197,32 +308,30 @@ NODE_ENV=production`;
                 <Label className="text-sm font-semibold text-gray-900 dark:text-gray-100">
                   Complete .env Configuration
                 </Label>
-                <Button
-                  size="sm"
-                  variant="outline"
-                  onClick={copyEnvBlock}
-                  className="text-xs"
-                >
-                  <Copy className="w-3 h-3 mr-1" />
-                  Copy .env
-                </Button>
+                <div className="flex gap-2">
+                  <Button
+                    size="sm"
+                    variant="outline"
+                    onClick={downloadEnvFile}
+                    className="text-xs"
+                  >
+                    <Download className="w-3 h-3 mr-1" />
+                    Download
+                  </Button>
+                  <Button
+                    size="sm"
+                    variant="outline"
+                    onClick={copyEnvBlock}
+                    className="text-xs"
+                  >
+                    <Copy className="w-3 h-3 mr-1" />
+                    Copy
+                  </Button>
+                </div>
               </div>
               <div className="bg-white dark:bg-gray-900 rounded border border-gray-200 dark:border-gray-800 p-4 overflow-x-auto">
                 <pre className="text-xs text-gray-900 dark:text-gray-100">
-{`# Gambino Pi Configuration
-MACHINE_ID=${registeredHub.hubId}
-STORE_ID=${registeredHub.storeId}
-API_ENDPOINT=https://api.gambino.gold
-
-# Authentication
-MACHINE_TOKEN=${registeredHub.machineToken}
-
-# Hardware Configuration
-SERIAL_PORT=${serialPort}
-
-# Application Settings
-LOG_LEVEL=info
-NODE_ENV=production`}
+                  {generateEnvConfig()}
                 </pre>
               </div>
             </div>
