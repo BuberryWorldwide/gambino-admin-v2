@@ -1,14 +1,16 @@
 // src/app/admin/stores/page.tsx
 'use client';
 
-import { useEffect, useState } from 'react';
+import { useEffect, useState, useMemo } from 'react';
 import { useRouter } from 'next/navigation';
+import { useTheme } from 'next-themes';
 import { Search, Store as StoreIcon, MapPin, Activity, DollarSign, RefreshCw, AlertCircle, ChevronRight } from 'lucide-react';
 import api from '@/lib/api';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Badge } from '@/components/ui/badge';
 import AdminLayout from '@/components/layout/AdminLayout';
+import { SortableHeader, useSort, sortData, SortConfig } from '@/components/ui/sortable-header';
 
 interface Store {
   _id: string;
@@ -25,10 +27,21 @@ interface Store {
 
 export default function StoresPage() {
   const router = useRouter();
+  const { resolvedTheme } = useTheme();
+  const [mounted, setMounted] = useState(false);
+  const isDark = mounted ? resolvedTheme === 'dark' : false;
+
   const [stores, setStores] = useState<Store[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [searchTerm, setSearchTerm] = useState('');
+
+  // Sorting
+  const { sortConfig, handleSort } = useSort('storeName', 'asc');
+
+  useEffect(() => {
+    setMounted(true);
+  }, []);
 
   useEffect(() => {
     loadStores();
@@ -48,12 +61,30 @@ export default function StoresPage() {
     }
   };
 
-  const filteredStores = stores.filter(store =>
-    store.storeName?.toLowerCase().includes(searchTerm.toLowerCase()) ||
-    store.storeId?.toLowerCase().includes(searchTerm.toLowerCase()) ||
-    store.city?.toLowerCase().includes(searchTerm.toLowerCase()) ||
-    store.state?.toLowerCase().includes(searchTerm.toLowerCase())
-  );
+  // Filter and sort stores
+  const filteredStores = useMemo(() => {
+    let filtered = stores.filter(store =>
+      store.storeName?.toLowerCase().includes(searchTerm.toLowerCase()) ||
+      store.storeId?.toLowerCase().includes(searchTerm.toLowerCase()) ||
+      store.city?.toLowerCase().includes(searchTerm.toLowerCase()) ||
+      store.state?.toLowerCase().includes(searchTerm.toLowerCase())
+    );
+
+    // Custom comparators
+    const customComparators: Record<string, (a: Store, b: Store) => number> = {
+      'location': (a, b) => {
+        const aLoc = `${a.city || ''}, ${a.state || ''}`.trim();
+        const bLoc = `${b.city || ''}, ${b.state || ''}`.trim();
+        return aLoc.localeCompare(bLoc);
+      },
+      'status': (a, b) => {
+        const statusOrder = { active: 0, pending: 1, inactive: 2 };
+        return (statusOrder[a.status] || 3) - (statusOrder[b.status] || 3);
+      },
+    };
+
+    return sortData(filtered, sortConfig, customComparators);
+  }, [stores, searchTerm, sortConfig]);
 
   const getStatusColor = (status: string) => {
     switch (status) {
@@ -153,15 +184,53 @@ export default function StoresPage() {
           />
         </div>
 
-        {/* Search */}
-        <div className="relative">
-          <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-neutral-400" />
-          <Input
-            placeholder="Search venues..."
-            value={searchTerm}
-            onChange={(e: React.ChangeEvent<HTMLInputElement>) => setSearchTerm(e.target.value)}
-            className="pl-9 h-10 bg-white dark:bg-neutral-900 border-neutral-200 dark:border-neutral-800"
-          />
+        {/* Search and Sort */}
+        <div className="flex flex-col sm:flex-row gap-3">
+          <div className="relative flex-1">
+            <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-neutral-400" />
+            <Input
+              placeholder="Search venues..."
+              value={searchTerm}
+              onChange={(e: React.ChangeEvent<HTMLInputElement>) => setSearchTerm(e.target.value)}
+              className="pl-9 h-10 bg-white dark:bg-neutral-900 border-neutral-200 dark:border-neutral-800"
+            />
+          </div>
+          {/* Sort options */}
+          <div className="flex items-center gap-2 overflow-x-auto pb-1">
+            <span className="text-xs text-neutral-500 dark:text-neutral-400 whitespace-nowrap">Sort:</span>
+            <SortableHeader
+              label="Name"
+              sortKey="storeName"
+              currentSort={sortConfig}
+              onSort={handleSort}
+              isDark={isDark}
+              className="text-xs"
+            />
+            <SortableHeader
+              label="Location"
+              sortKey="location"
+              currentSort={sortConfig}
+              onSort={handleSort}
+              isDark={isDark}
+              className="text-xs"
+            />
+            <SortableHeader
+              label="Status"
+              sortKey="status"
+              currentSort={sortConfig}
+              onSort={handleSort}
+              isDark={isDark}
+              className="text-xs"
+            />
+            <SortableHeader
+              label="Revenue"
+              sortKey="totalRevenue"
+              currentSort={sortConfig}
+              onSort={handleSort}
+              isDark={isDark}
+              className="text-xs"
+            />
+          </div>
         </div>
 
         {/* Venue Cards - Mobile First */}

@@ -1,7 +1,8 @@
 // src/app/admin/machines/page.tsx
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useMemo } from 'react';
+import { useTheme } from 'next-themes';
 import { Search, RefreshCw, DollarSign, Edit2, Check, X, Plus, Cpu, Activity, Ticket, Eye, AlertCircle, BookOpen } from 'lucide-react';
 import api from '@/lib/api';
 import AdminLayout from '@/components/layout/AdminLayout';
@@ -17,6 +18,7 @@ import {
   TableRow,
 } from '@/components/ui/table';
 import Link from 'next/link';
+import { SortableHeader, useSort, sortData } from '@/components/ui/sortable-header';
 
 interface Machine {
   _id: string;
@@ -68,8 +70,11 @@ interface BooksClearedMap {
 }
 
 export default function MachinesPage() {
+  const { resolvedTheme } = useTheme();
+  const [mounted, setMounted] = useState(false);
+  const isDark = mounted ? resolvedTheme === 'dark' : false;
+
   const [machines, setMachines] = useState<Machine[]>([]);
-  const [filteredMachines, setFilteredMachines] = useState<Machine[]>([]);
   const [stats, setStats] = useState<Stats>({ total: 0, active: 0, inactive: 0, maintenance: 0 });
   const [todayStats, setTodayStats] = useState<TodayStats>({
     totalRevenue: 0,
@@ -87,6 +92,13 @@ export default function MachinesPage() {
   const [registering, setRegistering] = useState<string | null>(null);
   const [booksCleared, setBooksCleared] = useState<BooksClearedMap>({});
 
+  // Sorting
+  const { sortConfig, handleSort } = useSort('machineId', 'asc');
+
+  useEffect(() => {
+    setMounted(true);
+  }, []);
+
   useEffect(() => {
     loadMachines().then(() => {
       loadTodayStats();
@@ -94,9 +106,50 @@ export default function MachinesPage() {
     });
   }, []);
 
-  useEffect(() => {
-    filterMachines();
-  }, [searchTerm, statusFilter, machines]);
+  // Filter and sort machines
+  const filteredMachines = useMemo(() => {
+    let filtered = machines;
+
+    if (searchTerm) {
+      filtered = filtered.filter(m =>
+        m.machineId.toLowerCase().includes(searchTerm.toLowerCase()) ||
+        m.name?.toLowerCase().includes(searchTerm.toLowerCase()) ||
+        m.store?.storeName.toLowerCase().includes(searchTerm.toLowerCase())
+      );
+    }
+
+    if (statusFilter === 'registered') {
+      filtered = filtered.filter(m => m.isRegistered);
+    } else if (statusFilter === 'discovered') {
+      filtered = filtered.filter(m => !m.isRegistered);
+    }
+
+    // Custom comparators for special fields
+    const customComparators: Record<string, (a: Machine, b: Machine) => number> = {
+      'store.storeName': (a, b) => {
+        const aName = a.store?.storeName || '';
+        const bName = b.store?.storeName || '';
+        return aName.localeCompare(bName);
+      },
+      'status': (a, b) => {
+        const aStatus = a.isRegistered ? 1 : 0;
+        const bStatus = b.isRegistered ? 1 : 0;
+        return aStatus - bStatus;
+      },
+      'lastSeen': (a, b) => {
+        const aTime = a.lastSeen ? new Date(a.lastSeen).getTime() : 0;
+        const bTime = b.lastSeen ? new Date(b.lastSeen).getTime() : 0;
+        return aTime - bTime;
+      },
+      'booksCleared': (a, b) => {
+        const aCleared = booksCleared[a.machineId]?.daysSinceCleared ?? 999;
+        const bCleared = booksCleared[b.machineId]?.daysSinceCleared ?? 999;
+        return aCleared - bCleared;
+      },
+    };
+
+    return sortData(filtered, sortConfig, customComparators);
+  }, [machines, searchTerm, statusFilter, sortConfig, booksCleared]);
 
   const loadTodayStats = async () => {
     try {
@@ -187,26 +240,6 @@ export default function MachinesPage() {
     } finally {
       setLoading(false);
     }
-  };
-
-  const filterMachines = () => {
-    let filtered = machines;
-
-    if (searchTerm) {
-      filtered = filtered.filter(m =>
-        m.machineId.toLowerCase().includes(searchTerm.toLowerCase()) ||
-        m.name?.toLowerCase().includes(searchTerm.toLowerCase()) ||
-        m.store?.storeName.toLowerCase().includes(searchTerm.toLowerCase())
-      );
-    }
-
-    if (statusFilter === 'registered') {
-      filtered = filtered.filter(m => m.isRegistered);
-    } else if (statusFilter === 'discovered') {
-      filtered = filtered.filter(m => !m.isRegistered);
-    }
-
-    setFilteredMachines(filtered);
   };
 
   const handleRegisterMachine = async (machine: Machine) => {
@@ -567,14 +600,78 @@ export default function MachinesPage() {
                 <Table>
                   <TableHeader>
                     <TableRow className="border-neutral-200 dark:border-neutral-800 bg-neutral-50 dark:bg-neutral-800/50">
-                      <TableHead className="text-neutral-600 dark:text-neutral-300 font-medium">Machine</TableHead>
-                      <TableHead className="text-neutral-600 dark:text-neutral-300 font-medium">Name</TableHead>
-                      <TableHead className="text-neutral-600 dark:text-neutral-300 font-medium">Venue</TableHead>
-                      <TableHead className="text-neutral-600 dark:text-neutral-300 font-medium">Hub</TableHead>
-                      <TableHead className="text-neutral-600 dark:text-neutral-300 font-medium">Status</TableHead>
-                      <TableHead className="text-neutral-600 dark:text-neutral-300 font-medium">Last Seen</TableHead>
-                      <TableHead className="text-neutral-600 dark:text-neutral-300 font-medium">Last Cleared</TableHead>
-                      <TableHead className="text-neutral-600 dark:text-neutral-300 font-medium">MG #</TableHead>
+                      <TableHead>
+                        <SortableHeader
+                          label="Machine"
+                          sortKey="machineId"
+                          currentSort={sortConfig}
+                          onSort={handleSort}
+                          isDark={isDark}
+                        />
+                      </TableHead>
+                      <TableHead>
+                        <SortableHeader
+                          label="Name"
+                          sortKey="name"
+                          currentSort={sortConfig}
+                          onSort={handleSort}
+                          isDark={isDark}
+                        />
+                      </TableHead>
+                      <TableHead>
+                        <SortableHeader
+                          label="Venue"
+                          sortKey="store.storeName"
+                          currentSort={sortConfig}
+                          onSort={handleSort}
+                          isDark={isDark}
+                        />
+                      </TableHead>
+                      <TableHead>
+                        <SortableHeader
+                          label="Hub"
+                          sortKey="hubId"
+                          currentSort={sortConfig}
+                          onSort={handleSort}
+                          isDark={isDark}
+                        />
+                      </TableHead>
+                      <TableHead>
+                        <SortableHeader
+                          label="Status"
+                          sortKey="status"
+                          currentSort={sortConfig}
+                          onSort={handleSort}
+                          isDark={isDark}
+                        />
+                      </TableHead>
+                      <TableHead>
+                        <SortableHeader
+                          label="Last Seen"
+                          sortKey="lastSeen"
+                          currentSort={sortConfig}
+                          onSort={handleSort}
+                          isDark={isDark}
+                        />
+                      </TableHead>
+                      <TableHead>
+                        <SortableHeader
+                          label="Last Cleared"
+                          sortKey="booksCleared"
+                          currentSort={sortConfig}
+                          onSort={handleSort}
+                          isDark={isDark}
+                        />
+                      </TableHead>
+                      <TableHead>
+                        <SortableHeader
+                          label="MG #"
+                          sortKey="muthaGooseNumber"
+                          currentSort={sortConfig}
+                          onSort={handleSort}
+                          isDark={isDark}
+                        />
+                      </TableHead>
                       <TableHead className="text-neutral-600 dark:text-neutral-300 font-medium text-right">Actions</TableHead>
                     </TableRow>
                   </TableHeader>

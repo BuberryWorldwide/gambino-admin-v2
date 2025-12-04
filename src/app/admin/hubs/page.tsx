@@ -1,7 +1,7 @@
 // src/app/admin/hubs/page.tsx
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useMemo } from 'react';
 import { Wifi, WifiOff, Search, RefreshCw, Plus, AlertCircle, Server, Cpu } from 'lucide-react';
 import api from '@/lib/api';
 import AdminLayout from '@/components/layout/AdminLayout';
@@ -18,6 +18,7 @@ import {
   TableHeader,
   TableRow,
 } from '@/components/ui/table';
+import { SortableHeader, useSort, sortData } from '@/components/ui/sortable-header';
 
 interface User {
   firstName?: string;
@@ -65,6 +66,7 @@ export default function HubsPage() {
   const [error, setError] = useState<string | null>(null);
   const [searchTerm, setSearchTerm] = useState('');
   const [user, setUser] = useState<User | null>(null);
+  const { sortConfig, handleSort } = useSort('hubId', 'asc');
 
   useEffect(() => {
     const token = getToken();
@@ -140,10 +142,37 @@ export default function HubsPage() {
     ),
   };
 
-  const filteredHubs = hubs.filter(hub =>
-    hub.hubId.toLowerCase().includes(searchTerm.toLowerCase()) ||
-    hub.store?.storeName?.toLowerCase().includes(searchTerm.toLowerCase())
-  );
+  // Filter and sort hubs
+  const filteredAndSortedHubs = useMemo(() => {
+    const filtered = hubs.filter(hub =>
+      hub.hubId.toLowerCase().includes(searchTerm.toLowerCase()) ||
+      hub.store?.storeName?.toLowerCase().includes(searchTerm.toLowerCase())
+    );
+
+    // Custom comparators for complex fields
+    const customComparators = {
+      'store.storeName': (a: Hub, b: Hub) => {
+        const aName = a.store?.storeName || a.storeId || '';
+        const bName = b.store?.storeName || b.storeId || '';
+        return aName.localeCompare(bName);
+      },
+      'isOnline': (a: Hub, b: Hub) => {
+        return (a.isOnline === b.isOnline) ? 0 : a.isOnline ? -1 : 1;
+      },
+      'machineCount': (a: Hub, b: Hub) => {
+        const aCount = discoveredMachines[a.hubId]?.length || 0;
+        const bCount = discoveredMachines[b.hubId]?.length || 0;
+        return aCount - bCount;
+      },
+      'registeredCount': (a: Hub, b: Hub) => {
+        const aCount = discoveredMachines[a.hubId]?.filter(m => m.isRegistered).length || 0;
+        const bCount = discoveredMachines[b.hubId]?.filter(m => m.isRegistered).length || 0;
+        return aCount - bCount;
+      }
+    };
+
+    return sortData(filtered, sortConfig, customComparators);
+  }, [hubs, searchTerm, sortConfig, discoveredMachines]);
 
   if (loading) {
     return (
@@ -231,7 +260,7 @@ export default function HubsPage() {
         </div>
 
         {/* Content */}
-        {filteredHubs.length === 0 ? (
+        {filteredAndSortedHubs.length === 0 ? (
           <div className="bg-white dark:bg-neutral-900 rounded-xl border border-neutral-200 dark:border-neutral-800 p-12 text-center">
             <Search className="w-12 h-12 text-neutral-300 dark:text-neutral-600 mx-auto mb-4" />
             <h3 className="text-lg font-medium text-neutral-900 dark:text-white mb-2">No hubs found</h3>
@@ -250,7 +279,7 @@ export default function HubsPage() {
           <>
             {/* Mobile: Card Layout */}
             <div className="lg:hidden space-y-3">
-              {filteredHubs.map((hub) => {
+              {filteredAndSortedHubs.map((hub) => {
                 const machines = discoveredMachines[hub.hubId] || [];
                 const registered = machines.filter(m => m.isRegistered).length;
                 const unknown = machines.length - registered;
@@ -312,17 +341,59 @@ export default function HubsPage() {
               <Table>
                 <TableHeader>
                   <TableRow className="border-neutral-200 dark:border-neutral-800 bg-neutral-50 dark:bg-neutral-800/50">
-                    <TableHead className="text-neutral-600 dark:text-neutral-300 font-medium">Hub ID</TableHead>
-                    <TableHead className="text-neutral-600 dark:text-neutral-300 font-medium">Store</TableHead>
-                    <TableHead className="text-neutral-600 dark:text-neutral-300 font-medium">Status</TableHead>
-                    <TableHead className="text-neutral-600 dark:text-neutral-300 font-medium">Machines</TableHead>
-                    <TableHead className="text-neutral-600 dark:text-neutral-300 font-medium">Registered</TableHead>
-                    <TableHead className="text-neutral-600 dark:text-neutral-300 font-medium">Last Seen</TableHead>
+                    <TableHead>
+                      <SortableHeader
+                        label="Hub ID"
+                        sortKey="hubId"
+                        currentSort={sortConfig}
+                        onSort={handleSort}
+                      />
+                    </TableHead>
+                    <TableHead>
+                      <SortableHeader
+                        label="Store"
+                        sortKey="store.storeName"
+                        currentSort={sortConfig}
+                        onSort={handleSort}
+                      />
+                    </TableHead>
+                    <TableHead>
+                      <SortableHeader
+                        label="Status"
+                        sortKey="isOnline"
+                        currentSort={sortConfig}
+                        onSort={handleSort}
+                      />
+                    </TableHead>
+                    <TableHead>
+                      <SortableHeader
+                        label="Machines"
+                        sortKey="machineCount"
+                        currentSort={sortConfig}
+                        onSort={handleSort}
+                      />
+                    </TableHead>
+                    <TableHead>
+                      <SortableHeader
+                        label="Registered"
+                        sortKey="registeredCount"
+                        currentSort={sortConfig}
+                        onSort={handleSort}
+                      />
+                    </TableHead>
+                    <TableHead>
+                      <SortableHeader
+                        label="Last Seen"
+                        sortKey="lastHeartbeat"
+                        currentSort={sortConfig}
+                        onSort={handleSort}
+                      />
+                    </TableHead>
                     <TableHead className="text-neutral-600 dark:text-neutral-300 font-medium text-right">Actions</TableHead>
                   </TableRow>
                 </TableHeader>
                 <TableBody>
-                  {filteredHubs.map((hub) => {
+                  {filteredAndSortedHubs.map((hub) => {
                     const machines = discoveredMachines[hub.hubId] || [];
                     const registered = machines.filter(m => m.isRegistered).length;
                     const unknown = machines.length - registered;

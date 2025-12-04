@@ -1,14 +1,16 @@
 // src/app/admin/users/page.tsx
 'use client';
 
-import { useEffect, useState } from 'react';
+import { useEffect, useState, useMemo } from 'react';
 import { useRouter } from 'next/navigation';
+import { useTheme } from 'next-themes';
 import { Search, UserPlus, Shield, Building, DollarSign, Calendar, RefreshCw, Users, AlertCircle, ChevronRight } from 'lucide-react';
 import api from '@/lib/api';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Badge } from '@/components/ui/badge';
 import AdminLayout from '@/components/layout/AdminLayout';
+import { SortableHeader, useSort, sortData } from '@/components/ui/sortable-header';
 
 interface User {
   _id: string;
@@ -25,11 +27,21 @@ interface User {
 
 export default function UsersPage() {
   const router = useRouter();
+  const { resolvedTheme } = useTheme();
+  const [mounted, setMounted] = useState(false);
+  const isDark = mounted ? resolvedTheme === 'dark' : false;
+
   const [users, setUsers] = useState<User[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [searchTerm, setSearchTerm] = useState('');
-  const [sortOrder, setSortOrder] = useState<'newest' | 'oldest'>('newest');
+
+  // Sorting
+  const { sortConfig, handleSort } = useSort('createdAt', 'desc');
+
+  useEffect(() => {
+    setMounted(true);
+  }, []);
 
   useEffect(() => {
     loadUsers();
@@ -39,13 +51,7 @@ export default function UsersPage() {
     try {
       setError(null);
       const { data } = await api.get('/api/admin/users');
-      const loadedUsers = data.users || [];
-      loadedUsers.sort((a: User, b: User) => {
-        const dateA = a.createdAt ? new Date(a.createdAt).getTime() : 0;
-        const dateB = b.createdAt ? new Date(b.createdAt).getTime() : 0;
-        return dateB - dateA;
-      });
-      setUsers(loadedUsers);
+      setUsers(data.users || []);
     } catch (err) {
       console.error('Failed to load users:', err);
       const errorMessage = err instanceof Error ? err.message : 'Failed to load users';
@@ -55,32 +61,40 @@ export default function UsersPage() {
     }
   };
 
-  const filteredUsers = users.filter(user =>
-    user.email?.toLowerCase().includes(searchTerm.toLowerCase()) ||
-    user.firstName?.toLowerCase().includes(searchTerm.toLowerCase()) ||
-    user.lastName?.toLowerCase().includes(searchTerm.toLowerCase()) ||
-    user.role?.toLowerCase().includes(searchTerm.toLowerCase())
-  );
+  // Filter and sort users
+  const filteredUsers = useMemo(() => {
+    let filtered = users.filter(user =>
+      user.email?.toLowerCase().includes(searchTerm.toLowerCase()) ||
+      user.firstName?.toLowerCase().includes(searchTerm.toLowerCase()) ||
+      user.lastName?.toLowerCase().includes(searchTerm.toLowerCase()) ||
+      user.role?.toLowerCase().includes(searchTerm.toLowerCase())
+    );
 
-  const sortByOldest = () => {
-    const sorted = [...users].sort((a, b) => {
-      const dateA = a.createdAt ? new Date(a.createdAt).getTime() : 0;
-      const dateB = b.createdAt ? new Date(b.createdAt).getTime() : 0;
-      return dateA - dateB;
-    });
-    setUsers(sorted);
-    setSortOrder('oldest');
-  };
+    // Custom comparators
+    const customComparators: Record<string, (a: User, b: User) => number> = {
+      'name': (a, b) => {
+        const aName = `${a.firstName || ''} ${a.lastName || ''}`.trim() || a.email;
+        const bName = `${b.firstName || ''} ${b.lastName || ''}`.trim() || b.email;
+        return aName.localeCompare(bName);
+      },
+      'role': (a, b) => {
+        const roleOrder: Record<string, number> = { super_admin: 0, gambino_ops: 1, venue_manager: 2, venue_staff: 3, user: 4 };
+        return (roleOrder[a.role] ?? 5) - (roleOrder[b.role] ?? 5);
+      },
+      'balance': (a, b) => {
+        const aBalance = a.cachedGambinoBalance || a.gambinoBalance || 0;
+        const bBalance = b.cachedGambinoBalance || b.gambinoBalance || 0;
+        return aBalance - bBalance;
+      },
+      'createdAt': (a, b) => {
+        const aDate = a.createdAt ? new Date(a.createdAt).getTime() : 0;
+        const bDate = b.createdAt ? new Date(b.createdAt).getTime() : 0;
+        return aDate - bDate;
+      },
+    };
 
-  const sortByNewest = () => {
-    const sorted = [...users].sort((a, b) => {
-      const dateA = a.createdAt ? new Date(a.createdAt).getTime() : 0;
-      const dateB = b.createdAt ? new Date(b.createdAt).getTime() : 0;
-      return dateB - dateA;
-    });
-    setUsers(sorted);
-    setSortOrder('newest');
-  };
+    return sortData(filtered, sortConfig, customComparators);
+  }, [users, searchTerm, sortConfig]);
 
   const getRoleBadgeColor = (role: string) => {
     const colors: Record<string, string> = {
@@ -186,8 +200,8 @@ export default function UsersPage() {
         </div>
 
         {/* Search & Sort */}
-        <div className="space-y-3">
-          <div className="relative">
+        <div className="flex flex-col sm:flex-row gap-3">
+          <div className="relative flex-1">
             <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-neutral-400" />
             <Input
               placeholder="Search users..."
@@ -196,33 +210,41 @@ export default function UsersPage() {
               className="pl-9 h-10 bg-white dark:bg-neutral-900 border-neutral-200 dark:border-neutral-800"
             />
           </div>
-          <div className="flex gap-2">
-            <Button
-              variant="outline"
-              size="sm"
-              onClick={sortByNewest}
-              className={`flex-1 h-9 ${
-                sortOrder === 'newest'
-                  ? 'bg-neutral-900 dark:bg-white text-white dark:text-neutral-900 border-neutral-900 dark:border-white'
-                  : 'border-neutral-200 dark:border-neutral-800'
-              }`}
-            >
-              <Calendar className="w-3.5 h-3.5 mr-1.5" />
-              Newest
-            </Button>
-            <Button
-              variant="outline"
-              size="sm"
-              onClick={sortByOldest}
-              className={`flex-1 h-9 ${
-                sortOrder === 'oldest'
-                  ? 'bg-neutral-900 dark:bg-white text-white dark:text-neutral-900 border-neutral-900 dark:border-white'
-                  : 'border-neutral-200 dark:border-neutral-800'
-              }`}
-            >
-              <Calendar className="w-3.5 h-3.5 mr-1.5" />
-              Oldest
-            </Button>
+          {/* Sort options */}
+          <div className="flex items-center gap-2 overflow-x-auto pb-1">
+            <span className="text-xs text-neutral-500 dark:text-neutral-400 whitespace-nowrap">Sort:</span>
+            <SortableHeader
+              label="Name"
+              sortKey="name"
+              currentSort={sortConfig}
+              onSort={handleSort}
+              isDark={isDark}
+              className="text-xs"
+            />
+            <SortableHeader
+              label="Role"
+              sortKey="role"
+              currentSort={sortConfig}
+              onSort={handleSort}
+              isDark={isDark}
+              className="text-xs"
+            />
+            <SortableHeader
+              label="Balance"
+              sortKey="balance"
+              currentSort={sortConfig}
+              onSort={handleSort}
+              isDark={isDark}
+              className="text-xs"
+            />
+            <SortableHeader
+              label="Created"
+              sortKey="createdAt"
+              currentSort={sortConfig}
+              onSort={handleSort}
+              isDark={isDark}
+              className="text-xs"
+            />
           </div>
         </div>
 

@@ -1,9 +1,11 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useMemo } from 'react';
+import { useTheme } from 'next-themes';
 import AdminLayout from '@/components/layout/AdminLayout';
 import api from '@/lib/api';
 import { User } from '@/types';
+import { SortableHeader, useSort, sortData } from '@/components/ui/sortable-header';
 
 interface Transaction {
   _id: string;
@@ -49,12 +51,19 @@ interface Pagination {
 }
 
 export default function TransactionsPage() {
+  const { resolvedTheme } = useTheme();
+  const [mounted, setMounted] = useState(false);
+  const isDark = mounted ? resolvedTheme === 'dark' : false;
+
   const [user, setUser] = useState<User | null>(null);
   const [transactions, setTransactions] = useState<Transaction[]>([]);
   const [summary, setSummary] = useState<Summary | null>(null);
   const [pagination, setPagination] = useState<Pagination | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
+
+  // Sorting
+  const { sortConfig, handleSort } = useSort('createdAt', 'desc');
 
   // Filters
   const [startDate, setStartDate] = useState('');
@@ -63,6 +72,10 @@ export default function TransactionsPage() {
   const [searchQuery, setSearchQuery] = useState('');
   const [currentPage, setCurrentPage] = useState(1);
   const [limit] = useState(20);
+
+  useEffect(() => {
+    setMounted(true);
+  }, []);
 
   // Load user profile
   useEffect(() => {
@@ -121,22 +134,51 @@ export default function TransactionsPage() {
     loadTransactions();
   }, [user, currentPage, limit, status, startDate, endDate]);
 
-  // Filter transactions by search query (client-side)
-  const filteredTransactions = transactions.filter(txn => {
-    if (!searchQuery) return true;
-    const query = searchQuery.toLowerCase();
-    const fullName = `${txn.userId.firstName} ${txn.userId.lastName}`.toLowerCase();
-    const email = txn.userId.email?.toLowerCase() || '';
-    const phone = txn.userId.phone?.toLowerCase() || '';
-    const transactionId = txn.metadata?.transactionId?.toLowerCase() || '';
+  // Filter and sort transactions (client-side)
+  const filteredTransactions = useMemo(() => {
+    let filtered = transactions.filter(txn => {
+      if (!searchQuery) return true;
+      const query = searchQuery.toLowerCase();
+      const fullName = `${txn.userId.firstName} ${txn.userId.lastName}`.toLowerCase();
+      const email = txn.userId.email?.toLowerCase() || '';
+      const phone = txn.userId.phone?.toLowerCase() || '';
+      const transactionId = txn.metadata?.transactionId?.toLowerCase() || '';
 
-    return (
-      fullName.includes(query) ||
-      email.includes(query) ||
-      phone.includes(query) ||
-      transactionId.includes(query)
-    );
-  });
+      return (
+        fullName.includes(query) ||
+        email.includes(query) ||
+        phone.includes(query) ||
+        transactionId.includes(query)
+      );
+    });
+
+    // Custom comparators
+    const customComparators: Record<string, (a: Transaction, b: Transaction) => number> = {
+      'transactionId': (a, b) => {
+        const aId = a.metadata?.transactionId || a.txHash;
+        const bId = b.metadata?.transactionId || b.txHash;
+        return aId.localeCompare(bId);
+      },
+      'customer': (a, b) => {
+        const aName = `${a.userId.firstName} ${a.userId.lastName}`;
+        const bName = `${b.userId.firstName} ${b.userId.lastName}`;
+        return aName.localeCompare(bName);
+      },
+      'createdAt': (a, b) => {
+        return new Date(a.createdAt).getTime() - new Date(b.createdAt).getTime();
+      },
+      'amount': (a, b) => a.amount - b.amount,
+      'usdAmount': (a, b) => a.usdAmount - b.usdAmount,
+      'status': (a, b) => {
+        const statusOrder: Record<string, number> = { completed: 0, pending: 1, failed: 2 };
+        const aStatus = a.metadata?.reversed ? 3 : (statusOrder[a.status] ?? 4);
+        const bStatus = b.metadata?.reversed ? 3 : (statusOrder[b.status] ?? 4);
+        return aStatus - bStatus;
+      },
+    };
+
+    return sortData(filtered, sortConfig, customComparators);
+  }, [transactions, searchQuery, sortConfig]);
 
   // Export to CSV
   const exportToCSV = () => {
@@ -350,23 +392,65 @@ export default function TransactionsPage() {
                 <table className="min-w-full divide-y divide-gray-200">
                   <thead className="bg-gray-50">
                     <tr>
-                      <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                        Transaction ID
+                      <th className="px-6 py-3 text-left">
+                        <SortableHeader
+                          label="Transaction ID"
+                          sortKey="transactionId"
+                          currentSort={sortConfig}
+                          onSort={handleSort}
+                          isDark={isDark}
+                          className="text-xs uppercase tracking-wider"
+                        />
                       </th>
-                      <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                        Date
+                      <th className="px-6 py-3 text-left">
+                        <SortableHeader
+                          label="Date"
+                          sortKey="createdAt"
+                          currentSort={sortConfig}
+                          onSort={handleSort}
+                          isDark={isDark}
+                          className="text-xs uppercase tracking-wider"
+                        />
                       </th>
-                      <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                        Customer
+                      <th className="px-6 py-3 text-left">
+                        <SortableHeader
+                          label="Customer"
+                          sortKey="customer"
+                          currentSort={sortConfig}
+                          onSort={handleSort}
+                          isDark={isDark}
+                          className="text-xs uppercase tracking-wider"
+                        />
                       </th>
-                      <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                        Tokens
+                      <th className="px-6 py-3 text-left">
+                        <SortableHeader
+                          label="Tokens"
+                          sortKey="amount"
+                          currentSort={sortConfig}
+                          onSort={handleSort}
+                          isDark={isDark}
+                          className="text-xs uppercase tracking-wider"
+                        />
                       </th>
-                      <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                        Cash Amount
+                      <th className="px-6 py-3 text-left">
+                        <SortableHeader
+                          label="Cash Amount"
+                          sortKey="usdAmount"
+                          currentSort={sortConfig}
+                          onSort={handleSort}
+                          isDark={isDark}
+                          className="text-xs uppercase tracking-wider"
+                        />
                       </th>
-                      <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                        Status
+                      <th className="px-6 py-3 text-left">
+                        <SortableHeader
+                          label="Status"
+                          sortKey="status"
+                          currentSort={sortConfig}
+                          onSort={handleSort}
+                          isDark={isDark}
+                          className="text-xs uppercase tracking-wider"
+                        />
                       </th>
                     </tr>
                   </thead>

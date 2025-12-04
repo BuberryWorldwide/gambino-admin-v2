@@ -642,12 +642,14 @@ NODE_ENV=production`;
 // Main Page Component
 export default function HubDetailsPage({ params }: { params: Promise<{ hubId: string }> }) {
   const router = useRouter();
-  const { theme } = useTheme();
-  const isDark = theme === 'dark';
+  const { resolvedTheme } = useTheme();
 
   // State for resolved hubId
   const [hubId, setHubId] = useState<string | null>(null);
   const [mounted, setMounted] = useState(false);
+
+  // Use resolvedTheme only after mounted to avoid hydration mismatch
+  const isDark = mounted ? (resolvedTheme === 'dark') : false;
   const [hub, setHub] = useState<Hub | null>(null);
   const [machines, setMachines] = useState<Machine[]>([]);
   const [events, setEvents] = useState<Event[]>([]);
