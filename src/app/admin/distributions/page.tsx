@@ -9,7 +9,7 @@ import { Input } from '@/components/ui/input';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import api from '@/lib/api';
-import { getToken } from '@/lib/auth';
+import { getToken, getUser as getCachedUser } from '@/lib/auth';
 
 interface TreasuryAccount {
   name: string;
@@ -88,8 +88,12 @@ export default function DistributionsPage() {
           return;
         }
 
-        const res = await api.get('/api/users/profile');
-        const userData = res.data.user;
+        // Try cached user first (no API call)
+        let userData = getCachedUser();
+        if (!userData) {
+          const res = await api.get('/api/users/profile');
+          userData = res.data.user;
+        }
         setUser(userData);
 
         // Check if user has system_admin permission

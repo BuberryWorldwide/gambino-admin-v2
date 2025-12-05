@@ -4,6 +4,7 @@ import { use, useEffect, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { ArrowLeft, RefreshCw, Calendar, DollarSign, TrendingUp, Activity, AlertCircle } from 'lucide-react';
 import api from '@/lib/api';
+import { getUser as getCachedUser } from '@/lib/auth';
 import AdminLayout from '@/components/layout/AdminLayout';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
@@ -66,6 +67,13 @@ export default function MachineDetailsPage({ params }: { params: Promise<{ machi
   }, [machineId]);
 
   const loadUser = async () => {
+    // Try cached user first (no API call)
+    const cachedUser = getCachedUser();
+    if (cachedUser) {
+      setUser(cachedUser);
+      return;
+    }
+
     try {
       const res = await api.get('/api/users/profile');
       setUser(res.data.user);

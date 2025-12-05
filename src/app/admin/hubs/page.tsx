@@ -9,7 +9,7 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Badge } from '@/components/ui/badge';
 import axios from 'axios';
-import { getToken, clearToken } from '@/lib/auth';
+import { getToken, clearToken, getUser as getCachedUser } from '@/lib/auth';
 import {
   Table,
   TableBody,
@@ -82,6 +82,13 @@ export default function HubsPage() {
   }, []);
 
   const loadUser = async () => {
+    // First try cached user from localStorage (no API call)
+    const cachedUser = getCachedUser();
+    if (cachedUser) {
+      setUser(cachedUser);
+      return;
+    }
+
     try {
       const res = await api.get('/api/users/profile');
       setUser(res.data.user);

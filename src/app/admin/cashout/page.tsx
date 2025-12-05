@@ -8,6 +8,7 @@ import { Input } from '@/components/ui/input';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import api from '@/lib/api';
+import { getUser as getCachedUser } from '@/lib/auth';
 
 interface Customer {
   _id: string;
@@ -167,9 +168,12 @@ export default function CashoutPage() {
     setError(null);
 
     try {
-      // Get user profile
-      const profileRes = await api.get('/api/users/profile');
-      const user = profileRes.data.user;
+      // Get user profile (try cache first, then API)
+      let user = getCachedUser();
+      if (!user) {
+        const profileRes = await api.get('/api/users/profile');
+        user = profileRes.data.user;
+      }
 
       // Determine storeId based on user role
       let storeId;

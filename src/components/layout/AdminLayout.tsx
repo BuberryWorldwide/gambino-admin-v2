@@ -4,7 +4,7 @@
 import { useState, ReactNode, useEffect } from 'react';
 import { useRouter, usePathname } from 'next/navigation';
 import ThemeSwitcher from '@/components/ThemeSwitcher';
-import { clearToken, getToken } from '@/lib/auth';
+import { clearToken, getToken, getUser } from '@/lib/auth';
 import api from '@/lib/api';
 import axios from 'axios';
 
@@ -54,6 +54,14 @@ export default function AdminLayout({ children, user: userProp }: AdminLayoutPro
 
   useEffect(() => {
     if (!userProp) {
+      // First, try to get user from localStorage cache (fast, no API call)
+      const cachedUser = getUser();
+      if (cachedUser) {
+        setInternalUser(cachedUser);
+        return; // Don't make API call if we have cached data
+      }
+
+      // Only fetch from API if no cached user (rare - only on first load after login)
       const loadUser = async () => {
         try {
           const token = getToken();

@@ -4,6 +4,7 @@ import { useState, useEffect, useMemo } from 'react';
 import { useTheme } from 'next-themes';
 import AdminLayout from '@/components/layout/AdminLayout';
 import api from '@/lib/api';
+import { getUser as getCachedUser } from '@/lib/auth';
 import { User } from '@/types';
 import { SortableHeader, useSort, sortData } from '@/components/ui/sortable-header';
 
@@ -77,9 +78,16 @@ export default function TransactionsPage() {
     setMounted(true);
   }, []);
 
-  // Load user profile
+  // Load user profile (try cache first)
   useEffect(() => {
     const loadUser = async () => {
+      // Try cached user first (no API call)
+      const cachedUser = getCachedUser();
+      if (cachedUser) {
+        setUser(cachedUser);
+        return;
+      }
+
       try {
         const res = await api.get('/api/users/profile');
         setUser(res.data.user);

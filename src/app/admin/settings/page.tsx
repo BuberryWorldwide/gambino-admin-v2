@@ -6,6 +6,7 @@ import {
   Shield, Bell, Palette, Key
 } from 'lucide-react';
 import api from '@/lib/api';
+import { getUser as getCachedUser } from '@/lib/auth';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Card } from '@/components/ui/card';
@@ -57,8 +58,14 @@ export default function SettingsPage() {
 
   const loadProfile = async () => {
     try {
-      const { data } = await api.get('/api/users/profile');
-      const userData = data.user || data;
+      // Try cached user first (no API call)
+      let userData = getCachedUser();
+
+      if (!userData) {
+        const { data } = await api.get('/api/users/profile');
+        userData = data.user || data;
+      }
+
       setUser(userData);
       setProfileForm({
         firstName: userData.firstName || '',

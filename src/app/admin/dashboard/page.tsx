@@ -8,7 +8,7 @@ import api from '@/lib/api';
 import AdminLayout from '@/components/layout/AdminLayout';
 import { Button } from '@/components/ui/button';
 import axios from 'axios';
-import { getToken, clearToken } from '@/lib/auth';
+import { getToken, clearToken, getUser as getCachedUser } from '@/lib/auth';
 
 interface User {
   firstName?: string;
@@ -158,6 +158,14 @@ export default function DashboardPage() {
   }, [user, metricsTimeframe, selectedStore]);
 
   const loadUser = async () => {
+    // First try cached user from localStorage (no API call)
+    const cachedUser = getCachedUser();
+    if (cachedUser) {
+      setUser(cachedUser);
+      return;
+    }
+
+    // Fallback to API call only if no cached user
     try {
       const res = await api.get('/api/users/profile');
       setUser(res.data.user);
