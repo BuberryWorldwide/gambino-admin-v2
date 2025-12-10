@@ -19,6 +19,9 @@ interface Store {
   city: string;
   state: string;
   status: 'active' | 'inactive' | 'pending';
+  connectivityStatus?: 'online' | 'offline';
+  hubCount?: number;
+  hubsOnline?: number;
   hubsCount?: number;
   machinesCount?: number;
   totalRevenue?: number;
@@ -50,7 +53,7 @@ export default function StoresPage() {
   const loadStores = async () => {
     try {
       setError(null);
-      const { data } = await api.get('/api/admin/stores');
+      const { data } = await api.get('/api/admin/stores-with-status');
       setStores(data.stores || []);
     } catch (err) {
       console.error('Failed to load stores:', err);
@@ -78,29 +81,29 @@ export default function StoresPage() {
         return aLoc.localeCompare(bLoc);
       },
       'status': (a, b) => {
-        const statusOrder = { active: 0, pending: 1, inactive: 2 };
-        return (statusOrder[a.status] || 3) - (statusOrder[b.status] || 3);
+        const statusOrder: Record<string, number> = { online: 0, offline: 1 };
+        return (statusOrder[a.connectivityStatus || ''] ?? 2) - (statusOrder[b.connectivityStatus || ''] ?? 2);
       },
     };
 
     return sortData(filtered, sortConfig, customComparators);
   }, [stores, searchTerm, sortConfig]);
 
-  const getStatusColor = (status: string) => {
-    switch (status) {
-      case 'active':
+  const getStatusColor = (connectivityStatus: string | undefined) => {
+    switch (connectivityStatus) {
+      case 'online':
         return 'bg-green-100 dark:bg-green-950/50 text-green-700 dark:text-green-300';
-      case 'inactive':
+      case 'offline':
         return 'bg-red-100 dark:bg-red-950/50 text-red-700 dark:text-red-300';
-      case 'pending':
-        return 'bg-yellow-100 dark:bg-yellow-950/50 text-yellow-700 dark:text-yellow-300';
       default:
         return 'bg-neutral-100 dark:bg-neutral-800 text-neutral-600 dark:text-neutral-400';
     }
   };
 
-  const getStatusLabel = (status: string) => {
-    return status.charAt(0).toUpperCase() + status.slice(1);
+  const getStatusLabel = (connectivityStatus: string | undefined) => {
+    if (connectivityStatus === 'online') return 'Active';
+    if (connectivityStatus === 'offline') return 'Inactive';
+    return 'Unknown';
   };
 
   if (loading) {
@@ -159,27 +162,27 @@ export default function StoresPage() {
         {/* Stats - 2x2 grid on mobile */}
         <div className="grid grid-cols-2 gap-3">
           <StatCard
-            label="Active"
-            value={stores.filter(s => s.status === 'active').length}
+            label="Online"
+            value={stores.filter(s => s.connectivityStatus === 'online').length}
             icon={<Activity className="w-4 h-4" />}
             color="green"
           />
           <StatCard
-            label="Inactive"
-            value={stores.filter(s => s.status === 'inactive').length}
+            label="Offline"
+            value={stores.filter(s => s.connectivityStatus === 'offline').length}
             icon={<Activity className="w-4 h-4" />}
             color="red"
           />
           <StatCard
-            label="Pending"
-            value={stores.filter(s => s.status === 'pending').length}
-            icon={<Activity className="w-4 h-4" />}
+            label="Total Venues"
+            value={stores.length}
+            icon={<StoreIcon className="w-4 h-4" />}
             color="yellow"
           />
           <StatCard
-            label="Revenue"
-            value={`$${stores.reduce((sum, s) => sum + (s.totalRevenue || 0), 0).toLocaleString()}`}
-            icon={<DollarSign className="w-4 h-4" />}
+            label="Total Hubs"
+            value={stores.reduce((sum, s) => sum + (s.hubCount || 0), 0)}
+            icon={<Activity className="w-4 h-4" />}
             color="blue"
           />
         </div>
@@ -260,8 +263,8 @@ export default function StoresPage() {
                       <span className="font-medium text-neutral-900 dark:text-white truncate">
                         {store.storeName}
                       </span>
-                      <Badge className={`${getStatusColor(store.status)} text-xs px-1.5 py-0 flex-shrink-0`}>
-                        {getStatusLabel(store.status)}
+                      <Badge className={`${getStatusColor(store.connectivityStatus)} text-xs px-1.5 py-0 flex-shrink-0`}>
+                        {getStatusLabel(store.connectivityStatus)}
                       </Badge>
                     </div>
                     <div className="flex items-center gap-1 text-sm text-neutral-500 dark:text-neutral-400">
@@ -274,8 +277,10 @@ export default function StoresPage() {
                     </div>
                     {/* Stats row */}
                     <div className="flex items-center gap-4 mt-2 text-xs text-neutral-500 dark:text-neutral-400">
-                      {store.hubsCount !== undefined && (
-                        <span>{store.hubsCount} hub{store.hubsCount !== 1 ? 's' : ''}</span>
+                      {store.hubCount !== undefined && store.hubCount > 0 && (
+                        <span className={store.hubsOnline && store.hubsOnline > 0 ? 'text-green-600 dark:text-green-400' : ''}>
+                          {store.hubsOnline || 0}/{store.hubCount} hub{store.hubCount !== 1 ? 's' : ''} online
+                        </span>
                       )}
                       {store.machinesCount !== undefined && (
                         <span>{store.machinesCount} machine{store.machinesCount !== 1 ? 's' : ''}</span>
