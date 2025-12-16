@@ -3,7 +3,7 @@
 
 import { useState, useEffect, useMemo } from 'react';
 import { useTheme } from 'next-themes';
-import { Search, RefreshCw, DollarSign, Edit2, Check, X, Plus, Cpu, Activity, Ticket, Eye, AlertCircle, BookOpen } from 'lucide-react';
+import { Search, RefreshCw, DollarSign, Edit2, Check, X, Plus, Cpu, Activity, Eye, AlertCircle, BookOpen, TrendingUp, TrendingDown, WifiOff, ChevronDown, ArrowUpDown, Filter } from 'lucide-react';
 import api from '@/lib/api';
 import AdminLayout from '@/components/layout/AdminLayout';
 import { Button } from '@/components/ui/button';
@@ -75,6 +75,8 @@ export default function MachinesPage() {
   const isDark = mounted ? resolvedTheme === 'dark' : false;
 
   const [machines, setMachines] = useState<Machine[]>([]);
+  const [stores, setStores] = useState<{storeId: string; storeName: string}[]>([]);
+  const [hubNames, setHubNames] = useState<Record<string, string>>({});
   const [stats, setStats] = useState<Stats>({ total: 0, active: 0, inactive: 0, maintenance: 0 });
   const [todayStats, setTodayStats] = useState<TodayStats>({
     totalRevenue: 0,
@@ -87,10 +89,16 @@ export default function MachinesPage() {
   const [error, setError] = useState<string | null>(null);
   const [searchTerm, setSearchTerm] = useState('');
   const [statusFilter, setStatusFilter] = useState<string>('all');
+  const [storeFilter, setStoreFilter] = useState<string>('all');
   const [editingMachine, setEditingMachine] = useState<string | null>(null);
   const [editName, setEditName] = useState('');
   const [registering, setRegistering] = useState<string | null>(null);
   const [booksCleared, setBooksCleared] = useState<BooksClearedMap>({});
+  const [showMobileSortMenu, setShowMobileSortMenu] = useState(false);
+
+  // Registration modal state
+  const [registerModal, setRegisterModal] = useState<{ show: boolean; machine: Machine | null }>({ show: false, machine: null });
+  const [registerName, setRegisterName] = useState('');
 
   // Sorting
   const { sortConfig, handleSort } = useSort('machineId', 'asc');
@@ -105,6 +113,17 @@ export default function MachinesPage() {
       loadBooksCleared();
     });
   }, []);
+
+  // Sort options for mobile
+  const sortOptions = [
+    { key: 'machineId', label: 'Machine ID' },
+    { key: 'store.storeName', label: 'Store' },
+    { key: 'totalMoneyIn', label: 'Money In' },
+    { key: 'totalMoneyOut', label: 'Money Out' },
+    { key: 'revenue', label: 'Net Revenue' },
+    { key: 'lastSeen', label: 'Last Seen' },
+    { key: 'booksCleared', label: 'Last Cleared' },
+  ];
 
   // Filter and sort machines
   const filteredMachines = useMemo(() => {
@@ -122,6 +141,10 @@ export default function MachinesPage() {
       filtered = filtered.filter(m => m.isRegistered);
     } else if (statusFilter === 'discovered') {
       filtered = filtered.filter(m => !m.isRegistered);
+    }
+
+    if (storeFilter !== 'all') {
+      filtered = filtered.filter(m => m.storeId === storeFilter);
     }
 
     // Custom comparators for special fields
@@ -146,10 +169,34 @@ export default function MachinesPage() {
         const bCleared = booksCleared[b.machineId]?.daysSinceCleared ?? 999;
         return aCleared - bCleared;
       },
+      'totalMoneyIn': (a, b) => (a.totalMoneyIn || 0) - (b.totalMoneyIn || 0),
+      'totalMoneyOut': (a, b) => (a.totalMoneyOut || 0) - (b.totalMoneyOut || 0),
+      'revenue': (a, b) => {
+        const aRev = (a.totalMoneyIn || 0) - (a.totalMoneyOut || 0);
+        const bRev = (b.totalMoneyIn || 0) - (b.totalMoneyOut || 0);
+        return aRev - bRev;
+      },
     };
 
     return sortData(filtered, sortConfig, customComparators);
-  }, [machines, searchTerm, statusFilter, sortConfig, booksCleared]);
+  }, [machines, searchTerm, statusFilter, storeFilter, sortConfig, booksCleared]);
+
+  // Machines that need attention
+  const alertMachines = useMemo(() => {
+    const now = new Date();
+    return machines.filter(m => {
+      // Offline for more than 1 hour
+      if (m.lastSeen) {
+        const lastSeen = new Date(m.lastSeen);
+        const hoursSince = (now.getTime() - lastSeen.getTime()) / (1000 * 60 * 60);
+        if (hoursSince > 1 && m.isRegistered) return true;
+      }
+      // Books overdue (more than 7 days)
+      const cleared = booksCleared[m.machineId];
+      if (cleared && cleared.daysSinceCleared > 7) return true;
+      return false;
+    });
+  }, [machines, booksCleared]);
 
   const loadTodayStats = async () => {
     try {
@@ -200,6 +247,20 @@ export default function MachinesPage() {
       const hubsRes = await api.get('/api/admin/hubs');
       const hubs = hubsRes.data.hubs || [];
 
+      // Build stores list and hub names from hubs
+      const storeMap = new Map<string, string>();
+      const hubNamesMap: Record<string, string> = {};
+      hubs.forEach((hub: any) => {
+        if (hub.storeId && hub.store?.storeName) {
+          storeMap.set(hub.storeId, hub.store.storeName);
+        }
+        if (hub.hubId) {
+          hubNamesMap[hub.hubId] = hub.name || hub.hubId;
+        }
+      });
+      setStores(Array.from(storeMap.entries()).map(([storeId, storeName]) => ({ storeId, storeName })));
+      setHubNames(hubNamesMap);
+
       const allMachines: Machine[] = [];
 
       for (const hub of hubs) {
@@ -242,7 +303,20 @@ export default function MachinesPage() {
     }
   };
 
-  const handleRegisterMachine = async (machine: Machine) => {
+  const openRegisterModal = (machine: Machine) => {
+    setRegisterName('');
+    setRegisterModal({ show: true, machine });
+  };
+
+  const closeRegisterModal = () => {
+    setRegisterModal({ show: false, machine: null });
+    setRegisterName('');
+  };
+
+  const handleRegisterMachine = async () => {
+    const machine = registerModal.machine;
+    if (!machine) return;
+
     try {
       setRegistering(machine.machineId);
 
@@ -250,11 +324,12 @@ export default function MachinesPage() {
         machineId: machine.machineId,
         storeId: machine.storeId,
         hubId: machine.hubId,
-        name: machine.name || `Machine ${machine.machineId}`,
+        name: registerName.trim() || `Machine ${machine.machineId}`,
         gameType: 'slot'
       });
 
       if (response.data.success) {
+        closeRegisterModal();
         await loadMachines();
       }
     } catch (error: any) {
@@ -397,12 +472,12 @@ export default function MachinesPage() {
         </div>
 
         {/* Stats */}
-        <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
+        <div className="grid grid-cols-2 lg:grid-cols-4 gap-3 sm:gap-4">
           <StatCard
             label="Total Machines"
             value={stats.total}
             icon={<Cpu className="w-5 h-5" />}
-            color="blue"
+            color="default"
           />
           <StatCard
             label="Registered"
@@ -411,40 +486,158 @@ export default function MachinesPage() {
             color="green"
           />
           <StatCard
-            label="Discovered"
-            value={stats.inactive}
-            icon={<Activity className="w-5 h-5" />}
-            color="yellow"
-          />
-          <StatCard
             label="Revenue Today"
             value={formatCurrency(todayStats.totalRevenue)}
             icon={<DollarSign className="w-5 h-5" />}
-            color={todayStats.totalRevenue >= 0 ? 'green' : 'red'}
+            color="yellow"
+          />
+          <StatCard
+            label="Need Attention"
+            value={alertMachines.length}
+            icon={<AlertCircle className="w-5 h-5" />}
+            color={alertMachines.length > 0 ? 'red' : 'green'}
           />
         </div>
 
-        {/* Filters */}
-        <div className="bg-white dark:bg-neutral-900 border border-neutral-200 dark:border-neutral-800 rounded-xl p-4">
-          <div className="flex flex-col sm:flex-row gap-3 sm:gap-4">
-            <div className="flex-1 relative">
-              <Search className="absolute left-3.5 top-1/2 -translate-y-1/2 w-4 h-4 text-neutral-400" />
-              <Input
-                placeholder="Search machines, stores..."
-                value={searchTerm}
-                onChange={(e: React.ChangeEvent<HTMLInputElement>) => setSearchTerm(e.target.value)}
-                className="pl-10 h-10 bg-neutral-50 dark:bg-neutral-800 border-neutral-200 dark:border-neutral-700 text-neutral-900 dark:text-white"
-              />
+        {/* Alerts Banner */}
+        {alertMachines.length > 0 && (
+          <div className="bg-red-50 dark:bg-red-950/30 border border-red-200 dark:border-red-900/50 rounded-xl p-4">
+            <div className="flex items-start gap-3">
+              <AlertCircle className="w-5 h-5 text-red-500 shrink-0 mt-0.5" />
+              <div className="flex-1 min-w-0">
+                <h3 className="text-sm font-semibold text-red-800 dark:text-red-200">
+                  {alertMachines.length} machine{alertMachines.length !== 1 ? 's' : ''} need attention
+                </h3>
+                <p className="text-xs text-red-600 dark:text-red-300 mt-1">
+                  {alertMachines.slice(0, 3).map(m => m.machineId).join(', ')}
+                  {alertMachines.length > 3 && ` and ${alertMachines.length - 3} more`}
+                </p>
+              </div>
+              <button
+                onClick={() => {
+                  setStatusFilter('registered');
+                  handleSort('lastSeen');
+                }}
+                className="text-xs font-medium text-red-700 dark:text-red-300 hover:text-red-900 dark:hover:text-red-100 shrink-0"
+              >
+                View All →
+              </button>
             </div>
+          </div>
+        )}
+
+        {/* Search + Filters */}
+        <div className="bg-white dark:bg-neutral-900 border border-neutral-200 dark:border-neutral-800 rounded-xl p-3 sm:p-4 space-y-3">
+          {/* Search */}
+          <div className="relative">
+            <Search className="absolute left-3.5 top-1/2 -translate-y-1/2 w-4 h-4 text-neutral-400" />
+            <Input
+              placeholder="Search machines, stores..."
+              value={searchTerm}
+              onChange={(e: React.ChangeEvent<HTMLInputElement>) => setSearchTerm(e.target.value)}
+              className="pl-10 h-10 bg-neutral-50 dark:bg-neutral-800 border-neutral-200 dark:border-neutral-700 text-neutral-900 dark:text-white"
+            />
+          </div>
+
+          {/* Mobile Filters */}
+          <div className="flex gap-2 lg:hidden">
+            {/* Status Filter Pills */}
+            <div className="flex-1 flex gap-1 p-1 rounded-lg bg-neutral-100 dark:bg-neutral-800">
+              {(['all', 'registered', 'discovered'] as const).map((status) => (
+                <button
+                  key={status}
+                  onClick={() => setStatusFilter(status)}
+                  className={`flex-1 px-2 py-1.5 text-xs font-medium rounded-md transition-all ${
+                    statusFilter === status
+                      ? 'bg-yellow-500 text-black'
+                      : 'text-neutral-600 dark:text-neutral-400'
+                  }`}
+                >
+                  {status === 'all' ? 'All' : status === 'registered' ? 'Reg.' : 'New'}
+                </button>
+              ))}
+            </div>
+
+            {/* Store Filter */}
             <select
-              value={statusFilter}
-              onChange={(e) => setStatusFilter(e.target.value)}
-              className="px-4 py-2.5 border border-neutral-200 dark:border-neutral-700 rounded-lg bg-neutral-50 dark:bg-neutral-800 text-neutral-900 dark:text-white text-sm focus:outline-none focus:ring-2 focus:ring-yellow-500/20"
+              value={storeFilter}
+              onChange={(e) => setStoreFilter(e.target.value)}
+              className="px-2 py-1.5 text-xs border border-neutral-200 dark:border-neutral-700 rounded-lg bg-neutral-50 dark:bg-neutral-800 text-neutral-700 dark:text-neutral-300"
             >
-              <option value="all">All Status</option>
-              <option value="registered">Registered</option>
-              <option value="discovered">Discovered Only</option>
+              <option value="all">All Stores</option>
+              {stores.map(s => (
+                <option key={s.storeId} value={s.storeId}>{s.storeName}</option>
+              ))}
             </select>
+
+            {/* Sort Dropdown */}
+            <div className="relative">
+              <button
+                onClick={() => setShowMobileSortMenu(!showMobileSortMenu)}
+                className="flex items-center gap-1.5 px-3 py-2 text-xs font-medium rounded-lg border border-neutral-200 dark:border-neutral-700 bg-neutral-50 dark:bg-neutral-800 text-neutral-700 dark:text-neutral-300"
+              >
+                <ArrowUpDown className="w-3.5 h-3.5" />
+              </button>
+              {showMobileSortMenu && (
+                <div className="absolute right-0 top-full mt-1 w-36 bg-white dark:bg-neutral-900 border border-neutral-200 dark:border-neutral-700 rounded-lg shadow-lg z-20 overflow-hidden">
+                  {sortOptions.map((option) => (
+                    <button
+                      key={option.key}
+                      onClick={() => {
+                        handleSort(option.key);
+                        setShowMobileSortMenu(false);
+                      }}
+                      className={`w-full px-3 py-2 text-left text-xs transition-colors ${
+                        sortConfig.key === option.key
+                          ? 'bg-yellow-500/10 text-yellow-600 dark:text-yellow-400 font-medium'
+                          : 'text-neutral-700 dark:text-neutral-300 hover:bg-neutral-100 dark:hover:bg-neutral-800'
+                      }`}
+                    >
+                      {option.label}
+                      {sortConfig.key === option.key && (
+                        <span className="ml-1">{sortConfig.direction === 'asc' ? '↑' : '↓'}</span>
+                      )}
+                    </button>
+                  ))}
+                </div>
+              )}
+            </div>
+          </div>
+
+          {/* Desktop Filters */}
+          <div className="hidden lg:flex items-center gap-4">
+            <div className="flex items-center gap-2">
+              <span className="text-xs text-neutral-500 dark:text-neutral-400">Status:</span>
+              <div className="flex gap-1">
+                {(['all', 'registered', 'discovered'] as const).map((status) => (
+                  <button
+                    key={status}
+                    onClick={() => setStatusFilter(status)}
+                    className={`px-3 py-1 text-xs font-medium rounded-full transition-all ${
+                      statusFilter === status
+                        ? 'bg-yellow-500 text-black'
+                        : 'bg-neutral-100 dark:bg-neutral-800 text-neutral-600 dark:text-neutral-400 hover:bg-neutral-200 dark:hover:bg-neutral-700'
+                    }`}
+                  >
+                    {status === 'all' ? 'All' : status === 'registered' ? 'Registered' : 'Discovered'}
+                  </button>
+                ))}
+              </div>
+            </div>
+
+            <div className="flex items-center gap-2">
+              <span className="text-xs text-neutral-500 dark:text-neutral-400">Store:</span>
+              <select
+                value={storeFilter}
+                onChange={(e) => setStoreFilter(e.target.value)}
+                className="px-3 py-1 text-xs border border-neutral-200 dark:border-neutral-700 rounded-lg bg-neutral-50 dark:bg-neutral-800 text-neutral-700 dark:text-neutral-300"
+              >
+                <option value="all">All Stores</option>
+                {stores.map(s => (
+                  <option key={s.storeId} value={s.storeId}>{s.storeName}</option>
+                ))}
+              </select>
+            </div>
           </div>
         </div>
 
@@ -462,136 +655,119 @@ export default function MachinesPage() {
         ) : (
           <>
             {/* Mobile: Card Layout */}
-            <div className="lg:hidden space-y-3">
-              {filteredMachines.map((machine) => (
-                <div
-                  key={machine.machineId}
-                  className="bg-white dark:bg-neutral-900 rounded-xl border border-neutral-200 dark:border-neutral-800 p-4"
-                >
-                  <div className="flex items-start justify-between mb-3">
-                    <div className="flex items-center gap-3 min-w-0">
-                      <div className="w-10 h-10 rounded-lg bg-gradient-to-br from-blue-400 to-blue-500 flex items-center justify-center text-white shrink-0">
-                        <Cpu className="w-5 h-5" />
-                      </div>
-                      <div className="min-w-0">
-                        <div className="font-mono text-sm font-medium text-neutral-900 dark:text-white truncate">
-                          {machine.machineId}
+            <div className="lg:hidden space-y-2">
+              {filteredMachines.map((machine) => {
+                const netRevenue = (machine.totalMoneyIn || 0) - (machine.totalMoneyOut || 0);
+                const cleared = formatBooksCleared(machine.machineId);
+                return (
+                  <div
+                    key={machine.machineId}
+                    className="bg-white dark:bg-neutral-900 rounded-xl border border-neutral-200 dark:border-neutral-800 p-3"
+                  >
+                    {/* Header Row */}
+                    <div className="flex items-center gap-3 mb-2">
+                      <div className={`w-2 h-10 rounded-full shrink-0 ${
+                        machine.isRegistered ? 'bg-green-500' : 'bg-yellow-500'
+                      }`} />
+                      <div className="flex-1 min-w-0">
+                        <div className="flex items-center gap-2">
+                          <span className="font-mono text-sm font-medium text-neutral-900 dark:text-white">
+                            {machine.machineId}
+                          </span>
+                          {machine.muthaGooseNumber && (
+                            <span className="text-xs px-1.5 py-0.5 rounded bg-yellow-100 dark:bg-yellow-950/50 text-yellow-700 dark:text-yellow-400 font-medium">
+                              MG{machine.muthaGooseNumber}
+                            </span>
+                          )}
                         </div>
                         <p className="text-xs text-neutral-500 dark:text-neutral-400 truncate">
                           {machine.store?.storeName || 'Unknown venue'}
+                          {machine.name && ` • ${machine.name}`}
                         </p>
                       </div>
+                      {!machine.isRegistered ? (
+                        <Button
+                          size="sm"
+                          className="h-8 bg-yellow-500 hover:bg-yellow-600 text-black shrink-0"
+                          onClick={() => openRegisterModal(machine)}
+                        >
+                          <Plus className="w-3.5 h-3.5" />
+                        </Button>
+                      ) : (
+                        <Link href={`/admin/machines/${machine.machineId}`}>
+                          <Button
+                            variant="ghost"
+                            size="sm"
+                            className="h-8 px-2 text-neutral-500 hover:text-neutral-900 dark:text-neutral-400 dark:hover:text-white"
+                          >
+                            <Eye className="w-4 h-4" />
+                          </Button>
+                        </Link>
+                      )}
                     </div>
-                    <Badge className={`${getStatusColor(machine.isRegistered ? 'registered' : 'discovered')} text-xs font-medium px-2 py-0.5 shrink-0`}>
-                      {machine.isRegistered ? 'Registered' : 'Discovered'}
-                    </Badge>
-                  </div>
 
-                  {/* Editable Name */}
-                  {editingMachine === machine.machineId ? (
-                    <div className="flex items-center gap-2 mb-3">
-                      <Input
-                        value={editName}
-                        onChange={(e: React.ChangeEvent<HTMLInputElement>) => setEditName(e.target.value)}
-                        className="text-sm h-9 bg-neutral-50 dark:bg-neutral-800"
-                        placeholder="Machine name"
-                        autoFocus
-                      />
-                      <Button
-                        size="sm"
-                        variant="ghost"
-                        className="h-9 w-9 p-0"
-                        onClick={() => saveEditName(machine.machineId)}
-                      >
-                        <Check className="w-4 h-4 text-green-500" />
-                      </Button>
-                      <Button
-                        size="sm"
-                        variant="ghost"
-                        className="h-9 w-9 p-0"
-                        onClick={cancelEditName}
-                      >
-                        <X className="w-4 h-4 text-red-500" />
-                      </Button>
+                    {/* Revenue Row */}
+                    <div className="flex items-center gap-4 pt-2 border-t border-neutral-100 dark:border-neutral-800">
+                      <div className="flex-1 flex items-center gap-3">
+                        <div className="text-center">
+                          <p className="text-[10px] uppercase text-neutral-400 font-medium">IN</p>
+                          <p className="text-xs font-medium text-green-600 dark:text-green-400">
+                            {machine.totalMoneyIn ? `$${(machine.totalMoneyIn / 100).toFixed(0)}` : '—'}
+                          </p>
+                        </div>
+                        <div className="text-center">
+                          <p className="text-[10px] uppercase text-neutral-400 font-medium">OUT</p>
+                          <p className="text-xs font-medium text-red-600 dark:text-red-400">
+                            {machine.totalMoneyOut ? `$${(machine.totalMoneyOut / 100).toFixed(0)}` : '—'}
+                          </p>
+                        </div>
+                        <div className="text-center">
+                          <p className="text-[10px] uppercase text-neutral-400 font-medium">NET</p>
+                          <p className={`text-xs font-bold ${netRevenue >= 0 ? 'text-yellow-600 dark:text-yellow-400' : 'text-red-600 dark:text-red-400'}`}>
+                            {netRevenue !== 0 ? `$${(netRevenue / 100).toFixed(0)}` : '—'}
+                          </p>
+                        </div>
+                      </div>
+                      <div className="flex items-center gap-2 text-xs text-neutral-500 dark:text-neutral-400">
+                        <span>{formatLastSeen(machine.lastSeen)}</span>
+                        <span className="text-neutral-300 dark:text-neutral-600">•</span>
+                        <Badge className={`${getBooksStatusColor(cleared.status)} text-[10px] font-medium px-1.5 py-0`}>
+                          {cleared.text}
+                        </Badge>
+                      </div>
                     </div>
-                  ) : machine.name ? (
-                    <div className="flex items-center gap-2 mb-3">
-                      <span className="text-sm text-neutral-700 dark:text-neutral-300">{machine.name}</span>
-                      {machine.isRegistered && (
+
+                    {/* Edit Name (if editing) */}
+                    {editingMachine === machine.machineId && (
+                      <div className="flex items-center gap-2 mt-2 pt-2 border-t border-neutral-100 dark:border-neutral-800">
+                        <Input
+                          value={editName}
+                          onChange={(e: React.ChangeEvent<HTMLInputElement>) => setEditName(e.target.value)}
+                          className="text-sm h-8 bg-neutral-50 dark:bg-neutral-800"
+                          placeholder="Machine name"
+                          autoFocus
+                        />
                         <Button
                           size="sm"
                           variant="ghost"
-                          className="h-6 w-6 p-0"
-                          onClick={() => startEditName(machine)}
+                          className="h-8 w-8 p-0"
+                          onClick={() => saveEditName(machine.machineId)}
                         >
-                          <Edit2 className="w-3 h-3 text-neutral-400" />
+                          <Check className="w-4 h-4 text-green-500" />
                         </Button>
-                      )}
-                    </div>
-                  ) : null}
-
-                  <div className="grid grid-cols-2 gap-3 py-3 border-t border-neutral-100 dark:border-neutral-800 mb-3">
-                    <div>
-                      <p className="text-xs text-neutral-500 dark:text-neutral-400 mb-0.5">Hub</p>
-                      <p className="text-sm font-mono text-neutral-700 dark:text-neutral-300 truncate">
-                        {machine.hubId?.slice(-6) || '—'}
-                      </p>
-                    </div>
-                    <div>
-                      <p className="text-xs text-neutral-500 dark:text-neutral-400 mb-0.5">Last Seen</p>
-                      <p className="text-sm text-neutral-700 dark:text-neutral-300">
-                        {formatLastSeen(machine.lastSeen)}
-                      </p>
-                    </div>
-                    <div>
-                      <p className="text-xs text-neutral-500 dark:text-neutral-400 mb-0.5">MG #</p>
-                      <p className="text-sm font-medium text-neutral-700 dark:text-neutral-300">
-                        {machine.muthaGooseNumber ? `MG${machine.muthaGooseNumber}` : '—'}
-                      </p>
-                    </div>
-                    <div>
-                      <p className="text-xs text-neutral-500 dark:text-neutral-400 mb-0.5">Last Cleared</p>
-                      {(() => {
-                        const cleared = formatBooksCleared(machine.machineId);
-                        return (
-                          <Badge className={`${getBooksStatusColor(cleared.status)} text-xs font-medium px-2 py-0.5`}>
-                            {cleared.text}
-                          </Badge>
-                        );
-                      })()}
-                    </div>
-                  </div>
-
-                  <div className="flex gap-2">
-                    {!machine.isRegistered ? (
-                      <Button
-                        size="sm"
-                        className="flex-1 bg-neutral-900 dark:bg-white text-white dark:text-neutral-900 hover:bg-neutral-800 dark:hover:bg-neutral-100"
-                        onClick={() => handleRegisterMachine(machine)}
-                        disabled={registering === machine.machineId}
-                      >
-                        {registering === machine.machineId ? (
-                          <RefreshCw className="w-4 h-4 mr-2 animate-spin" />
-                        ) : (
-                          <Plus className="w-4 h-4 mr-2" />
-                        )}
-                        Register
-                      </Button>
-                    ) : (
-                      <Link href={`/admin/machines/${machine.machineId}`} className="flex-1">
                         <Button
-                          variant="outline"
                           size="sm"
-                          className="w-full border-neutral-200 dark:border-neutral-700 text-neutral-600 dark:text-neutral-400 hover:text-neutral-900 dark:hover:text-white"
+                          variant="ghost"
+                          className="h-8 w-8 p-0"
+                          onClick={cancelEditName}
                         >
-                          <Eye className="w-3.5 h-3.5 mr-1.5" />
-                          View Details
+                          <X className="w-4 h-4 text-red-500" />
                         </Button>
-                      </Link>
+                      </div>
                     )}
                   </div>
-                </div>
-              ))}
+                );
+              })}
             </div>
 
             {/* Desktop: Table Layout */}
@@ -631,6 +807,33 @@ export default function MachinesPage() {
                         <SortableHeader
                           label="Hub"
                           sortKey="hubId"
+                          currentSort={sortConfig}
+                          onSort={handleSort}
+                          isDark={isDark}
+                        />
+                      </TableHead>
+                      <TableHead>
+                        <SortableHeader
+                          label="Money In"
+                          sortKey="totalMoneyIn"
+                          currentSort={sortConfig}
+                          onSort={handleSort}
+                          isDark={isDark}
+                        />
+                      </TableHead>
+                      <TableHead>
+                        <SortableHeader
+                          label="Money Out"
+                          sortKey="totalMoneyOut"
+                          currentSort={sortConfig}
+                          onSort={handleSort}
+                          isDark={isDark}
+                        />
+                      </TableHead>
+                      <TableHead>
+                        <SortableHeader
+                          label="Net"
+                          sortKey="revenue"
                           currentSort={sortConfig}
                           onSort={handleSort}
                           isDark={isDark}
@@ -683,7 +886,7 @@ export default function MachinesPage() {
                       >
                         <TableCell>
                           <div className="flex items-center gap-3">
-                            <div className="w-9 h-9 rounded-lg bg-gradient-to-br from-blue-400 to-blue-500 flex items-center justify-center text-white">
+                            <div className="w-9 h-9 rounded-lg bg-gradient-to-br from-yellow-400 to-amber-500 flex items-center justify-center text-black">
                               <Cpu className="w-4 h-4" />
                             </div>
                             <span className="font-mono text-sm text-neutral-900 dark:text-white">
@@ -744,6 +947,26 @@ export default function MachinesPage() {
                           </span>
                         </TableCell>
                         <TableCell>
+                          <span className="text-sm font-medium text-green-600 dark:text-green-400">
+                            {machine.totalMoneyIn ? formatCurrency(machine.totalMoneyIn / 100) : '—'}
+                          </span>
+                        </TableCell>
+                        <TableCell>
+                          <span className="text-sm font-medium text-red-600 dark:text-red-400">
+                            {machine.totalMoneyOut ? formatCurrency(machine.totalMoneyOut / 100) : '—'}
+                          </span>
+                        </TableCell>
+                        <TableCell>
+                          {(() => {
+                            const net = (machine.totalMoneyIn || 0) - (machine.totalMoneyOut || 0);
+                            return (
+                              <span className={`text-sm font-bold ${net >= 0 ? 'text-yellow-600 dark:text-yellow-400' : 'text-red-600 dark:text-red-400'}`}>
+                                {net !== 0 ? formatCurrency(net / 100) : '—'}
+                              </span>
+                            );
+                          })()}
+                        </TableCell>
+                        <TableCell>
                           <Badge className={`${getStatusColor(machine.isRegistered ? 'registered' : 'discovered')} text-xs font-medium px-2 py-0.5`}>
                             {machine.isRegistered ? 'Registered' : 'Discovered'}
                           </Badge>
@@ -775,15 +998,10 @@ export default function MachinesPage() {
                           {!machine.isRegistered ? (
                             <Button
                               size="sm"
-                              className="bg-neutral-900 dark:bg-white text-white dark:text-neutral-900 hover:bg-neutral-800 dark:hover:bg-neutral-100"
-                              onClick={() => handleRegisterMachine(machine)}
-                              disabled={registering === machine.machineId}
+                              className="bg-yellow-500 hover:bg-yellow-600 text-black"
+                              onClick={() => openRegisterModal(machine)}
                             >
-                              {registering === machine.machineId ? (
-                                <RefreshCw className="w-4 h-4 mr-2 animate-spin" />
-                              ) : (
-                                <Plus className="w-4 h-4 mr-2" />
-                              )}
+                              <Plus className="w-4 h-4 mr-2" />
                               Register
                             </Button>
                           ) : (
@@ -808,6 +1026,98 @@ export default function MachinesPage() {
           </>
         )}
       </div>
+
+      {/* Register Machine Modal */}
+      {registerModal.show && registerModal.machine && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
+          {/* Backdrop */}
+          <div
+            className="absolute inset-0 bg-black/50 backdrop-blur-sm"
+            onClick={closeRegisterModal}
+          />
+
+          {/* Modal */}
+          <div className="relative bg-white dark:bg-neutral-900 rounded-2xl border border-neutral-200 dark:border-neutral-800 shadow-xl w-full max-w-md p-6">
+            <div className="flex items-center gap-3 mb-4">
+              <div className="w-12 h-12 rounded-xl bg-gradient-to-br from-yellow-400 to-amber-500 flex items-center justify-center">
+                <Cpu className="w-6 h-6 text-black" />
+              </div>
+              <div>
+                <h2 className="text-lg font-semibold text-neutral-900 dark:text-white">
+                  Register Machine
+                </h2>
+                <p className="text-sm text-neutral-500 dark:text-neutral-400 font-mono">
+                  {registerModal.machine.machineId}
+                </p>
+              </div>
+            </div>
+
+            <div className="space-y-4 mb-6">
+              <div className="grid grid-cols-2 gap-3 p-3 rounded-lg bg-neutral-50 dark:bg-neutral-800/50">
+                <div>
+                  <p className="text-xs text-neutral-500 dark:text-neutral-400">Venue</p>
+                  <p className="text-sm font-medium text-neutral-900 dark:text-white">
+                    {registerModal.machine.store?.storeName || 'Unknown'}
+                  </p>
+                </div>
+                <div>
+                  <p className="text-xs text-neutral-500 dark:text-neutral-400">Pi Hub</p>
+                  <p className="text-sm font-medium text-neutral-900 dark:text-white">
+                    {registerModal.machine.hubId ? hubNames[registerModal.machine.hubId] || registerModal.machine.hubId : '—'}
+                  </p>
+                  <p className="text-xs font-mono text-neutral-500 dark:text-neutral-400">
+                    {registerModal.machine.hubId || '—'}
+                  </p>
+                </div>
+              </div>
+
+              <div>
+                <label className="block text-sm font-medium text-neutral-700 dark:text-neutral-300 mb-1.5">
+                  Machine Name <span className="text-neutral-400 font-normal">(optional)</span>
+                </label>
+                <Input
+                  value={registerName}
+                  onChange={(e: React.ChangeEvent<HTMLInputElement>) => setRegisterName(e.target.value)}
+                  placeholder="e.g., Slot by the door, Machine #3"
+                  className="h-11 bg-neutral-50 dark:bg-neutral-800 border-neutral-200 dark:border-neutral-700"
+                  autoFocus
+                />
+                <p className="text-xs text-neutral-500 dark:text-neutral-400 mt-1.5">
+                  Give it a friendly name so you can identify it later
+                </p>
+              </div>
+            </div>
+
+            <div className="flex gap-3">
+              <Button
+                variant="outline"
+                className="flex-1 border-neutral-200 dark:border-neutral-700"
+                onClick={closeRegisterModal}
+                disabled={registering === registerModal.machine.machineId}
+              >
+                Cancel
+              </Button>
+              <Button
+                className="flex-1 bg-yellow-500 hover:bg-yellow-600 text-black"
+                onClick={handleRegisterMachine}
+                disabled={registering === registerModal.machine.machineId}
+              >
+                {registering === registerModal.machine.machineId ? (
+                  <>
+                    <RefreshCw className="w-4 h-4 mr-2 animate-spin" />
+                    Registering...
+                  </>
+                ) : (
+                  <>
+                    <Check className="w-4 h-4 mr-2" />
+                    Register
+                  </>
+                )}
+              </Button>
+            </div>
+          </div>
+        </div>
+      )}
     </AdminLayout>
   );
 }
@@ -827,11 +1137,12 @@ interface StatCardProps {
   label: string;
   value: string | number;
   icon: React.ReactNode;
-  color: 'green' | 'red' | 'yellow' | 'blue';
+  color: 'default' | 'green' | 'red' | 'yellow' | 'blue';
 }
 
 function StatCard({ label, value, icon, color }: StatCardProps) {
   const colorClasses = {
+    default: 'bg-neutral-100 dark:bg-neutral-800 text-neutral-600 dark:text-neutral-400',
     green: 'bg-green-100 dark:bg-green-950/50 text-green-600 dark:text-green-400',
     red: 'bg-red-100 dark:bg-red-950/50 text-red-600 dark:text-red-400',
     yellow: 'bg-yellow-100 dark:bg-yellow-950/50 text-yellow-600 dark:text-yellow-400',

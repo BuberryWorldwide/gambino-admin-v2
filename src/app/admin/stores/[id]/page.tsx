@@ -69,6 +69,18 @@ interface TrendData {
   netRevenue: number;
 }
 
+interface Hub {
+  _id: string;
+  hubId: string;
+  name: string;
+  storeId: string;
+  status: string;
+}
+
+interface MachineHubMapping {
+  [machineId: string]: string; // machineId -> hubId
+}
+
 interface DailyBreakdown {
   date: string;
   moneyIn: number;
@@ -98,6 +110,11 @@ export default function StoreDashboardPage() {
   const [rangeStats, setRangeStats] = useState<VenueStats | null>(null);
   const [dailyBreakdown, setDailyBreakdown] = useState<DailyBreakdown[]>([]);
 
+  // Hub-related state
+  const [hubs, setHubs] = useState<Hub[]>([]);
+  const [machineHubMapping, setMachineHubMapping] = useState<MachineHubMapping>({});
+  const [expandedHubs, setExpandedHubs] = useState<Set<string>>(new Set());
+
   useEffect(() => {
     loadAllData();
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -118,6 +135,9 @@ export default function StoreDashboardPage() {
       const storeRes = await api.get(`/api/admin/stores/${storeId}`);
       setStore(storeRes.data.store);
 
+      // Load hubs for this store
+      await loadHubs();
+
       // Load venue events for selected date
       await loadVenueStats();
 
@@ -128,6 +148,96 @@ export default function StoreDashboardPage() {
     } finally {
       setLoading(false);
     }
+  };
+
+  const loadHubs = async () => {
+    try {
+      const response = await api.get(`/api/admin/hubs?storeId=${storeId}`);
+      const hubsData = response.data.hubs || response.data || [];
+      setHubs(hubsData);
+
+      // Also load machine-to-hub mapping from events
+      await loadMachineHubMapping();
+    } catch (err) {
+      console.error('Failed to load hubs:', err);
+      setHubs([]);
+    }
+  };
+
+  const loadMachineHubMapping = async () => {
+    try {
+      // Get machine-hub mapping from the dedicated endpoint
+      const response = await api.get(`/api/admin/reports/${storeId}/machine-hub-mapping`);
+
+      if (response.data?.success) {
+        setMachineHubMapping(response.data.mapping || {});
+
+        // Update hub names if available
+        if (response.data.hubNames) {
+          const hubNames = response.data.hubNames;
+          const hubIds = Object.keys(hubNames);
+          setHubs(hubIds.map(hubId => ({
+            _id: hubId,
+            hubId: hubId,
+            name: hubNames[hubId],
+            storeId: storeId as string,
+            status: 'online'
+          })));
+        }
+      } else {
+        setMachineHubMapping({});
+      }
+    } catch (err) {
+      // Silently fail - hub grouping will fall back to flat list
+      console.log('Machine-hub mapping not available, using flat list');
+      setMachineHubMapping({});
+    }
+  };
+
+  const toggleHubExpanded = (hubId: string) => {
+    setExpandedHubs(prev => {
+      const next = new Set(prev);
+      if (next.has(hubId)) {
+        next.delete(hubId);
+      } else {
+        next.add(hubId);
+      }
+      return next;
+    });
+  };
+
+  const getMachinesByHub = () => {
+    // Group machines by their hub
+    const grouped: { [hubId: string]: MachineRevenue[] } = {};
+    const unmapped: MachineRevenue[] = [];
+
+    machineRevenue.forEach(machine => {
+      const hubId = machineHubMapping[machine.machineId];
+      if (hubId) {
+        if (!grouped[hubId]) {
+          grouped[hubId] = [];
+        }
+        grouped[hubId].push(machine);
+      } else {
+        unmapped.push(machine);
+      }
+    });
+
+    return { grouped, unmapped };
+  };
+
+  const getHubName = (hubId: string): string => {
+    const hub = hubs.find(h => h.hubId === hubId);
+    return hub?.name || hubId;
+  };
+
+  const getHubStats = (machines: MachineRevenue[]) => {
+    return {
+      moneyIn: machines.reduce((sum, m) => sum + m.moneyIn, 0),
+      moneyOut: machines.reduce((sum, m) => sum + m.moneyOut, 0),
+      netRevenue: machines.reduce((sum, m) => sum + m.netRevenue, 0),
+      count: machines.length
+    };
   };
 
   const load7DayTrend = async () => {
@@ -177,6 +287,7 @@ export default function StoreDashboardPage() {
         });
 
         const sortedMachines = (response.data.machines || [])
+          .filter((m: { machineId: string }) => m.machineId !== 'grand_total')
           .map((m: { machineId: string; moneyIn: number; collect: number }) => ({
             machineId: m.machineId,
             moneyIn: m.moneyIn,
@@ -226,13 +337,15 @@ export default function StoreDashboardPage() {
           netRevenue: response.data.netRevenue || 0
         });
 
-        // Map machine data to expected format
-        const machines = (response.data.machines || []).map((m: { machineId: string; moneyIn: number; collect: number; netRevenue: number }) => ({
-          machineId: m.machineId,
-          moneyIn: m.moneyIn,
-          moneyOut: m.collect,
-          netRevenue: m.netRevenue
-        }));
+        // Map machine data to expected format (filter out grand_total)
+        const machines = (response.data.machines || [])
+          .filter((m: { machineId: string }) => m.machineId !== 'grand_total')
+          .map((m: { machineId: string; moneyIn: number; collect: number; netRevenue: number }) => ({
+            machineId: m.machineId,
+            moneyIn: m.moneyIn,
+            moneyOut: m.collect,
+            netRevenue: m.netRevenue
+          }));
         setMachineRevenue(machines);
 
         // Set daily breakdown for accounting table
@@ -707,28 +820,29 @@ export default function StoreDashboardPage() {
           </div>
         </div>
 
-        {/* Machine Performance Bar Chart */}
+        {/* Machine Performance Bar Chart - Top 5 only */}
         {machineRevenue.length > 0 && (
           <div className="bg-white dark:bg-neutral-900 border border-neutral-200 dark:border-neutral-800 rounded-xl p-4">
             <h3 className="font-semibold text-neutral-900 dark:text-white mb-1">Machine Performance</h3>
-            <p className="text-xs text-neutral-500 dark:text-neutral-400 mb-4">Net revenue by machine</p>
-            <div style={{ height: Math.max(200, machineRevenue.length * 40) }}>
+            <p className="text-xs text-neutral-500 dark:text-neutral-400 mb-4">Top 5 by net revenue</p>
+            <div className="h-32">
               <ResponsiveContainer width="100%" height="100%">
                 <BarChart
                   layout="vertical"
-                  data={machineRevenue.slice(0, 10)}
+                  data={machineRevenue.slice(0, 5)}
                   margin={{ top: 5, right: 30, left: 60, bottom: 5 }}
+                  barSize={10}
                 >
                   <XAxis
                     type="number"
                     tickFormatter={(value) => `$${value >= 1000 ? `${(value / 1000).toFixed(1)}k` : value}`}
-                    tick={{ fill: '#9ca3af', fontSize: 11 }}
+                    tick={{ fill: '#9ca3af', fontSize: 10 }}
                     axisLine={{ stroke: '#374151' }}
                   />
                   <YAxis
                     type="category"
                     dataKey="machineId"
-                    tick={{ fill: '#9ca3af', fontSize: 11 }}
+                    tick={{ fill: '#9ca3af', fontSize: 10 }}
                     axisLine={{ stroke: '#374151' }}
                     width={55}
                   />
@@ -744,7 +858,7 @@ export default function StoreDashboardPage() {
                     labelStyle={{ color: '#fff', fontWeight: 'bold' }}
                   />
                   <Bar dataKey="netRevenue" radius={[0, 4, 4, 0]}>
-                    {machineRevenue.slice(0, 10).map((entry, index) => (
+                    {machineRevenue.slice(0, 5).map((entry, index) => (
                       <Cell
                         key={`cell-${index}`}
                         fill={entry.netRevenue >= 0 ? '#eab308' : '#ef4444'}
@@ -811,7 +925,7 @@ export default function StoreDashboardPage() {
           </div>
         )}
 
-        {/* Machine Breakdown - Card Layout for Mobile */}
+        {/* Machine Breakdown - Grouped by Hub with Collapsible Sections */}
         <div className="bg-white dark:bg-neutral-900 border border-neutral-200 dark:border-neutral-800 rounded-xl overflow-hidden">
           <div className="px-4 py-3 border-b border-neutral-200 dark:border-neutral-800">
             <h2 className="font-semibold text-neutral-900 dark:text-white">Machine Breakdown</h2>
@@ -820,6 +934,7 @@ export default function StoreDashboardPage() {
                 ? selectedDate.toLocaleDateString('en-US', { month: 'short', day: 'numeric' })
                 : `${startDate.toLocaleDateString('en-US', { month: 'short', day: 'numeric' })} - ${endDate.toLocaleDateString('en-US', { month: 'short', day: 'numeric' })}`
               }
+              {hubs.length > 0 && ` • ${hubs.length} Pi Hubs`}
             </p>
           </div>
 
@@ -833,91 +948,172 @@ export default function StoreDashboardPage() {
             </div>
           ) : (
             <div className="divide-y divide-neutral-100 dark:divide-neutral-800">
-              {machineRevenue.map((machine, index) => {
-                const machineFee = machine.netRevenue * (feePercentage / 100);
-                const machineShare = machine.netRevenue - machineFee;
-                return (
-                  <div key={machine.machineId} className="p-4">
-                    <div className="flex items-center justify-between mb-3">
-                      <div className="flex items-center gap-2">
-                        <span className={`w-6 h-6 rounded-full flex items-center justify-center text-xs font-bold ${
-                          index < 3
-                            ? 'bg-yellow-100 dark:bg-yellow-900/50 text-yellow-700 dark:text-yellow-400'
-                            : 'bg-neutral-100 dark:bg-neutral-800 text-neutral-500'
-                        }`}>
-                          {index + 1}
-                        </span>
-                        <span className="font-mono text-sm font-medium text-neutral-900 dark:text-white">
-                          {machine.machineId}
-                        </span>
-                      </div>
-                      <span className={`text-sm font-bold ${machine.netRevenue >= 0 ? 'text-yellow-600 dark:text-yellow-400' : 'text-red-600 dark:text-red-400'}`}>
-                        {formatCurrency(machine.netRevenue)}
-                      </span>
-                    </div>
+              {/* Hub-grouped sections */}
+              {(() => {
+                const { grouped, unmapped } = getMachinesByHub();
+                const hubIds = Object.keys(grouped).sort();
+                const hasHubGrouping = hubIds.length > 0;
 
-                    <div className="grid grid-cols-4 gap-2 text-xs">
+                if (!hasHubGrouping) {
+                  // No hub mapping - show flat list with limited display
+                  return (
+                    <>
+                      {machineRevenue.slice(0, 10).map((machine) => (
+                          <div key={machine.machineId} className="p-3">
+                            <div className="flex items-center justify-between">
+                              <div className="flex items-center gap-2">
+                                <span className="font-mono text-xs text-neutral-600 dark:text-neutral-400">
+                                  {machine.machineId}
+                                </span>
+                              </div>
+                              <div className="flex items-center gap-3 text-xs">
+                                <span className="text-green-600 dark:text-green-400">{formatCurrency(machine.moneyIn)}</span>
+                                <span className="text-red-600 dark:text-red-400">{formatCurrency(machine.moneyOut)}</span>
+                                <span className={`font-bold ${machine.netRevenue >= 0 ? 'text-yellow-600 dark:text-yellow-400' : 'text-red-600 dark:text-red-400'}`}>
+                                  {formatCurrency(machine.netRevenue)}
+                                </span>
+                              </div>
+                            </div>
+                          </div>
+                        ))}
+                      {machineRevenue.length > 10 && (
+                        <div className="p-3 text-center text-xs text-neutral-500 dark:text-neutral-400">
+                          +{machineRevenue.length - 10} more machines
+                        </div>
+                      )}
+                    </>
+                  );
+                }
+
+                // Hub-grouped display
+                return (
+                  <>
+                    {hubIds.map(hubId => {
+                      const machines = grouped[hubId];
+                      const hubStats = getHubStats(machines);
+                      const isExpanded = expandedHubs.has(hubId);
+
+                      return (
+                        <div key={hubId}>
+                          {/* Hub Header - Clickable */}
+                          <button
+                            onClick={() => toggleHubExpanded(hubId)}
+                            className="w-full p-4 flex items-center justify-between hover:bg-neutral-50 dark:hover:bg-neutral-800/50 transition-colors"
+                          >
+                            <div className="flex items-center gap-3">
+                              <ChevronDown className={`w-4 h-4 text-neutral-400 transition-transform ${isExpanded ? 'rotate-180' : ''}`} />
+                              <div className="text-left">
+                                <span className="font-medium text-neutral-900 dark:text-white">
+                                  {getHubName(hubId)}
+                                </span>
+                                <span className="text-xs text-neutral-500 dark:text-neutral-400 ml-2">
+                                  {machines.length} machines
+                                </span>
+                              </div>
+                            </div>
+                            <div className="flex items-center gap-4 text-xs">
+                              <span className="text-green-600 dark:text-green-400">{formatCurrency(hubStats.moneyIn)}</span>
+                              <span className="text-red-600 dark:text-red-400">{formatCurrency(hubStats.moneyOut)}</span>
+                              <span className={`font-bold ${hubStats.netRevenue >= 0 ? 'text-yellow-600 dark:text-yellow-400' : 'text-red-600 dark:text-red-400'}`}>
+                                {formatCurrency(hubStats.netRevenue)}
+                              </span>
+                            </div>
+                          </button>
+
+                          {/* Expanded Machine List */}
+                          {isExpanded && (
+                            <div className="bg-neutral-50/50 dark:bg-neutral-800/30 divide-y divide-neutral-100 dark:divide-neutral-800">
+                              {machines.map((machine) => (
+                                  <div key={machine.machineId} className="px-4 py-2 pl-11">
+                                    <div className="flex items-center justify-between">
+                                      <span className="font-mono text-xs text-neutral-600 dark:text-neutral-400">
+                                        {machine.machineId}
+                                      </span>
+                                      <div className="flex items-center gap-3 text-xs">
+                                        <span className="text-green-600 dark:text-green-400">{formatCurrency(machine.moneyIn)}</span>
+                                        <span className="text-red-600 dark:text-red-400">{formatCurrency(machine.moneyOut)}</span>
+                                        <span className={`font-bold min-w-[60px] text-right ${machine.netRevenue >= 0 ? 'text-yellow-600 dark:text-yellow-400' : 'text-red-600 dark:text-red-400'}`}>
+                                          {formatCurrency(machine.netRevenue)}
+                                        </span>
+                                      </div>
+                                    </div>
+                                  </div>
+                                ))}
+                            </div>
+                          )}
+                        </div>
+                      );
+                    })}
+
+                    {/* Unmapped machines section if any */}
+                    {unmapped.length > 0 && (
                       <div>
-                        <span className="text-neutral-500 dark:text-neutral-400 block">In</span>
-                        <span className="text-green-600 dark:text-green-400 font-medium">
-                          {formatCurrency(machine.moneyIn)}
-                        </span>
+                        <button
+                          onClick={() => toggleHubExpanded('_unmapped')}
+                          className="w-full p-4 flex items-center justify-between hover:bg-neutral-50 dark:hover:bg-neutral-800/50 transition-colors"
+                        >
+                          <div className="flex items-center gap-3">
+                            <ChevronDown className={`w-4 h-4 text-neutral-400 transition-transform ${expandedHubs.has('_unmapped') ? 'rotate-180' : ''}`} />
+                            <div className="text-left">
+                              <span className="font-medium text-neutral-500 dark:text-neutral-400">
+                                Other Machines
+                              </span>
+                              <span className="text-xs text-neutral-500 dark:text-neutral-400 ml-2">
+                                {unmapped.length} machines
+                              </span>
+                            </div>
+                          </div>
+                          <div className="flex items-center gap-4 text-xs">
+                            <span className="text-green-600 dark:text-green-400">{formatCurrency(getHubStats(unmapped).moneyIn)}</span>
+                            <span className="text-red-600 dark:text-red-400">{formatCurrency(getHubStats(unmapped).moneyOut)}</span>
+                            <span className={`font-bold ${getHubStats(unmapped).netRevenue >= 0 ? 'text-yellow-600 dark:text-yellow-400' : 'text-red-600 dark:text-red-400'}`}>
+                              {formatCurrency(getHubStats(unmapped).netRevenue)}
+                            </span>
+                          </div>
+                        </button>
+
+                        {expandedHubs.has('_unmapped') && (
+                          <div className="bg-neutral-50/50 dark:bg-neutral-800/30 divide-y divide-neutral-100 dark:divide-neutral-800">
+                            {unmapped.map((machine) => (
+                              <div key={machine.machineId} className="px-4 py-2 pl-11">
+                                <div className="flex items-center justify-between">
+                                  <span className="font-mono text-xs text-neutral-600 dark:text-neutral-400">
+                                    {machine.machineId}
+                                  </span>
+                                  <div className="flex items-center gap-3 text-xs">
+                                    <span className="text-green-600 dark:text-green-400">{formatCurrency(machine.moneyIn)}</span>
+                                    <span className="text-red-600 dark:text-red-400">{formatCurrency(machine.moneyOut)}</span>
+                                    <span className={`font-bold min-w-[60px] text-right ${machine.netRevenue >= 0 ? 'text-yellow-600 dark:text-yellow-400' : 'text-red-600 dark:text-red-400'}`}>
+                                      {formatCurrency(machine.netRevenue)}
+                                    </span>
+                                  </div>
+                                </div>
+                              </div>
+                            ))}
+                          </div>
+                        )}
                       </div>
-                      <div>
-                        <span className="text-neutral-500 dark:text-neutral-400 block">Out</span>
-                        <span className="text-red-600 dark:text-red-400 font-medium">
-                          {formatCurrency(machine.moneyOut)}
-                        </span>
-                      </div>
-                      <div>
-                        <span className="text-neutral-500 dark:text-neutral-400 block">Platform</span>
-                        <span className="text-purple-600 dark:text-purple-400 font-medium">
-                          {formatCurrency(machineFee)}
-                        </span>
-                      </div>
-                      <div>
-                        <span className="text-neutral-500 dark:text-neutral-400 block">Venue</span>
-                        <span className="text-blue-600 dark:text-blue-400 font-medium">
-                          {formatCurrency(machineShare)}
-                        </span>
-                      </div>
-                    </div>
-                  </div>
+                    )}
+                  </>
                 );
-              })}
+              })()}
 
               {/* Totals Card */}
               <div className="p-4 bg-neutral-50 dark:bg-neutral-800/50">
-                <div className="flex items-center justify-between mb-3">
+                <div className="flex items-center justify-between mb-2">
                   <span className="font-semibold text-neutral-900 dark:text-white">Total</span>
                   <span className="text-lg font-bold text-yellow-600 dark:text-yellow-400">
                     {formatCurrency(netRevenue)}
                   </span>
                 </div>
-                <div className="grid grid-cols-4 gap-2 text-xs">
-                  <div>
-                    <span className="text-neutral-500 dark:text-neutral-400 block">In</span>
-                    <span className="text-green-600 dark:text-green-400 font-bold">
-                      {formatCurrency(activeStats?.moneyIn || 0)}
-                    </span>
+                <div className="flex items-center justify-between text-xs">
+                  <div className="flex items-center gap-4">
+                    <span className="text-neutral-500 dark:text-neutral-400">In: <span className="text-green-600 dark:text-green-400 font-bold">{formatCurrency(activeStats?.moneyIn || 0)}</span></span>
+                    <span className="text-neutral-500 dark:text-neutral-400">Out: <span className="text-red-600 dark:text-red-400 font-bold">{formatCurrency(activeStats?.moneyOut || 0)}</span></span>
                   </div>
-                  <div>
-                    <span className="text-neutral-500 dark:text-neutral-400 block">Out</span>
-                    <span className="text-red-600 dark:text-red-400 font-bold">
-                      {formatCurrency(activeStats?.moneyOut || 0)}
-                    </span>
-                  </div>
-                  <div>
-                    <span className="text-neutral-500 dark:text-neutral-400 block">Platform</span>
-                    <span className="text-purple-600 dark:text-purple-400 font-bold">
-                      {formatCurrency(storeFee)}
-                    </span>
-                  </div>
-                  <div>
-                    <span className="text-neutral-500 dark:text-neutral-400 block">Venue</span>
-                    <span className="text-blue-600 dark:text-blue-400 font-bold">
-                      {formatCurrency(venueShare)}
-                    </span>
+                  <div className="flex items-center gap-4">
+                    <span className="text-neutral-500 dark:text-neutral-400">Platform: <span className="text-purple-600 dark:text-purple-400 font-bold">{formatCurrency(storeFee)}</span></span>
+                    <span className="text-neutral-500 dark:text-neutral-400">Venue: <span className="text-blue-600 dark:text-blue-400 font-bold">{formatCurrency(venueShare)}</span></span>
                   </div>
                 </div>
               </div>

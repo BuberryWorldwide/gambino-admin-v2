@@ -25,8 +25,25 @@ import {
   AlertTriangle,
   CheckCircle2,
   XCircle,
-  QrCode
+  QrCode,
+  BarChart3,
+  Clock,
+  ChevronDown,
+  ChevronUp
 } from 'lucide-react';
+import {
+  LineChart,
+  Line,
+  BarChart,
+  Bar,
+  XAxis,
+  YAxis,
+  CartesianGrid,
+  Tooltip,
+  ResponsiveContainer,
+  Legend,
+  Cell
+} from 'recharts';
 
 // TypeScript Interfaces
 interface Hub {
@@ -100,6 +117,31 @@ interface Event {
 interface NewToken {
   token: string;
   expiresAt: string | Date;
+}
+
+// Analytics interfaces
+interface DailyStats {
+  date: string;
+  moneyIn: number;
+  moneyOut: number;
+  netRevenue: number;
+}
+
+interface HourlyStats {
+  hour: number;
+  label: string;
+  events: number;
+  moneyIn: number;
+  moneyOut: number;
+}
+
+interface MachineStats {
+  machineId: string;
+  name: string;
+  moneyIn: number;
+  moneyOut: number;
+  netRevenue: number;
+  eventCount: number;
 }
 
 function StatusBadge({ status = 'offline', isDark }: { status?: string; isDark: boolean }) {
@@ -455,8 +497,8 @@ NODE_ENV=production`;
                   tokenCopied
                     ? 'bg-green-600 text-white'
                     : isDark
-                      ? 'bg-purple-600 hover:bg-purple-700 text-white'
-                      : 'bg-purple-600 hover:bg-purple-700 text-white'
+                      ? 'bg-yellow-500 hover:bg-yellow-600 text-black'
+                      : 'bg-yellow-500 hover:bg-yellow-600 text-black'
                 }`}
               >
                 {tokenCopied ? (
@@ -511,11 +553,11 @@ NODE_ENV=production`;
         {newToken && (
           <div className={`rounded-lg p-4 mb-6 border ${
             isDark
-              ? 'bg-purple-900/20 border-purple-500/30'
-              : 'bg-purple-50 border-purple-200'
+              ? 'bg-yellow-900/20 border-yellow-500/30'
+              : 'bg-yellow-50 border-yellow-200'
           }`}>
             <div className="flex justify-between items-start mb-3">
-              <h3 className={`font-semibold ${isDark ? 'text-purple-400' : 'text-purple-700'}`}>
+              <h3 className={`font-semibold ${isDark ? 'text-yellow-400' : 'text-yellow-700'}`}>
                 New Token Generated!
               </h3>
               <button
@@ -550,8 +592,8 @@ NODE_ENV=production`;
                   tokenCopied
                     ? 'bg-green-600 text-white'
                     : isDark
-                      ? 'bg-purple-600 hover:bg-purple-700 text-white'
-                      : 'bg-purple-600 hover:bg-purple-700 text-white'
+                      ? 'bg-yellow-500 hover:bg-yellow-600 text-black'
+                      : 'bg-yellow-500 hover:bg-yellow-600 text-black'
                 }`}
               >
                 {tokenCopied ? 'Copied!' : 'Copy .env Block'}
@@ -603,8 +645,8 @@ NODE_ENV=production`;
               disabled={generatingToken}
               className={`w-full px-4 py-3 font-medium rounded-lg transition-colors flex items-center justify-center gap-2 ${
                 isDark
-                  ? 'bg-purple-600 hover:bg-purple-700 disabled:bg-purple-600/50 text-white'
-                  : 'bg-purple-600 hover:bg-purple-700 disabled:bg-purple-700/50 text-white'
+                  ? 'bg-yellow-500 hover:bg-yellow-600 disabled:bg-yellow-500/50 text-black'
+                  : 'bg-yellow-500 hover:bg-yellow-600 disabled:bg-yellow-600/50 text-black'
               }`}
             >
               {generatingToken ? (
@@ -666,6 +708,15 @@ export default function HubDetailsPage({ params }: { params: Promise<{ hubId: st
   const [restarting, setRestarting] = useState(false);
   const [restartMessage, setRestartMessage] = useState<{type: 'success' | 'error', text: string} | null>(null);
 
+  // Analytics states
+  const [dailyStats, setDailyStats] = useState<DailyStats[]>([]);
+  const [hourlyStats, setHourlyStats] = useState<HourlyStats[]>([]);
+  const [machineStats, setMachineStats] = useState<MachineStats[]>([]);
+  const [analyticsLoading, setAnalyticsLoading] = useState(false);
+
+  // Tab state
+  const [activeTab, setActiveTab] = useState<'overview' | 'analytics' | 'machines' | 'system'>('overview');
+
   // Resolve params on mount
   useEffect(() => {
     setMounted(true);
@@ -707,17 +758,42 @@ export default function HubDetailsPage({ params }: { params: Promise<{ hubId: st
     }
   }, [hubId]);
 
+  // Fetch analytics data
+  const fetchAnalytics = useCallback(async () => {
+    if (!hubId) return;
+
+    try {
+      setAnalyticsLoading(true);
+
+      // Fetch all analytics in parallel
+      const [dailyRes, hourlyRes, machineRes] = await Promise.all([
+        api.get(`/api/admin/hubs/${hubId}/analytics/daily?days=14`),
+        api.get(`/api/admin/hubs/${hubId}/analytics/hourly?days=7`),
+        api.get(`/api/admin/hubs/${hubId}/analytics/machines?days=30`)
+      ]);
+
+      setDailyStats(dailyRes.data?.data || []);
+      setHourlyStats(hourlyRes.data?.data || []);
+      setMachineStats(machineRes.data?.data || []);
+    } catch (error) {
+      console.error('Failed to load analytics:', error);
+    } finally {
+      setAnalyticsLoading(false);
+    }
+  }, [hubId]);
+
   useEffect(() => {
     console.log('🔍 useEffect triggered, hubId:', hubId);
     if (hubId) {
       fetchHub();
+      fetchAnalytics();
     }
-  }, [hubId, fetchHub]);
+  }, [hubId, fetchHub, fetchAnalytics]);
 
   const handleRefresh = async () => {
     if (refreshing) return;
     setRefreshing(true);
-    await fetchHub();
+    await Promise.all([fetchHub(), fetchAnalytics()]);
     setRefreshing(false);
   };
 
@@ -916,8 +992,8 @@ export default function HubDetailsPage({ params }: { params: Promise<{ hubId: st
                 onClick={() => setShowEditModal(true)}
                 className={`px-3 sm:px-4 py-2 sm:py-2.5 text-sm font-medium rounded-xl transition-colors flex items-center justify-center gap-2 ${
                   isDark
-                    ? 'bg-blue-600/80 hover:bg-blue-600 text-white'
-                    : 'bg-blue-600 hover:bg-blue-700 text-white'
+                    ? 'bg-yellow-500/80 hover:bg-yellow-500 text-black'
+                    : 'bg-yellow-500 hover:bg-yellow-600 text-black'
                 }`}
               >
                 <Settings className="w-4 h-4" />
@@ -928,8 +1004,8 @@ export default function HubDetailsPage({ params }: { params: Promise<{ hubId: st
                 onClick={() => setShowTokenModal(true)}
                 className={`px-3 sm:px-4 py-2 sm:py-2.5 text-sm font-medium rounded-xl transition-colors flex items-center justify-center gap-2 ${
                   isDark
-                    ? 'bg-purple-600/80 hover:bg-purple-600 text-white'
-                    : 'bg-purple-600 hover:bg-purple-700 text-white'
+                    ? 'bg-amber-600/80 hover:bg-amber-600 text-white'
+                    : 'bg-amber-600 hover:bg-amber-700 text-white'
                 }`}
               >
                 <Key className="w-4 h-4" />
@@ -1019,8 +1095,38 @@ export default function HubDetailsPage({ params }: { params: Promise<{ hubId: st
             </div>
           )}
 
-          {/* Revenue Overview Cards - Mobile Optimized */}
-          <div className="grid grid-cols-2 lg:grid-cols-4 gap-3 sm:gap-4 lg:gap-6 mb-6 sm:mb-8">
+          {/* Tab Navigation */}
+          <div className={`flex gap-1 p-1 rounded-xl mb-6 ${isDark ? 'bg-neutral-800/50' : 'bg-neutral-100'}`}>
+            {[
+              { id: 'overview', label: 'Overview', icon: DollarSign },
+              { id: 'analytics', label: 'Analytics', icon: BarChart3 },
+              { id: 'machines', label: 'Machines', icon: Server },
+              { id: 'system', label: 'System', icon: Settings }
+            ].map((tab) => (
+              <button
+                key={tab.id}
+                onClick={() => setActiveTab(tab.id as typeof activeTab)}
+                className={`flex-1 flex items-center justify-center gap-2 px-3 py-2.5 rounded-lg text-sm font-medium transition-all ${
+                  activeTab === tab.id
+                    ? isDark
+                      ? 'bg-yellow-500 text-black'
+                      : 'bg-yellow-500 text-black'
+                    : isDark
+                      ? 'text-neutral-400 hover:text-white hover:bg-neutral-700/50'
+                      : 'text-neutral-600 hover:text-neutral-900 hover:bg-white'
+                }`}
+              >
+                <tab.icon className="w-4 h-4" />
+                <span className="hidden sm:inline">{tab.label}</span>
+              </button>
+            ))}
+          </div>
+
+          {/* Overview Tab */}
+          {activeTab === 'overview' && (
+            <>
+              {/* Revenue Overview Cards - Mobile Optimized */}
+              <div className="grid grid-cols-2 lg:grid-cols-4 gap-3 sm:gap-4 lg:gap-6 mb-6 sm:mb-8">
             {/* Money In */}
             <div className={`rounded-2xl p-4 sm:p-6 border transition-all ${
               isDark
@@ -1080,12 +1186,12 @@ export default function HubDetailsPage({ params }: { params: Promise<{ hubId: st
                   Net Revenue
                 </span>
                 <div className={`w-8 h-8 sm:w-10 sm:h-10 rounded-lg flex items-center justify-center ${
-                  isDark ? 'bg-blue-500/10' : 'bg-blue-50'
+                  isDark ? 'bg-yellow-500/10' : 'bg-yellow-50'
                 }`}>
-                  <DollarSign className={`w-4 h-4 sm:w-5 sm:h-5 ${isDark ? 'text-blue-400' : 'text-blue-600'}`} />
+                  <DollarSign className={`w-4 h-4 sm:w-5 sm:h-5 ${isDark ? 'text-yellow-400' : 'text-yellow-600'}`} />
                 </div>
               </div>
-              <div className={`text-2xl sm:text-3xl font-bold ${isDark ? 'text-blue-400' : 'text-blue-600'}`}>
+              <div className={`text-2xl sm:text-3xl font-bold ${isDark ? 'text-yellow-400' : 'text-yellow-600'}`}>
                 ${hubTotals.revenue.toLocaleString()}
               </div>
               <div className={`text-xs sm:text-sm mt-1 ${isDark ? 'text-neutral-500' : 'text-neutral-600'}`}>
@@ -1104,227 +1210,419 @@ export default function HubDetailsPage({ params }: { params: Promise<{ hubId: st
                   Events Synced
                 </span>
                 <div className={`w-8 h-8 sm:w-10 sm:h-10 rounded-lg flex items-center justify-center ${
-                  isDark ? 'bg-purple-500/10' : 'bg-purple-50'
+                  isDark ? 'bg-neutral-500/10' : 'bg-neutral-100'
                 }`}>
-                  <Activity className={`w-4 h-4 sm:w-5 sm:h-5 ${isDark ? 'text-purple-400' : 'text-purple-600'}`} />
+                  <Activity className={`w-4 h-4 sm:w-5 sm:h-5 ${isDark ? 'text-neutral-400' : 'text-neutral-600'}`} />
                 </div>
               </div>
-              <div className={`text-2xl sm:text-3xl font-bold ${isDark ? 'text-purple-400' : 'text-purple-600'}`}>
+              <div className={`text-2xl sm:text-3xl font-bold ${isDark ? 'text-white' : 'text-neutral-900'}`}>
                 {hub.stats?.totalEventsSynced?.toLocaleString() || 0}
               </div>
               <div className={`text-xs sm:text-sm mt-1 ${isDark ? 'text-neutral-500' : 'text-neutral-600'}`}>
                 {hub.stats?.totalEventsProcessed?.toLocaleString() || 0} processed
               </div>
+              </div>
             </div>
-          </div>
+            </>
+          )}
 
-          {/* System Info - Mobile Optimized */}
-          <div className={`rounded-2xl p-4 sm:p-6 border mb-6 sm:mb-8 ${
-            isDark
-              ? 'bg-neutral-900/50 border-neutral-800'
-              : 'bg-white border-neutral-200'
-          }`}>
-            <h2 className={`text-lg sm:text-xl font-bold mb-4 ${isDark ? 'text-white' : 'text-neutral-900'}`}>
-              System Information
-            </h2>
-            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
-              <div>
-                <span className={`text-sm font-medium ${isDark ? 'text-neutral-500' : 'text-neutral-600'}`}>
-                  Hub ID
-                </span>
-                <div className={`font-mono mt-1 ${isDark ? 'text-white' : 'text-neutral-900'}`}>
-                  {hub.hubId}
-                </div>
-              </div>
-              <div>
-                <span className={`text-sm font-medium ${isDark ? 'text-neutral-500' : 'text-neutral-600'}`}>
-                  Store ID
-                </span>
-                <div className={`font-mono mt-1 ${isDark ? 'text-white' : 'text-neutral-900'}`}>
-                  {hub.storeId}
-                </div>
-              </div>
-              <div>
-                <span className={`text-sm font-medium ${isDark ? 'text-neutral-500' : 'text-neutral-600'}`}>
-                  Serial Port
-                </span>
-                <div className={`font-mono mt-1 flex items-center gap-2 ${isDark ? 'text-white' : 'text-neutral-900'}`}>
-                  <Cable className="w-4 h-4" />
-                  {hub.serialConfig?.port || '/dev/ttyUSB0'}
-                </div>
-              </div>
-              <div>
-                <span className={`text-sm font-medium ${isDark ? 'text-neutral-500' : 'text-neutral-600'}`}>
-                  Serial Status
-                </span>
-                <div className="mt-1">
-                  <StatusBadge
-                    status={hub.health?.serialConnected ? 'online' : 'offline'}
-                    isDark={isDark}
-                  />
-                </div>
-              </div>
-              {hub.tokenGeneratedAt && (
-                <div>
-                  <span className={`text-sm font-medium ${isDark ? 'text-neutral-500' : 'text-neutral-600'}`}>
-                    Token Generated
-                  </span>
-                  <div className={`mt-1 ${isDark ? 'text-white' : 'text-neutral-900'}`}>
-                    {new Date(hub.tokenGeneratedAt).toLocaleDateString()}
-                  </div>
-                </div>
-              )}
-              {hub.tokenExpiresAt && (
-                <div>
-                  <span className={`text-sm font-medium ${isDark ? 'text-neutral-500' : 'text-neutral-600'}`}>
-                    Token Expires
-                  </span>
-                  <div className={`mt-1 ${isDark ? 'text-white' : 'text-neutral-900'}`}>
-                    {new Date(hub.tokenExpiresAt).toLocaleDateString()}
-                  </div>
-                </div>
-              )}
-            </div>
-          </div>
-
-          {/* Machines */}
-          <div className={`rounded-2xl p-6 border mb-8 ${
-            isDark
-              ? 'bg-neutral-900/50 border-neutral-800'
-              : 'bg-white border-neutral-200'
-          }`}>
-            <div className="flex items-center justify-between mb-4">
-              <h2 className={`text-xl font-bold ${isDark ? 'text-white' : 'text-neutral-900'}`}>
-                Machines ({machines.length})
+          {/* Analytics Tab */}
+          {activeTab === 'analytics' && (
+            <div className={`rounded-2xl p-4 sm:p-6 border ${
+              isDark
+                ? 'bg-neutral-900/50 border-neutral-800'
+                : 'bg-white border-neutral-200'
+            }`}>
+              <h2 className={`text-lg sm:text-xl font-bold mb-6 flex items-center gap-2 ${isDark ? 'text-white' : 'text-neutral-900'}`}>
+                <BarChart3 className="w-5 h-5" />
+                Hub Analytics
+                {analyticsLoading && <RefreshCw className={`w-4 h-4 animate-spin ml-2 ${isDark ? 'text-yellow-400' : 'text-yellow-600'}`} />}
               </h2>
-              <Server className={`w-5 h-5 ${isDark ? 'text-neutral-400' : 'text-neutral-600'}`} />
-            </div>
-            {machines.length === 0 ? (
-              <div className={`text-center py-8 ${isDark ? 'text-neutral-400' : 'text-neutral-600'}`}>
-                No machines discovered yet
-              </div>
-            ) : (
-              <div className="space-y-3">
-                {machines.map((machine) => (
-                  <div
-                    key={machine.machineId}
-                    className={`rounded-lg p-4 transition-all ${
-                      isDark
-                        ? 'bg-neutral-950/50 hover:bg-neutral-900/70'
-                        : 'bg-neutral-50 hover:bg-neutral-100'
-                    }`}
-                  >
-                    <div className="flex items-center justify-between">
-                      <div className="flex-1">
-                        <div className="flex items-center gap-2">
-                          <p className={`font-medium ${isDark ? 'text-white' : 'text-neutral-900'}`}>
-                            {machine.name || machine.machineId}
-                          </p>
-                          {machine.isRegistered ? (
-                            <span className={`text-xs px-2 py-0.5 rounded-full border ${
-                              isDark
-                                ? 'border-emerald-600/30 text-emerald-300 bg-emerald-500/15'
-                                : 'border-emerald-600/40 text-emerald-700 bg-emerald-50'
-                            }`}>
-                              Registered
-                            </span>
-                          ) : (
-                            <span className={`text-xs px-2 py-0.5 rounded-full border ${
-                              isDark
-                                ? 'border-neutral-600/30 text-neutral-300 bg-neutral-500/15'
-                                : 'border-neutral-400/40 text-neutral-700 bg-neutral-100'
-                            }`}>
-                              Unregistered
-                            </span>
-                          )}
-                        </div>
-                        <div className="flex items-center gap-4 text-xs mt-2">
-                          <span className={isDark ? 'text-green-400' : 'text-green-600'}>
-                            IN: ${(machine.totalMoneyIn || 0).toLocaleString()}
-                          </span>
-                          <span className={isDark ? 'text-red-400' : 'text-red-600'}>
-                            OUT: ${(machine.totalMoneyOut || 0).toLocaleString()}
-                          </span>
-                          <span className={isDark ? 'text-blue-400' : 'text-blue-600'}>
-                            NET: ${(machine.totalRevenue || 0).toLocaleString()}
-                          </span>
-                        </div>
+
+              <div className="space-y-6">
+                {/* Daily Revenue Trend */}
+                <div>
+                  <h3 className={`text-sm font-semibold mb-3 flex items-center gap-2 ${isDark ? 'text-neutral-300' : 'text-neutral-700'}`}>
+                    <TrendingUp className="w-4 h-4" />
+                    Daily Revenue (Last 14 Days)
+                  </h3>
+                  <div className="h-64">
+                    {dailyStats.length > 0 ? (
+                      <ResponsiveContainer width="100%" height="100%">
+                        <LineChart data={dailyStats} margin={{ top: 5, right: 10, left: 0, bottom: 5 }}>
+                          <CartesianGrid strokeDasharray="3 3" stroke={isDark ? '#333' : '#e5e5e5'} />
+                          <XAxis
+                            dataKey="date"
+                            tick={{ fill: isDark ? '#888' : '#666', fontSize: 11 }}
+                            tickFormatter={(value) => new Date(value).toLocaleDateString('en-US', { month: 'short', day: 'numeric' })}
+                          />
+                          <YAxis
+                            tick={{ fill: isDark ? '#888' : '#666', fontSize: 11 }}
+                            tickFormatter={(value) => `$${value.toLocaleString()}`}
+                          />
+                          <Tooltip
+                            contentStyle={{
+                              backgroundColor: isDark ? '#1a1a1a' : '#fff',
+                              border: `1px solid ${isDark ? '#333' : '#e5e5e5'}`,
+                              borderRadius: '8px',
+                              color: isDark ? '#fff' : '#000'
+                            }}
+                            formatter={(value: number) => [`$${value.toLocaleString()}`, '']}
+                            labelFormatter={(label) => new Date(label).toLocaleDateString('en-US', { weekday: 'short', month: 'short', day: 'numeric' })}
+                          />
+                          <Legend />
+                          <Line type="monotone" dataKey="moneyIn" name="Money In" stroke="#22c55e" strokeWidth={2} dot={{ r: 3 }} />
+                          <Line type="monotone" dataKey="moneyOut" name="Money Out" stroke="#ef4444" strokeWidth={2} dot={{ r: 3 }} />
+                          <Line type="monotone" dataKey="netRevenue" name="Net Revenue" stroke="#eab308" strokeWidth={2} dot={{ r: 3 }} />
+                        </LineChart>
+                      </ResponsiveContainer>
+                    ) : (
+                      <div className={`h-full flex items-center justify-center ${isDark ? 'text-neutral-500' : 'text-neutral-400'}`}>
+                        {analyticsLoading ? 'Loading...' : 'No daily data available'}
                       </div>
-                      <div className="flex items-center gap-2">
-                        <button
-                          onClick={(e) => {
-                            e.stopPropagation();
-                            setSelectedMachineForQR(machine);
-                          }}
-                          className={`p-2 rounded-lg transition-all ${
-                            isDark
-                              ? 'bg-purple-600/20 hover:bg-purple-600/30 text-purple-400'
-                              : 'bg-purple-100 hover:bg-purple-200 text-purple-700'
-                          }`}
-                          title="Generate QR Code"
-                        >
-                          <QrCode className="w-5 h-5" />
-                        </button>
-                        <button
-                          onClick={() => router.push(`/admin/machines/${machine._id}`)}
-                          className={`${isDark ? 'text-neutral-400 hover:text-white' : 'text-neutral-600 hover:text-neutral-900'}`}
-                        >
-                          →
-                        </button>
-                      </div>
+                    )}
+                  </div>
+                </div>
+
+                {/* Two Column Layout for Machine Breakdown and Hourly Activity */}
+                <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+                  {/* Machine Breakdown */}
+                  <div>
+                    <h3 className={`text-sm font-semibold mb-3 flex items-center gap-2 ${isDark ? 'text-neutral-300' : 'text-neutral-700'}`}>
+                      <Server className="w-4 h-4" />
+                      Top Machines by Revenue (30 Days)
+                    </h3>
+                    <div className="h-64">
+                      {machineStats.length > 0 ? (
+                        <ResponsiveContainer width="100%" height="100%">
+                          <BarChart data={machineStats.slice(0, 8)} layout="vertical" margin={{ top: 5, right: 10, left: 0, bottom: 5 }}>
+                            <CartesianGrid strokeDasharray="3 3" stroke={isDark ? '#333' : '#e5e5e5'} />
+                            <XAxis
+                              type="number"
+                              tick={{ fill: isDark ? '#888' : '#666', fontSize: 11 }}
+                              tickFormatter={(value) => `$${value.toLocaleString()}`}
+                            />
+                            <YAxis
+                              type="category"
+                              dataKey="name"
+                              tick={{ fill: isDark ? '#888' : '#666', fontSize: 10 }}
+                              width={80}
+                              tickFormatter={(value) => value.length > 10 ? value.slice(0, 10) + '...' : value}
+                            />
+                            <Tooltip
+                              contentStyle={{
+                                backgroundColor: isDark ? '#1a1a1a' : '#fff',
+                                border: `1px solid ${isDark ? '#333' : '#e5e5e5'}`,
+                                borderRadius: '8px',
+                                color: isDark ? '#fff' : '#000'
+                              }}
+                              formatter={(value: number) => [`$${value.toLocaleString()}`, '']}
+                            />
+                            <Bar dataKey="netRevenue" name="Net Revenue" radius={[0, 4, 4, 0]}>
+                              {machineStats.slice(0, 8).map((_, index) => (
+                                <Cell key={`cell-${index}`} fill={index === 0 ? '#eab308' : isDark ? '#404040' : '#d4d4d4'} />
+                              ))}
+                            </Bar>
+                          </BarChart>
+                        </ResponsiveContainer>
+                      ) : (
+                        <div className={`h-full flex items-center justify-center ${isDark ? 'text-neutral-500' : 'text-neutral-400'}`}>
+                          {analyticsLoading ? 'Loading...' : 'No machine data available'}
+                        </div>
+                      )}
                     </div>
                   </div>
-                ))}
-              </div>
-            )}
-          </div>
 
-          {/* Recent Events */}
-          {events.length > 0 && (
-            <div className={`rounded-2xl p-6 border ${
+                  {/* Hourly Activity */}
+                  <div>
+                    <h3 className={`text-sm font-semibold mb-3 flex items-center gap-2 ${isDark ? 'text-neutral-300' : 'text-neutral-700'}`}>
+                      <Clock className="w-4 h-4" />
+                      Activity by Hour (Last 7 Days)
+                    </h3>
+                    <div className="h-64">
+                      {hourlyStats.length > 0 ? (
+                        <ResponsiveContainer width="100%" height="100%">
+                          <BarChart data={hourlyStats} margin={{ top: 5, right: 10, left: 0, bottom: 5 }}>
+                            <CartesianGrid strokeDasharray="3 3" stroke={isDark ? '#333' : '#e5e5e5'} />
+                            <XAxis
+                              dataKey="label"
+                              tick={{ fill: isDark ? '#888' : '#666', fontSize: 10 }}
+                              interval={2}
+                            />
+                            <YAxis
+                              tick={{ fill: isDark ? '#888' : '#666', fontSize: 11 }}
+                              tickFormatter={(value) => `$${value}`}
+                            />
+                            <Tooltip
+                              contentStyle={{
+                                backgroundColor: isDark ? '#1a1a1a' : '#fff',
+                                border: `1px solid ${isDark ? '#333' : '#e5e5e5'}`,
+                                borderRadius: '8px',
+                                color: isDark ? '#fff' : '#000'
+                              }}
+                              formatter={(value: number, name: string) => [
+                                name === 'events' ? value : `$${value.toLocaleString()}`,
+                                ''
+                              ]}
+                            />
+                            <Legend />
+                            <Bar dataKey="moneyIn" name="Money In" fill="#22c55e" radius={[4, 4, 0, 0]} />
+                            <Bar dataKey="moneyOut" name="Money Out" fill="#ef4444" radius={[4, 4, 0, 0]} />
+                          </BarChart>
+                        </ResponsiveContainer>
+                      ) : (
+                        <div className={`h-full flex items-center justify-center ${isDark ? 'text-neutral-500' : 'text-neutral-400'}`}>
+                          {analyticsLoading ? 'Loading...' : 'No hourly data available'}
+                        </div>
+                      )}
+                    </div>
+                  </div>
+                </div>
+              </div>
+            </div>
+          )}
+
+          {/* Machines Tab */}
+          {activeTab === 'machines' && (
+            <div className={`rounded-2xl p-4 sm:p-6 border ${
               isDark
                 ? 'bg-neutral-900/50 border-neutral-800'
                 : 'bg-white border-neutral-200'
             }`}>
               <div className="flex items-center justify-between mb-4">
-                <h2 className={`text-xl font-bold ${isDark ? 'text-white' : 'text-neutral-900'}`}>
-                  Recent Activity
+                <h2 className={`text-lg sm:text-xl font-bold ${isDark ? 'text-white' : 'text-neutral-900'}`}>
+                  Machines ({machines.length})
                 </h2>
-                <Activity className={`w-5 h-5 ${isDark ? 'text-neutral-400' : 'text-neutral-600'}`} />
+                <Server className={`w-5 h-5 ${isDark ? 'text-neutral-400' : 'text-neutral-600'}`} />
               </div>
-              <div className="space-y-2">
-                {events.slice(0, 10).map((event) => (
-                  <div
-                    key={event._id}
-                    className={`rounded-lg p-3 flex items-center justify-between ${
-                      isDark
-                        ? 'bg-neutral-950/50'
-                        : 'bg-neutral-50'
-                    }`}
-                  >
-                    <div>
-                      <p className={`font-medium ${isDark ? 'text-white' : 'text-neutral-900'}`}>
-                        {event.machineName || event.gamingMachineId}
-                      </p>
-                      <p className={`text-xs ${isDark ? 'text-neutral-400' : 'text-neutral-600'}`}>
-                        {event.eventType.replace(/_/g, ' ')}
-                      </p>
+              {machines.length === 0 ? (
+                <div className={`text-center py-8 ${isDark ? 'text-neutral-400' : 'text-neutral-600'}`}>
+                  No machines discovered yet
+                </div>
+              ) : (
+                <div className="space-y-3">
+                  {machines.map((machine) => (
+                    <div
+                      key={machine.machineId}
+                      className={`rounded-lg p-4 transition-all ${
+                        isDark
+                          ? 'bg-neutral-950/50 hover:bg-neutral-900/70'
+                          : 'bg-neutral-50 hover:bg-neutral-100'
+                      }`}
+                    >
+                      <div className="flex items-center justify-between">
+                        <div className="flex-1">
+                          <div className="flex items-center gap-2">
+                            <p className={`font-medium ${isDark ? 'text-white' : 'text-neutral-900'}`}>
+                              {machine.name || machine.machineId}
+                            </p>
+                            {machine.isRegistered ? (
+                              <span className={`text-xs px-2 py-0.5 rounded-full border ${
+                                isDark
+                                  ? 'border-emerald-600/30 text-emerald-300 bg-emerald-500/15'
+                                  : 'border-emerald-600/40 text-emerald-700 bg-emerald-50'
+                              }`}>
+                                Registered
+                              </span>
+                            ) : (
+                              <span className={`text-xs px-2 py-0.5 rounded-full border ${
+                                isDark
+                                  ? 'border-neutral-600/30 text-neutral-300 bg-neutral-500/15'
+                                  : 'border-neutral-400/40 text-neutral-700 bg-neutral-100'
+                              }`}>
+                                Unregistered
+                              </span>
+                            )}
+                          </div>
+                          <div className="flex items-center gap-4 text-xs mt-2">
+                            <span className={isDark ? 'text-green-400' : 'text-green-600'}>
+                              IN: ${(machine.totalMoneyIn || 0).toLocaleString()}
+                            </span>
+                            <span className={isDark ? 'text-red-400' : 'text-red-600'}>
+                              OUT: ${(machine.totalMoneyOut || 0).toLocaleString()}
+                            </span>
+                            <span className={isDark ? 'text-yellow-400' : 'text-yellow-600'}>
+                              NET: ${(machine.totalRevenue || 0).toLocaleString()}
+                            </span>
+                          </div>
+                        </div>
+                        <div className="flex items-center gap-2">
+                          <button
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              setSelectedMachineForQR(machine);
+                            }}
+                            className={`p-2 rounded-lg transition-all ${
+                              isDark
+                                ? 'bg-yellow-500/20 hover:bg-yellow-500/30 text-yellow-400'
+                                : 'bg-yellow-100 hover:bg-yellow-200 text-yellow-700'
+                            }`}
+                            title="Generate QR Code"
+                          >
+                            <QrCode className="w-5 h-5" />
+                          </button>
+                          <button
+                            onClick={() => router.push(`/admin/machines/${machine._id}`)}
+                            className={`${isDark ? 'text-neutral-400 hover:text-white' : 'text-neutral-600 hover:text-neutral-900'}`}
+                          >
+                            →
+                          </button>
+                        </div>
+                      </div>
                     </div>
-                    <div className="text-right">
-                      {event.amount && (
-                        <p className={`font-medium ${isDark ? 'text-white' : 'text-neutral-900'}`}>
-                          ${event.amount.toFixed(2)}
-                        </p>
-                      )}
-                      <p className={`text-xs ${isDark ? 'text-neutral-400' : 'text-neutral-600'}`}>
-                        {new Date(event.timestamp).toLocaleTimeString()}
-                      </p>
-                    </div>
-                  </div>
-                ))}
-              </div>
+                  ))}
+                </div>
+              )}
             </div>
           )}
+
+          {/* System Tab */}
+          {activeTab === 'system' && (
+            <>
+              {/* System Info */}
+              <div className={`rounded-2xl p-4 sm:p-6 border mb-6 ${
+                isDark
+                  ? 'bg-neutral-900/50 border-neutral-800'
+                  : 'bg-white border-neutral-200'
+              }`}>
+                <h2 className={`text-lg sm:text-xl font-bold mb-4 ${isDark ? 'text-white' : 'text-neutral-900'}`}>
+                  System Information
+                </h2>
+                <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+                  <div>
+                    <span className={`text-sm font-medium ${isDark ? 'text-neutral-500' : 'text-neutral-600'}`}>
+                      Hub ID
+                    </span>
+                    <div className={`font-mono mt-1 ${isDark ? 'text-white' : 'text-neutral-900'}`}>
+                      {hub.hubId}
+                    </div>
+                  </div>
+                  <div>
+                    <span className={`text-sm font-medium ${isDark ? 'text-neutral-500' : 'text-neutral-600'}`}>
+                      Store ID
+                    </span>
+                    <div className={`font-mono mt-1 ${isDark ? 'text-white' : 'text-neutral-900'}`}>
+                      {hub.storeId}
+                    </div>
+                  </div>
+                  <div>
+                    <span className={`text-sm font-medium ${isDark ? 'text-neutral-500' : 'text-neutral-600'}`}>
+                      Serial Port
+                    </span>
+                    <div className={`font-mono mt-1 flex items-center gap-2 ${isDark ? 'text-white' : 'text-neutral-900'}`}>
+                      <Cable className="w-4 h-4" />
+                      {hub.serialConfig?.port || '/dev/ttyUSB0'}
+                    </div>
+                  </div>
+                  <div>
+                    <span className={`text-sm font-medium ${isDark ? 'text-neutral-500' : 'text-neutral-600'}`}>
+                      Serial Status
+                    </span>
+                    <div className="mt-1">
+                      <StatusBadge
+                        status={hub.health?.serialConnected ? 'online' : 'offline'}
+                        isDark={isDark}
+                      />
+                    </div>
+                  </div>
+                  {hub.tokenGeneratedAt && (
+                    <div>
+                      <span className={`text-sm font-medium ${isDark ? 'text-neutral-500' : 'text-neutral-600'}`}>
+                        Token Generated
+                      </span>
+                      <div className={`mt-1 ${isDark ? 'text-white' : 'text-neutral-900'}`}>
+                        {new Date(hub.tokenGeneratedAt).toLocaleDateString()}
+                      </div>
+                    </div>
+                  )}
+                  {hub.tokenExpiresAt && (
+                    <div>
+                      <span className={`text-sm font-medium ${isDark ? 'text-neutral-500' : 'text-neutral-600'}`}>
+                        Token Expires
+                      </span>
+                      <div className={`mt-1 ${isDark ? 'text-white' : 'text-neutral-900'}`}>
+                        {new Date(hub.tokenExpiresAt).toLocaleDateString()}
+                      </div>
+                    </div>
+                  )}
+                </div>
+              </div>
+
+              {/* Recent Events */}
+              {events.length > 0 && (
+                <div className={`rounded-2xl p-4 sm:p-6 border ${
+                  isDark
+                    ? 'bg-neutral-900/50 border-neutral-800'
+                    : 'bg-white border-neutral-200'
+                }`}>
+                  <div className="flex items-center justify-between mb-4">
+                    <h2 className={`text-lg sm:text-xl font-bold ${isDark ? 'text-white' : 'text-neutral-900'}`}>
+                      Recent Activity
+                    </h2>
+                    <Activity className={`w-5 h-5 ${isDark ? 'text-neutral-400' : 'text-neutral-600'}`} />
+                  </div>
+                  <div className="space-y-2">
+                    {events
+                      .filter(e => e.gamingMachineId !== 'grand_total') // Hide grand_total (already in daily reports)
+                      .slice(0, 10)
+                      .map((event) => {
+                        const isSystemEvent = event.gamingMachineId === 'unknown' ||
+                          event.eventType?.includes('books');
+                        const displayName = isSystemEvent
+                          ? 'System'
+                          : (event.machineName || event.gamingMachineId);
+
+                        return (
+                          <div
+                            key={event._id}
+                            className={`rounded-lg p-3 flex items-center justify-between ${
+                              isSystemEvent
+                                ? isDark
+                                  ? 'bg-blue-950/30 border border-blue-500/20'
+                                  : 'bg-blue-50 border border-blue-200'
+                                : isDark
+                                  ? 'bg-neutral-950/50'
+                                  : 'bg-neutral-50'
+                            }`}
+                          >
+                            <div>
+                              <div className="flex items-center gap-2">
+                                <p className={`font-medium ${isDark ? 'text-white' : 'text-neutral-900'}`}>
+                                  {displayName}
+                                </p>
+                                {isSystemEvent && (
+                                  <span className={`text-[10px] px-1.5 py-0.5 rounded ${
+                                    isDark
+                                      ? 'bg-blue-500/20 text-blue-300'
+                                      : 'bg-blue-100 text-blue-700'
+                                  }`}>
+                                    SYSTEM
+                                  </span>
+                                )}
+                              </div>
+                              <p className={`text-xs ${isDark ? 'text-neutral-400' : 'text-neutral-600'}`}>
+                                {event.eventType.replace(/_/g, ' ')}
+                              </p>
+                            </div>
+                            <div className="text-right">
+                              {event.amount !== undefined && event.amount !== 0 && (
+                                <p className={`font-medium ${isDark ? 'text-white' : 'text-neutral-900'}`}>
+                                  ${event.amount.toFixed(2)}
+                                </p>
+                              )}
+                              <p className={`text-xs ${isDark ? 'text-neutral-400' : 'text-neutral-600'}`}>
+                                {new Date(event.timestamp).toLocaleTimeString()}
+                              </p>
+                            </div>
+                          </div>
+                        );
+                      })}
+                  </div>
+                </div>
+              )}
+            </>
+          )}
+
         </div>
       </div>
 

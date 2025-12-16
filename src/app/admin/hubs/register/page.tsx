@@ -97,12 +97,17 @@ API_BASE_URL=https://api.gambino.gold/api`;
     setError(null);
 
     try {
-      const response = await api.post<RegisterResponse>('/api/admin/hubs/register', {
-        hubId: hubId.trim(),
+      const payload: any = {
         name: hubName.trim(),
         storeId: storeId.trim(),
         serialPort: serialPort.trim()
-      });
+      };
+      // Only include hubId if user specified one
+      if (hubId.trim()) {
+        payload.hubId = hubId.trim();
+      }
+
+      const response = await api.post<RegisterResponse>('/api/admin/hubs/register', payload);
 
       console.log('✅ Hub registration response:', response.data);
 
@@ -416,19 +421,18 @@ API_BASE_URL=https://api.gambino.gold/api`;
           <form onSubmit={handleSubmit} className="space-y-6">
             <div>
               <Label htmlFor="hubId">
-                Hub ID <span className="text-red-500">*</span>
+                Hub ID <span className="text-xs text-gray-400 font-normal">(optional - auto-generated if blank)</span>
               </Label>
               <Input
                 id="hubId"
                 type="text"
                 value={hubId}
                 onChange={(e) => setHubId(e.target.value)}
-                placeholder="pi-6-rainesmkt-1"
-                required
+                placeholder="Leave blank to auto-generate (e.g., pi-008)"
                 className="mt-2"
               />
               <p className="text-xs text-gray-500 dark:text-gray-400 mt-1">
-                Unique identifier for this hub (e.g., pi-1, pi-2-nimbus-1, pi-6-rainesmkt-1)
+                Leave blank for auto-generated sequential ID (pi-001, pi-002, etc.)
               </p>
             </div>
 
