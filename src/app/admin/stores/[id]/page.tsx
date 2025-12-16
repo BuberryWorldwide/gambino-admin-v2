@@ -825,13 +825,13 @@ export default function StoreDashboardPage() {
           <div className="bg-white dark:bg-neutral-900 border border-neutral-200 dark:border-neutral-800 rounded-xl p-4">
             <h3 className="font-semibold text-neutral-900 dark:text-white mb-1">Machine Performance</h3>
             <p className="text-xs text-neutral-500 dark:text-neutral-400 mb-4">Top 5 by net revenue</p>
-            <div className="h-32">
+            <div className="h-48">
               <ResponsiveContainer width="100%" height="100%">
                 <BarChart
                   layout="vertical"
                   data={machineRevenue.slice(0, 5)}
-                  margin={{ top: 5, right: 30, left: 60, bottom: 5 }}
-                  barSize={10}
+                  margin={{ top: 5, right: 30, left: 80, bottom: 5 }}
+                  barCategoryGap="20%"
                 >
                   <XAxis
                     type="number"
@@ -842,9 +842,9 @@ export default function StoreDashboardPage() {
                   <YAxis
                     type="category"
                     dataKey="machineId"
-                    tick={{ fill: '#9ca3af', fontSize: 10 }}
+                    tick={{ fill: '#9ca3af', fontSize: 11 }}
                     axisLine={{ stroke: '#374151' }}
-                    width={55}
+                    width={75}
                   />
                   <Tooltip
                     formatter={(value: number) => [formatCurrency(value), 'Net Revenue']}
@@ -857,7 +857,7 @@ export default function StoreDashboardPage() {
                     }}
                     labelStyle={{ color: '#fff', fontWeight: 'bold' }}
                   />
-                  <Bar dataKey="netRevenue" radius={[0, 4, 4, 0]}>
+                  <Bar dataKey="netRevenue" fill="#eab308" radius={[0, 4, 4, 0]} maxBarSize={20}>
                     {machineRevenue.slice(0, 5).map((entry, index) => (
                       <Cell
                         key={`cell-${index}`}
