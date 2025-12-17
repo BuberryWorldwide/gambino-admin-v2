@@ -36,6 +36,7 @@ interface Store {
 
 interface Hub {
   hubId: string;
+  name?: string;
   isOnline: boolean;
   store?: Store;
   storeId: string;
@@ -210,6 +211,7 @@ export default function HubsPage() {
   // Sort options for mobile
   const sortOptions = [
     { key: 'hubId', label: 'Hub ID' },
+    { key: 'name', label: 'Name' },
     { key: 'store.storeName', label: 'Store Name' },
     { key: 'isOnline', label: 'Status' },
     { key: 'machineCount', label: 'Machines' },
@@ -445,6 +447,11 @@ export default function HubsPage() {
                           <h3 className="font-mono font-semibold text-sm text-neutral-900 dark:text-white truncate">
                             {hub.hubId}
                           </h3>
+                          {hub.name && (
+                            <span className="text-xs text-neutral-600 dark:text-neutral-300 truncate">
+                              ({hub.name})
+                            </span>
+                          )}
                           <span className={`text-[10px] px-1.5 py-0.5 rounded font-medium ${
                             hub.isOnline
                               ? 'bg-green-100 dark:bg-green-950/50 text-green-700 dark:text-green-400'
@@ -486,6 +493,14 @@ export default function HubsPage() {
                       <SortableHeader
                         label="Hub ID"
                         sortKey="hubId"
+                        currentSort={sortConfig}
+                        onSort={handleSort}
+                      />
+                    </TableHead>
+                    <TableHead>
+                      <SortableHeader
+                        label="Name"
+                        sortKey="name"
                         currentSort={sortConfig}
                         onSort={handleSort}
                       />
@@ -547,6 +562,9 @@ export default function HubsPage() {
                       >
                         <TableCell className="font-mono font-medium text-neutral-900 dark:text-white">
                           {hub.hubId}
+                        </TableCell>
+                        <TableCell className="text-sm text-neutral-900 dark:text-white">
+                          {hub.name || <span className="text-neutral-400 italic">—</span>}
                         </TableCell>
                         <TableCell>
                           <div className="text-sm text-neutral-900 dark:text-white">
