@@ -2,7 +2,6 @@
 'use client';
 
 import { useEffect, useState } from 'react';
-import { useTheme } from 'next-themes';
 import {
   Plus,
   RefreshCw,
@@ -12,8 +11,7 @@ import {
   Trash2,
   ExternalLink,
   X,
-  Eye,
-  EyeOff
+  Eye
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -100,9 +98,6 @@ const initialFormData: FormData = {
 };
 
 export default function MiningLibraryPage() {
-  const { resolvedTheme } = useTheme();
-  const [mounted, setMounted] = useState(false);
-
   const [interfaces, setInterfaces] = useState<MiningInterface[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -113,10 +108,6 @@ export default function MiningLibraryPage() {
   const [editingInterface, setEditingInterface] = useState<MiningInterface | null>(null);
   const [formData, setFormData] = useState<FormData>(initialFormData);
   const [saving, setSaving] = useState(false);
-
-  useEffect(() => {
-    setMounted(true);
-  }, []);
 
   useEffect(() => {
     fetchInterfaces();

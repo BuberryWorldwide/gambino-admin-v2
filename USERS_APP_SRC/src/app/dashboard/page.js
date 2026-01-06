@@ -3,6 +3,7 @@ import { useState, useEffect, useRef } from 'react';
 import { useRouter } from 'next/navigation';
 import { getToken } from '@/lib/auth';
 import api from '@/lib/api';
+import ProofsSection from '@/components/ProofsSection';
 
 // StatBox component matching homepage style
 function StatBox({ label, value, sub }) {
@@ -464,6 +465,13 @@ export default function Dashboard() {
               : <span className="text-neutral-500 text-sm">No machines played yet</span>}
           </div>
         </div>
+
+        {/* Entropy Proofs Section */}
+        {profile?._id && (
+          <div className="mb-6 md:mb-8">
+            <ProofsSection userId={profile._id} />
+          </div>
+        )}
 
         {/* Wallet Section - Mobile optimized */}
         <div className="card">
