@@ -22,7 +22,8 @@ import {
   DollarSign,
   Receipt,
   Send,
-  ChevronRight
+  ChevronRight,
+  Gamepad2
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 
@@ -132,6 +133,7 @@ export default function AdminLayout({ children, user: userProp }: AdminLayoutPro
     { href: '/admin/machines', label: 'Machines', icon: Activity, permissions: ['view_machines'] },
     { href: '/admin/cashout', label: 'Token Cashout', icon: DollarSign, permissions: ['process_cashouts'] },
     { href: '/admin/distributions', label: 'Distributions', icon: Send, permissions: ['system_admin'] },
+    { href: '/admin/mining', label: 'Mining Library', icon: Gamepad2, permissions: ['system_admin', 'manage_all_stores'] },
     { href: '/admin/transactions', label: 'Transactions', icon: Receipt, permissions: ['view_cashout_history'] },
     ...(user?.role === 'super_admin' ? [{ href: '/admin/logs', label: 'Live Logs', icon: FileText }] : []),
     { href: '/admin/stores', label: 'Venues', icon: Store, permissions: ['view_all_stores', 'view_assigned_stores'] },
