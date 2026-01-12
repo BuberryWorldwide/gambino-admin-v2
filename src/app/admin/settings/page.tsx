@@ -6,7 +6,7 @@ import {
   Shield, Bell, Palette, Key
 } from 'lucide-react';
 import api from '@/lib/api';
-import { getUser as getCachedUser } from '@/lib/auth';
+import { getUser as getCachedUser, isDemoMode } from '@/lib/auth';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Card } from '@/components/ui/card';
@@ -166,6 +166,7 @@ export default function SettingsPage() {
   };
 
   const isSuperAdmin = user?.role === 'super_admin';
+  const isDemo = isDemoMode();
 
   if (loading) {
     return (
@@ -259,6 +260,15 @@ export default function SettingsPage() {
                   </div>
                 </div>
 
+                {isDemo && (
+                  <div className="flex items-center gap-2 p-3 bg-yellow-50 dark:bg-yellow-900/20 border border-yellow-200 dark:border-yellow-800 rounded-lg">
+                    <Shield className="w-4 h-4 text-yellow-600 dark:text-yellow-400 shrink-0" />
+                    <p className="text-sm text-yellow-800 dark:text-yellow-200">
+                      Profile changes are disabled in demo mode.
+                    </p>
+                  </div>
+                )}
+
                 {profileError && (
                   <div className="flex items-center gap-2 p-3 bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800 rounded-lg">
                     <AlertCircle className="w-4 h-4 text-red-600 dark:text-red-400 shrink-0" />
@@ -284,8 +294,9 @@ export default function SettingsPage() {
                         id="firstName"
                         value={profileForm.firstName}
                         onChange={(e) => setProfileForm({ ...profileForm, firstName: e.target.value })}
-                        className="pl-10 bg-neutral-50 dark:bg-neutral-800 border-neutral-300 dark:border-neutral-700"
+                        className="pl-10 bg-neutral-50 dark:bg-neutral-800 border-neutral-300 dark:border-neutral-700 disabled:opacity-50 disabled:cursor-not-allowed"
                         placeholder="John"
+                        disabled={isDemo}
                       />
                     </div>
                   </div>
@@ -299,8 +310,9 @@ export default function SettingsPage() {
                         id="lastName"
                         value={profileForm.lastName}
                         onChange={(e) => setProfileForm({ ...profileForm, lastName: e.target.value })}
-                        className="pl-10 bg-neutral-50 dark:bg-neutral-800 border-neutral-300 dark:border-neutral-700"
+                        className="pl-10 bg-neutral-50 dark:bg-neutral-800 border-neutral-300 dark:border-neutral-700 disabled:opacity-50 disabled:cursor-not-allowed"
                         placeholder="Doe"
+                        disabled={isDemo}
                       />
                     </div>
                   </div>
@@ -317,8 +329,9 @@ export default function SettingsPage() {
                       type="email"
                       value={profileForm.email}
                       onChange={(e) => setProfileForm({ ...profileForm, email: e.target.value })}
-                      className="pl-10 bg-neutral-50 dark:bg-neutral-800 border-neutral-300 dark:border-neutral-700"
+                      className="pl-10 bg-neutral-50 dark:bg-neutral-800 border-neutral-300 dark:border-neutral-700 disabled:opacity-50 disabled:cursor-not-allowed"
                       placeholder="you@example.com"
+                      disabled={isDemo}
                     />
                   </div>
                 </div>
@@ -331,16 +344,17 @@ export default function SettingsPage() {
                     id="phone"
                     value={profileForm.phone}
                     onChange={(e) => setProfileForm({ ...profileForm, phone: e.target.value })}
-                    className="bg-neutral-50 dark:bg-neutral-800 border-neutral-300 dark:border-neutral-700"
+                    className="bg-neutral-50 dark:bg-neutral-800 border-neutral-300 dark:border-neutral-700 disabled:opacity-50 disabled:cursor-not-allowed"
                     placeholder="(555) 123-4567"
+                    disabled={isDemo}
                   />
                 </div>
 
                 <div className="pt-4">
                   <Button
                     onClick={handleProfileSave}
-                    disabled={profileSaving}
-                    className="w-full sm:w-auto bg-yellow-500 hover:bg-yellow-600 text-neutral-900"
+                    disabled={profileSaving || isDemo}
+                    className="w-full sm:w-auto bg-yellow-500 hover:bg-yellow-600 text-neutral-900 disabled:opacity-50 disabled:cursor-not-allowed"
                   >
                     {profileSaving ? (
                       <>
@@ -374,6 +388,15 @@ export default function SettingsPage() {
               </div>
 
               <div className="p-4 sm:p-6 space-y-6">
+                {isDemo && (
+                  <div className="flex items-center gap-2 p-3 bg-yellow-50 dark:bg-yellow-900/20 border border-yellow-200 dark:border-yellow-800 rounded-lg">
+                    <Shield className="w-4 h-4 text-yellow-600 dark:text-yellow-400 shrink-0" />
+                    <p className="text-sm text-yellow-800 dark:text-yellow-200">
+                      Password changes are disabled in demo mode.
+                    </p>
+                  </div>
+                )}
+
                 {passwordError && (
                   <div className="flex items-center gap-2 p-3 bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800 rounded-lg">
                     <AlertCircle className="w-4 h-4 text-red-600 dark:text-red-400 shrink-0" />
@@ -399,8 +422,9 @@ export default function SettingsPage() {
                       type={showCurrentPassword ? 'text' : 'password'}
                       value={passwordForm.currentPassword}
                       onChange={(e) => setPasswordForm({ ...passwordForm, currentPassword: e.target.value })}
-                      className="pl-10 pr-10 bg-neutral-50 dark:bg-neutral-800 border-neutral-300 dark:border-neutral-700"
+                      className="pl-10 pr-10 bg-neutral-50 dark:bg-neutral-800 border-neutral-300 dark:border-neutral-700 disabled:opacity-50 disabled:cursor-not-allowed"
                       placeholder="Enter current password"
+                      disabled={isDemo}
                     />
                     <button
                       type="button"
@@ -423,8 +447,9 @@ export default function SettingsPage() {
                       type={showNewPassword ? 'text' : 'password'}
                       value={passwordForm.newPassword}
                       onChange={(e) => setPasswordForm({ ...passwordForm, newPassword: e.target.value })}
-                      className="pl-10 pr-10 bg-neutral-50 dark:bg-neutral-800 border-neutral-300 dark:border-neutral-700"
+                      className="pl-10 pr-10 bg-neutral-50 dark:bg-neutral-800 border-neutral-300 dark:border-neutral-700 disabled:opacity-50 disabled:cursor-not-allowed"
                       placeholder="Enter new password"
+                      disabled={isDemo}
                     />
                     <button
                       type="button"
@@ -450,8 +475,9 @@ export default function SettingsPage() {
                       type="password"
                       value={passwordForm.confirmPassword}
                       onChange={(e) => setPasswordForm({ ...passwordForm, confirmPassword: e.target.value })}
-                      className="pl-10 bg-neutral-50 dark:bg-neutral-800 border-neutral-300 dark:border-neutral-700"
+                      className="pl-10 bg-neutral-50 dark:bg-neutral-800 border-neutral-300 dark:border-neutral-700 disabled:opacity-50 disabled:cursor-not-allowed"
                       placeholder="Confirm new password"
+                      disabled={isDemo}
                     />
                   </div>
                 </div>
@@ -459,8 +485,8 @@ export default function SettingsPage() {
                 <div className="pt-4">
                   <Button
                     onClick={handlePasswordChange}
-                    disabled={passwordSaving}
-                    className="w-full sm:w-auto bg-yellow-500 hover:bg-yellow-600 text-neutral-900"
+                    disabled={passwordSaving || isDemo}
+                    className="w-full sm:w-auto bg-yellow-500 hover:bg-yellow-600 text-neutral-900 disabled:opacity-50 disabled:cursor-not-allowed"
                   >
                     {passwordSaving ? (
                       <>
