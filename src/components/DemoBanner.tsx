@@ -18,7 +18,7 @@ export default function DemoBanner() {
         </span>
         <span className="hidden sm:inline text-neutral-800">|</span>
         <span className="hidden sm:inline text-neutral-800">
-          Data shown is from a sample venue (Nimbus 1)
+          Venue and user data has been anonymized
         </span>
       </div>
     </div>

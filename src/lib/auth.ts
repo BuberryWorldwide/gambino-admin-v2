@@ -38,13 +38,16 @@ function deleteCookie(name: string): void {
  */
 export function setToken(token: string, userData: User): void {
   if (!isBrowser) return;
-  
+
   // Store in localStorage for client-side access
   localStorage.setItem(AUTH_KEYS.TOKEN, token);
   localStorage.setItem(AUTH_KEYS.USER, JSON.stringify(userData));
-  
+
   // ALSO store in cookie for server-side middleware
   setCookie(AUTH_KEYS.TOKEN, token, 7);
+
+  // Dispatch event so DemoModeContext can update (same-tab login)
+  window.dispatchEvent(new Event('auth-changed'));
 }
 
 /**

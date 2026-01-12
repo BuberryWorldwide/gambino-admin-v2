@@ -29,7 +29,14 @@ export function DemoModeProvider({ children }: { children: ReactNode }) {
 
     // Listen for storage changes (in case user logs in/out in another tab)
     window.addEventListener('storage', checkDemo);
-    return () => window.removeEventListener('storage', checkDemo);
+
+    // Listen for custom auth-changed event (after login in same tab)
+    window.addEventListener('auth-changed', checkDemo);
+
+    return () => {
+      window.removeEventListener('storage', checkDemo);
+      window.removeEventListener('auth-changed', checkDemo);
+    };
   }, []);
 
   const showDemoToast = (action?: string) => {
