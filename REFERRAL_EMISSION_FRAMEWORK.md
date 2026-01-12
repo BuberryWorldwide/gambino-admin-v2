@@ -1,7 +1,8 @@
 # REFERRAL EMISSION FRAMEWORK
 
-**Version**: 1.0
+**Version**: 1.1
 **Created**: 2026-01-12
+**Updated**: 2026-01-12
 **Status**: Draft - Pending Implementation
 
 ---
@@ -55,6 +56,60 @@ This document defines the token emission model for the Gambino referral program,
 | 15 | ~70,000 | ~18,100,000 GG | ~15,865,000 GG |
 
 **Key Insight**: Percentage-based emissions create natural decay - the pool never fully depletes but emission rates decrease as adoption grows.
+
+### Budget vs. Payout Separation
+
+**This distinction is critical for understanding the system.**
+
+The Community wallet emits **0.5% of its balance monthly** as the **Network Growth Budget**. Individual referral payouts are **fixed amounts** (250/100/50 GG) for predictable UX. When monthly budget is exhausted, pending referrals queue for the next distribution cycle.
+
+This creates a self-regulating system:
+- **Percentage controls sustainability** — The pool can never be drained faster than 0.5%/month
+- **Fixed amounts control user expectations** — Users always know "Refer a friend, get 250 GG"
+
+```
+┌─────────────────────────────────────────────────────────────────┐
+│                    BUDGET vs. PAYOUT MODEL                      │
+├─────────────────────────────────────────────────────────────────┤
+│                                                                 │
+│   Community Pool Balance: 33,965,000 GG                        │
+│                    │                                            │
+│                    ▼                                            │
+│   ┌─────────────────────────────────────┐                      │
+│   │  Monthly Budget = Balance × 0.5%    │                      │
+│   │  = 33,965,000 × 0.005               │                      │
+│   │  = 169,825 GG available this month  │                      │
+│   └─────────────────────────────────────┘                      │
+│                    │                                            │
+│                    ▼                                            │
+│   ┌─────────────────────────────────────┐                      │
+│   │  Fixed Payout per Referral: 400 GG  │                      │
+│   │  (250 referrer + 100 new + 50 venue)│                      │
+│   └─────────────────────────────────────┘                      │
+│                    │                                            │
+│                    ▼                                            │
+│   ┌─────────────────────────────────────┐                      │
+│   │  Max Referrals = Budget / Payout    │                      │
+│   │  = 169,825 / 400                    │                      │
+│   │  = 424 referrals this month         │                      │
+│   └─────────────────────────────────────┘                      │
+│                    │                                            │
+│         ┌─────────┴─────────┐                                  │
+│         ▼                   ▼                                  │
+│   ┌───────────┐       ┌───────────┐                           │
+│   │ Budget OK │       │ Budget    │                           │
+│   │ Distribute│       │ Exhausted │                           │
+│   │ Immediately│      │ Queue for │                           │
+│   └───────────┘       │ Next Month│                           │
+│                       └───────────┘                           │
+│                                                                 │
+└─────────────────────────────────────────────────────────────────┘
+```
+
+**Why this matters:**
+- **For Robert's review**: Emissions are percentage-capped, not unlimited
+- **For debugging**: Explains why referrals may stop paying out at month-end
+- **For venue communication**: "Your allocation comes from a monthly budget pool"
 
 ---
 
@@ -128,6 +183,45 @@ If pool drops below 10M GG:
 1. Pause new venue onboarding to referral program
 2. Reduce per-referral amounts by 50%
 3. Evaluate top-up from Mining/Jackpot wallet
+
+### Budget Overflow Handling
+
+If referral demand exceeds monthly budget before month-end:
+
+1. **Queue excess referrals** as `status: 'pending_budget'`
+2. **Distribute queued referrals first** on next month's cycle (FIFO order)
+3. **If sustained overflow** (3+ consecutive months):
+   - Evaluate topping up Community wallet from Mining/Jackpot reserve
+   - Consider reducing per-referral amounts
+   - Review venue tier caps for optimization
+
+**This is a "good problem"** — it means network growth is exceeding projections. The queue mechanism ensures no referral is lost, just delayed.
+
+```javascript
+// Budget check before distribution
+async function canDistributeReferral() {
+  const communityBalance = await getCommunityWalletBalance();
+  const monthlyBudget = communityBalance * 0.005;
+
+  const thisMonth = getMonthStart();
+  const distributedThisMonth = await Referral.aggregate([
+    { $match: { status: 'distributed', distributedAt: { $gte: thisMonth } } },
+    { $group: {
+        _id: null,
+        total: { $sum: {
+          $add: ['$amounts.referrer', '$amounts.newUser', '$amounts.venue']
+        }}
+    }}
+  ]);
+
+  const remaining = monthlyBudget - (distributedThisMonth[0]?.total || 0);
+  return {
+    canDistribute: remaining >= 400,
+    remainingBudget: remaining,
+    monthlyBudget
+  };
+}
+```
 
 ---
 
@@ -208,7 +302,7 @@ If pool drops below 10M GG:
   referrerId: ObjectId,
   newUserId: ObjectId,
   venueId: String,
-  status: enum['pending', 'verified', 'distributed', 'clawed_back', 'rejected'],
+  status: enum['pending', 'pending_budget', 'verified', 'distributed', 'clawed_back', 'rejected'],
   amounts: {
     referrer: Number,
     newUser: Number,
@@ -264,6 +358,7 @@ Per Gambino compliance guidelines, all communications must use:
 | Version | Date | Author | Changes |
 |---------|------|--------|---------|
 | 1.0 | 2026-01-12 | System | Initial framework based on on-chain treasury analysis |
+| 1.1 | 2026-01-12 | System | Added Budget vs. Payout Separation section, Budget Overflow Handling, `pending_budget` status |
 
 ---
 
