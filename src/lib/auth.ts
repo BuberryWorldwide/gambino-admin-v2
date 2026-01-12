@@ -159,14 +159,34 @@ export function canAccessVenue(storeId: string, userData: User | null = null): b
 export function canManageVenue(storeId: string, userData: User | null = null): boolean {
   const user = userData || getUser();
   if (!user) return false;
-  
+
+  // Demo accounts cannot manage venues
+  if (user.isDemo) return false;
+
   if (['super_admin', 'gambino_ops'].includes(user.role)) {
     return true;
   }
-  
+
   if (user.role === 'venue_manager') {
     return user.assignedVenues ? user.assignedVenues.includes(storeId) : false;
   }
-  
+
   return false;
+}
+
+/**
+ * Check if user is in demo mode (read-only)
+ */
+export function isDemoMode(userData: User | null = null): boolean {
+  const user = userData || getUser();
+  return user?.isDemo === true;
+}
+
+/**
+ * Check if an action should be blocked due to demo mode
+ * Returns a message if blocked, null if allowed
+ */
+export function getDemoModeBlockMessage(action: string): string | null {
+  if (!isDemoMode()) return null;
+  return `This is a demo account. ${action} is disabled in demo mode.`;
 }

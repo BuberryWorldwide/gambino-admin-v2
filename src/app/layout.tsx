@@ -1,6 +1,7 @@
 import type { Metadata } from "next";
 import "./globals.css";
 import { ThemeProvider } from "@/components/theme-provider";
+import { DemoModeProvider } from "@/components/DemoModeContext";
 
 export const metadata: Metadata = {
   title: "Gambino Admin",
@@ -21,7 +22,9 @@ export default function RootLayout({
           enableSystem={false}
           disableTransitionOnChange
         >
-          {children}
+          <DemoModeProvider>
+            {children}
+          </DemoModeProvider>
         </ThemeProvider>
       </body>
     </html>

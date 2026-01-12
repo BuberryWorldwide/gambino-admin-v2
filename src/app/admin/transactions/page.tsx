@@ -4,6 +4,7 @@ import { useState, useEffect, useMemo } from 'react';
 import { useTheme } from 'next-themes';
 import AdminLayout from '@/components/layout/AdminLayout';
 import api from '@/lib/api';
+import { anonymizeTransactions } from '@/lib/demoAnonymizer';
 import { getUser as getCachedUser } from '@/lib/auth';
 import { User } from '@/types';
 import { SortableHeader, useSort, sortData } from '@/components/ui/sortable-header';
@@ -128,7 +129,9 @@ export default function TransactionsPage() {
 
         const res = await api.get(`/api/cashout/venues/${storeId}/history`, { params });
 
-        setTransactions(res.data.transactions);
+        // Anonymize transaction user data in demo mode
+        const txnData = anonymizeTransactions(res.data.transactions);
+        setTransactions(txnData);
         setSummary(res.data.summary);
         setPagination(res.data.pagination);
       } catch (err: any) {

@@ -32,6 +32,7 @@ import {
   Line
 } from 'recharts';
 import api from '@/lib/api';
+import { anonymizeStore, anonymizeHubName, anonymizeMachineId } from '@/lib/demoAnonymizer';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import AdminLayout from '@/components/layout/AdminLayout';
@@ -133,7 +134,8 @@ export default function StoreDashboardPage() {
     try {
       // Load store details
       const storeRes = await api.get(`/api/admin/stores/${storeId}`);
-      setStore(storeRes.data.store);
+      // Anonymize store data in demo mode
+      setStore(anonymizeStore(storeRes.data.store));
 
       // Load hubs for this store
       await loadHubs();
@@ -228,7 +230,9 @@ export default function StoreDashboardPage() {
 
   const getHubName = (hubId: string): string => {
     const hub = hubs.find(h => h.hubId === hubId);
-    return hub?.name || hubId;
+    const name = hub?.name || hubId;
+    // Anonymize hub name in demo mode
+    return anonymizeHubName(name, hubId);
   };
 
   const getHubStats = (machines: MachineRevenue[]) => {
@@ -238,6 +242,11 @@ export default function StoreDashboardPage() {
       netRevenue: machines.reduce((sum, m) => sum + m.netRevenue, 0),
       count: machines.length
     };
+  };
+
+  // Helper to get display-friendly machine ID (anonymized in demo mode)
+  const getDisplayMachineId = (machineId: string): string => {
+    return anonymizeMachineId(machineId);
   };
 
   const load7DayTrend = async () => {
@@ -829,7 +838,7 @@ export default function StoreDashboardPage() {
               <ResponsiveContainer width="100%" height="100%">
                 <BarChart
                   layout="vertical"
-                  data={machineRevenue.slice(0, 5)}
+                  data={machineRevenue.slice(0, 5).map(m => ({ ...m, displayId: getDisplayMachineId(m.machineId) }))}
                   margin={{ top: 5, right: 30, left: 80, bottom: 5 }}
                   barCategoryGap="20%"
                 >
@@ -841,7 +850,7 @@ export default function StoreDashboardPage() {
                   />
                   <YAxis
                     type="category"
-                    dataKey="machineId"
+                    dataKey="displayId"
                     tick={{ fill: '#9ca3af', fontSize: 11 }}
                     axisLine={{ stroke: '#374151' }}
                     width={75}
@@ -959,11 +968,11 @@ export default function StoreDashboardPage() {
                   return (
                     <>
                       {machineRevenue.slice(0, 10).map((machine) => (
-                          <div key={machine.machineId} className="p-3">
+                          <div key={getDisplayMachineId(machine.machineId)} className="p-3">
                             <div className="flex items-center justify-between">
                               <div className="flex items-center gap-2">
                                 <span className="font-mono text-xs text-neutral-600 dark:text-neutral-400">
-                                  {machine.machineId}
+                                  {getDisplayMachineId(machine.machineId)}
                                 </span>
                               </div>
                               <div className="flex items-center gap-3 text-xs">
@@ -1024,10 +1033,10 @@ export default function StoreDashboardPage() {
                           {isExpanded && (
                             <div className="bg-neutral-50/50 dark:bg-neutral-800/30 divide-y divide-neutral-100 dark:divide-neutral-800">
                               {machines.map((machine) => (
-                                  <div key={machine.machineId} className="px-4 py-2 pl-11">
+                                  <div key={getDisplayMachineId(machine.machineId)} className="px-4 py-2 pl-11">
                                     <div className="flex items-center justify-between">
                                       <span className="font-mono text-xs text-neutral-600 dark:text-neutral-400">
-                                        {machine.machineId}
+                                        {getDisplayMachineId(machine.machineId)}
                                       </span>
                                       <div className="flex items-center gap-3 text-xs">
                                         <span className="text-green-600 dark:text-green-400">{formatCurrency(machine.moneyIn)}</span>
@@ -1075,10 +1084,10 @@ export default function StoreDashboardPage() {
                         {expandedHubs.has('_unmapped') && (
                           <div className="bg-neutral-50/50 dark:bg-neutral-800/30 divide-y divide-neutral-100 dark:divide-neutral-800">
                             {unmapped.map((machine) => (
-                              <div key={machine.machineId} className="px-4 py-2 pl-11">
+                              <div key={getDisplayMachineId(machine.machineId)} className="px-4 py-2 pl-11">
                                 <div className="flex items-center justify-between">
                                   <span className="font-mono text-xs text-neutral-600 dark:text-neutral-400">
-                                    {machine.machineId}
+                                    {getDisplayMachineId(machine.machineId)}
                                   </span>
                                   <div className="flex items-center gap-3 text-xs">
                                     <span className="text-green-600 dark:text-green-400">{formatCurrency(machine.moneyIn)}</span>

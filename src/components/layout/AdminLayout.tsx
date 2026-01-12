@@ -4,6 +4,7 @@
 import { useState, ReactNode, useEffect } from 'react';
 import { useRouter, usePathname } from 'next/navigation';
 import ThemeSwitcher from '@/components/ThemeSwitcher';
+import DemoBanner from '@/components/DemoBanner';
 import { clearToken, getToken, getUser } from '@/lib/auth';
 import api from '@/lib/api';
 import axios from 'axios';
@@ -158,6 +159,9 @@ export default function AdminLayout({ children, user: userProp }: AdminLayoutPro
 
   return (
     <div className="min-h-screen bg-neutral-50 dark:bg-neutral-950">
+      {/* Demo Mode Banner */}
+      <DemoBanner />
+
       {/* Top Nav */}
       <nav className="bg-white dark:bg-neutral-900 border-b border-neutral-200 dark:border-neutral-800 sticky top-0 z-50">
         <div className="px-4 lg:px-6 h-16 flex items-center justify-between">

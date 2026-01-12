@@ -1,7 +1,7 @@
 // src/lib/api.ts
 
 import axios from 'axios';
-import { getToken, clearToken } from './auth';
+import { getToken, clearToken, isDemoMode } from './auth';
 
 const API_URL = process.env.NEXT_PUBLIC_API_URL || 'https://api.gambino.gold';
 console.log('🔍 API URL:', API_URL);
@@ -13,13 +13,36 @@ const api = axios.create({
   headers: { 'Content-Type': 'application/json' }
 });
 
-// Request interceptor - Add Bearer token to all requests
+// Request interceptor - Add Bearer token and block mutations in demo mode
 api.interceptors.request.use(
   (config) => {
     const token = getToken();
     if (token && !config.headers.Authorization) {
       config.headers.Authorization = `Bearer ${token}`;
     }
+
+    // Block mutating requests in demo mode (read-only)
+    const mutatingMethods = ['post', 'put', 'patch', 'delete'];
+    const method = config.method?.toLowerCase();
+
+    if (isDemoMode() && method && mutatingMethods.includes(method)) {
+      // Allow login/logout requests even in demo mode
+      const allowedPaths = ['/api/auth/login', '/api/auth/logout', '/api/auth/set-cookie'];
+      const isAllowed = allowedPaths.some(path => config.url?.includes(path));
+
+      if (!isAllowed) {
+        console.warn('🔒 Demo mode: Blocked mutating request', config.method, config.url);
+        return Promise.reject({
+          response: {
+            status: 403,
+            data: { error: 'This is a demo account. Data modifications are disabled.' }
+          },
+          isDemoBlock: true,
+          message: 'Demo mode: Data modifications are disabled'
+        });
+      }
+    }
+
     return config;
   },
   (error) => {

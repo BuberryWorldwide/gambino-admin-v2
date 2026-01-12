@@ -8,6 +8,7 @@ import {
   Clock, Copy, Check 
 } from 'lucide-react';
 import api from '@/lib/api';
+import { anonymizeUser, anonymizeStores } from '@/lib/demoAnonymizer';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Card } from '@/components/ui/card';
@@ -89,7 +90,9 @@ export default function UserEditPage() {
   const loadUser = async () => {
     try {
       const { data } = await api.get(`/api/admin/users/${userId}`);
-      const userData = data.user || data;
+      const rawUserData = data.user || data;
+      // Anonymize user data in demo mode
+      const userData = anonymizeUser(rawUserData);
       setUser(userData);
       setFormData({
         firstName: userData.firstName || '',
@@ -98,7 +101,7 @@ export default function UserEditPage() {
         phone: userData.phone || '',
         role: userData.role || 'user',
         isActive: userData.isActive !== false,
-        assignedVenues: userData.assignedVenues || [],
+        assignedVenues: rawUserData.assignedVenues || [], // Keep real venue IDs for internal use
         ageVerified: userData.ageVerified || false,
       });
     } catch (err) {
@@ -112,7 +115,9 @@ export default function UserEditPage() {
   const loadStores = async () => {
     try {
       const { data } = await api.get('/api/admin/stores');
-      setStores(data.stores || []);
+      // Anonymize store data in demo mode
+      const storeData = anonymizeStores(data.stores || []);
+      setStores(storeData);
     } catch (err) {
       console.error('Failed to load stores:', err);
     }

@@ -8,6 +8,8 @@ export interface User {
   _id: string;
   email: string;
   username?: string;
+  firstName?: string;
+  lastName?: string;
   role: UserRole;
   assignedVenues?: string[];
   permissions?: string[];
@@ -17,6 +19,7 @@ export interface User {
   tier?: 'none' | 'tier3' | 'tier2' | 'tier1';
   isVerified?: boolean;
   isActive?: boolean;
+  isDemo?: boolean;  // Read-only demo account flag for marketing purposes
   createdAt?: string;
   lastActivity?: string;
   redirectTo?: string;

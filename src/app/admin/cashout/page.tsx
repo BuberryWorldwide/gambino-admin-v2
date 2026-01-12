@@ -9,6 +9,7 @@ import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/com
 import { Badge } from '@/components/ui/badge';
 import api from '@/lib/api';
 import { getUser as getCachedUser } from '@/lib/auth';
+import { anonymizeUser } from '@/lib/demoAnonymizer';
 
 interface Customer {
   _id: string;
@@ -93,9 +94,17 @@ export default function CashoutPage() {
 
     try {
       const res = await api.get(`/api/cashout/customers/search?q=${encodeURIComponent(searchQuery)}`);
-      setCustomers(res.data.customers || []);
+      // Anonymize customer data in demo mode
+      const customerData = (res.data.customers || []).map((c: Customer) => {
+        const anon = anonymizeUser(c);
+        return {
+          ...anon,
+          fullName: `${anon.firstName} ${anon.lastName}`,
+        };
+      });
+      setCustomers(customerData);
 
-      if (res.data.customers.length === 0) {
+      if (customerData.length === 0) {
         setError('No customers found matching your search');
       }
     } catch (err: any) {

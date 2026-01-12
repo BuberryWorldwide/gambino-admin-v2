@@ -6,6 +6,7 @@ import { useRouter } from 'next/navigation';
 import { useTheme } from 'next-themes';
 import { Search, UserPlus, Shield, Building, DollarSign, Calendar, RefreshCw, Users, AlertCircle, ChevronRight } from 'lucide-react';
 import api from '@/lib/api';
+import { anonymizeUsers } from '@/lib/demoAnonymizer';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Badge } from '@/components/ui/badge';
@@ -51,7 +52,9 @@ export default function UsersPage() {
     try {
       setError(null);
       const { data } = await api.get('/api/admin/users');
-      setUsers(data.users || []);
+      // Anonymize user data in demo mode
+      const userData = anonymizeUsers(data.users || []);
+      setUsers(userData);
     } catch (err) {
       console.error('Failed to load users:', err);
       const errorMessage = err instanceof Error ? err.message : 'Failed to load users';

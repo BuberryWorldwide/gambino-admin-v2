@@ -6,6 +6,7 @@ import { useRouter } from 'next/navigation';
 import { useTheme } from 'next-themes';
 import { Search, Store as StoreIcon, MapPin, Activity, DollarSign, RefreshCw, AlertCircle, ChevronRight } from 'lucide-react';
 import api from '@/lib/api';
+import { anonymizeStores } from '@/lib/demoAnonymizer';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Badge } from '@/components/ui/badge';
@@ -54,7 +55,9 @@ export default function StoresPage() {
     try {
       setError(null);
       const { data } = await api.get('/api/admin/stores-with-status');
-      setStores(data.stores || []);
+      // Anonymize store data in demo mode
+      const storeData = anonymizeStores(data.stores || []);
+      setStores(storeData);
     } catch (err) {
       console.error('Failed to load stores:', err);
       const errorMessage = err instanceof Error ? err.message : 'Failed to load stores';
