@@ -55,8 +55,7 @@ export function anonymizeStore<T extends Partial<Store>>(store: T): T {
     phone: demoContact.phone,
     contactName: demoContact.name,
     contactPhone: demoContact.phone,
-    // Keep storeId as a generic demo ID for display
-    storeId: `demo_venue_${venueIndex + 1}`,
+    // Keep original storeId for navigation/API calls - only display fields are anonymized
   };
 }
 
