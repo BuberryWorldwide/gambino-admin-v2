@@ -3,7 +3,7 @@
 
 import { useState, useEffect } from 'react';
 import { Activity, Server, Cpu, Store, AlertCircle, RefreshCw, ArrowRight, TrendingUp, TrendingDown, DollarSign, ChevronDown, Wifi, WifiOff, Users, MapPin, BarChart3 } from 'lucide-react';
-import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, Legend } from 'recharts';
+import { AreaChart, Area, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer } from 'recharts';
 import api from '@/lib/api';
 import AdminLayout from '@/components/layout/AdminLayout';
 import { Button } from '@/components/ui/button';
@@ -562,50 +562,74 @@ export default function DashboardPage() {
           {financialTrends && financialTrends.data.length > 0 && (
             <div className="bg-white dark:bg-neutral-900 border border-neutral-200 dark:border-neutral-800 rounded-xl overflow-hidden">
               <div className="px-5 py-4 border-b border-neutral-200 dark:border-neutral-800">
-                <h2 className="font-semibold text-neutral-900 dark:text-white">Revenue Trends</h2>
-                <p className="text-xs text-neutral-500 dark:text-neutral-400 mt-0.5">{financialTrends.timeframe}</p>
+                <div className="flex items-center justify-between">
+                  <div>
+                    <h2 className="font-semibold text-neutral-900 dark:text-white">Revenue Trends</h2>
+                    <p className="text-xs text-neutral-500 dark:text-neutral-400 mt-0.5">{financialTrends.timeframe}</p>
+                  </div>
+                  <div className="flex items-center gap-4">
+                    <div className="flex items-center gap-1.5">
+                      <div className="w-2.5 h-2.5 rounded-full bg-green-500" />
+                      <span className="text-xs text-neutral-500 dark:text-neutral-400">Cash In</span>
+                    </div>
+                    <div className="flex items-center gap-1.5">
+                      <div className="w-2.5 h-2.5 rounded-full bg-red-500" />
+                      <span className="text-xs text-neutral-500 dark:text-neutral-400">Cash Out</span>
+                    </div>
+                    <div className="flex items-center gap-1.5">
+                      <div className="w-2.5 h-2.5 rounded-full bg-yellow-500" />
+                      <span className="text-xs text-neutral-500 dark:text-neutral-400">Net</span>
+                    </div>
+                  </div>
+                </div>
               </div>
-              <div className="p-4" style={{ height: 280 }}>
+              <div className="p-4 pt-6" style={{ height: 300 }}>
                 <ResponsiveContainer width="100%" height="100%">
-                  <LineChart data={financialTrends.data} margin={{ top: 5, right: 20, left: 0, bottom: 5 }}>
-                    <CartesianGrid strokeDasharray="3 3" stroke="#374151" opacity={0.3} />
+                  <AreaChart data={financialTrends.data} margin={{ top: 5, right: 10, left: -10, bottom: 5 }}>
+                    <defs>
+                      <linearGradient id="colorMoneyIn" x1="0" y1="0" x2="0" y2="1">
+                        <stop offset="5%" stopColor="#22C55E" stopOpacity={0.2}/>
+                        <stop offset="95%" stopColor="#22C55E" stopOpacity={0}/>
+                      </linearGradient>
+                      <linearGradient id="colorMoneyOut" x1="0" y1="0" x2="0" y2="1">
+                        <stop offset="5%" stopColor="#EF4444" stopOpacity={0.2}/>
+                        <stop offset="95%" stopColor="#EF4444" stopOpacity={0}/>
+                      </linearGradient>
+                      <linearGradient id="colorNetRevenue" x1="0" y1="0" x2="0" y2="1">
+                        <stop offset="5%" stopColor="#F59E0B" stopOpacity={0.3}/>
+                        <stop offset="95%" stopColor="#F59E0B" stopOpacity={0}/>
+                      </linearGradient>
+                    </defs>
+                    <CartesianGrid strokeDasharray="3 3" stroke="currentColor" className="text-neutral-200 dark:text-neutral-700" opacity={0.5} vertical={false} />
                     <XAxis
                       dataKey="date"
-                      tick={{ fontSize: 10, fill: '#9CA3AF' }}
+                      axisLine={false}
+                      tickLine={false}
+                      tick={{ fontSize: 11, fill: 'currentColor' }}
+                      className="text-neutral-400 dark:text-neutral-500"
                       tickFormatter={(value) => {
                         const date = new Date(value);
                         return `${date.getMonth() + 1}/${date.getDate()}`;
                       }}
+                      dy={10}
                     />
                     <YAxis
-                      tick={{ fontSize: 10, fill: '#9CA3AF' }}
+                      axisLine={false}
+                      tickLine={false}
+                      tick={{ fontSize: 11, fill: 'currentColor' }}
+                      className="text-neutral-400 dark:text-neutral-500"
                       tickFormatter={(value) => {
                         const absValue = Math.abs(value);
-                        const formatted = absValue >= 1000 ? (absValue / 1000).toFixed(1) + 'k' : absValue.toString();
+                        const formatted = absValue >= 1000 ? (absValue / 1000).toFixed(0) + 'k' : absValue.toString();
                         return value < 0 ? `-$${formatted}` : `$${formatted}`;
                       }}
+                      dx={-5}
                     />
-                    <Tooltip
-                      contentStyle={{
-                        backgroundColor: '#1F2937',
-                        border: '1px solid #374151',
-                        borderRadius: '8px',
-                        fontSize: '12px'
-                      }}
-                      labelFormatter={(value) => new Date(value).toLocaleDateString()}
-                      formatter={(value: number, name: string) => [
-                        `$${value.toLocaleString()}`,
-                        name === 'moneyIn' ? 'Cash In' : name === 'moneyOut' ? 'Cash Out' : 'Net Revenue'
-                      ]}
-                    />
-                    <Legend
-                      formatter={(value) => value === 'moneyIn' ? 'Cash In' : value === 'moneyOut' ? 'Cash Out' : 'Net Revenue'}
-                      wrapperStyle={{ fontSize: '12px' }}
-                    />
-                    <Line type="monotone" dataKey="moneyIn" stroke="#22C55E" strokeWidth={2} dot={false} />
-                    <Line type="monotone" dataKey="moneyOut" stroke="#EF4444" strokeWidth={2} dot={false} />
-                    <Line type="monotone" dataKey="netRevenue" stroke="#F59E0B" strokeWidth={2} dot={false} />
-                  </LineChart>
+                    <Tooltip content={<CustomTooltip />} />
+                    <Area type="monotone" dataKey="moneyIn" stroke="#22C55E" strokeWidth={2} fill="url(#colorMoneyIn)" />
+                    <Area type="monotone" dataKey="moneyOut" stroke="#EF4444" strokeWidth={2} fill="url(#colorMoneyOut)" />
+                    <Area type="monotone" dataKey="netRevenue" stroke="#F59E0B" strokeWidth={2.5} fill="url(#colorNetRevenue)" />
+                  </AreaChart>
                 </ResponsiveContainer>
               </div>
             </div>
@@ -883,50 +907,74 @@ export default function DashboardPage() {
         {financialTrends && financialTrends.data.length > 0 && (
           <div className="bg-white dark:bg-neutral-900 border border-neutral-200 dark:border-neutral-800 rounded-xl overflow-hidden">
             <div className="px-5 py-4 border-b border-neutral-200 dark:border-neutral-800">
-              <h2 className="font-semibold text-neutral-900 dark:text-white">Revenue Trends</h2>
-              <p className="text-xs text-neutral-500 dark:text-neutral-400 mt-0.5">{financialTrends.timeframe}</p>
+              <div className="flex items-center justify-between">
+                <div>
+                  <h2 className="font-semibold text-neutral-900 dark:text-white">Revenue Trends</h2>
+                  <p className="text-xs text-neutral-500 dark:text-neutral-400 mt-0.5">{financialTrends.timeframe}</p>
+                </div>
+                <div className="flex items-center gap-4">
+                  <div className="flex items-center gap-1.5">
+                    <div className="w-2.5 h-2.5 rounded-full bg-green-500" />
+                    <span className="text-xs text-neutral-500 dark:text-neutral-400">Cash In</span>
+                  </div>
+                  <div className="flex items-center gap-1.5">
+                    <div className="w-2.5 h-2.5 rounded-full bg-red-500" />
+                    <span className="text-xs text-neutral-500 dark:text-neutral-400">Cash Out</span>
+                  </div>
+                  <div className="flex items-center gap-1.5">
+                    <div className="w-2.5 h-2.5 rounded-full bg-yellow-500" />
+                    <span className="text-xs text-neutral-500 dark:text-neutral-400">Net</span>
+                  </div>
+                </div>
+              </div>
             </div>
-            <div className="p-4" style={{ height: 300 }}>
+            <div className="p-4 pt-6" style={{ height: 320 }}>
               <ResponsiveContainer width="100%" height="100%">
-                <LineChart data={financialTrends.data} margin={{ top: 5, right: 20, left: 0, bottom: 5 }}>
-                  <CartesianGrid strokeDasharray="3 3" stroke="#374151" opacity={0.3} />
+                <AreaChart data={financialTrends.data} margin={{ top: 5, right: 10, left: -10, bottom: 5 }}>
+                  <defs>
+                    <linearGradient id="colorMoneyInAdmin" x1="0" y1="0" x2="0" y2="1">
+                      <stop offset="5%" stopColor="#22C55E" stopOpacity={0.2}/>
+                      <stop offset="95%" stopColor="#22C55E" stopOpacity={0}/>
+                    </linearGradient>
+                    <linearGradient id="colorMoneyOutAdmin" x1="0" y1="0" x2="0" y2="1">
+                      <stop offset="5%" stopColor="#EF4444" stopOpacity={0.2}/>
+                      <stop offset="95%" stopColor="#EF4444" stopOpacity={0}/>
+                    </linearGradient>
+                    <linearGradient id="colorNetRevenueAdmin" x1="0" y1="0" x2="0" y2="1">
+                      <stop offset="5%" stopColor="#F59E0B" stopOpacity={0.3}/>
+                      <stop offset="95%" stopColor="#F59E0B" stopOpacity={0}/>
+                    </linearGradient>
+                  </defs>
+                  <CartesianGrid strokeDasharray="3 3" stroke="currentColor" className="text-neutral-200 dark:text-neutral-700" opacity={0.5} vertical={false} />
                   <XAxis
                     dataKey="date"
-                    tick={{ fontSize: 10, fill: '#9CA3AF' }}
+                    axisLine={false}
+                    tickLine={false}
+                    tick={{ fontSize: 11, fill: 'currentColor' }}
+                    className="text-neutral-400 dark:text-neutral-500"
                     tickFormatter={(value) => {
                       const date = new Date(value);
                       return `${date.getMonth() + 1}/${date.getDate()}`;
                     }}
+                    dy={10}
                   />
                   <YAxis
-                    tick={{ fontSize: 10, fill: '#9CA3AF' }}
+                    axisLine={false}
+                    tickLine={false}
+                    tick={{ fontSize: 11, fill: 'currentColor' }}
+                    className="text-neutral-400 dark:text-neutral-500"
                     tickFormatter={(value) => {
                       const absValue = Math.abs(value);
-                      const formatted = absValue >= 1000 ? (absValue / 1000).toFixed(1) + 'k' : absValue.toString();
+                      const formatted = absValue >= 1000 ? (absValue / 1000).toFixed(0) + 'k' : absValue.toString();
                       return value < 0 ? `-$${formatted}` : `$${formatted}`;
                     }}
+                    dx={-5}
                   />
-                  <Tooltip
-                    contentStyle={{
-                      backgroundColor: '#1F2937',
-                      border: '1px solid #374151',
-                      borderRadius: '8px',
-                      fontSize: '12px'
-                    }}
-                    labelFormatter={(value) => new Date(value).toLocaleDateString()}
-                    formatter={(value: number, name: string) => [
-                      `$${value.toLocaleString()}`,
-                      name === 'moneyIn' ? 'Cash In' : name === 'moneyOut' ? 'Cash Out' : 'Net Revenue'
-                    ]}
-                  />
-                  <Legend
-                    formatter={(value) => value === 'moneyIn' ? 'Cash In' : value === 'moneyOut' ? 'Cash Out' : 'Net Revenue'}
-                    wrapperStyle={{ fontSize: '12px' }}
-                  />
-                  <Line type="monotone" dataKey="moneyIn" stroke="#22C55E" strokeWidth={2} dot={false} />
-                  <Line type="monotone" dataKey="moneyOut" stroke="#EF4444" strokeWidth={2} dot={false} />
-                  <Line type="monotone" dataKey="netRevenue" stroke="#F59E0B" strokeWidth={2} dot={false} />
-                </LineChart>
+                  <Tooltip content={<CustomTooltip />} />
+                  <Area type="monotone" dataKey="moneyIn" stroke="#22C55E" strokeWidth={2} fill="url(#colorMoneyInAdmin)" />
+                  <Area type="monotone" dataKey="moneyOut" stroke="#EF4444" strokeWidth={2} fill="url(#colorMoneyOutAdmin)" />
+                  <Area type="monotone" dataKey="netRevenue" stroke="#F59E0B" strokeWidth={2.5} fill="url(#colorNetRevenueAdmin)" />
+                </AreaChart>
               </ResponsiveContainer>
             </div>
           </div>
@@ -1166,5 +1214,50 @@ function QuickLink({ href, title, description, icon }: QuickLinkProps) {
       <h3 className="font-semibold text-neutral-900 dark:text-white mb-1">{title}</h3>
       <p className="text-sm text-neutral-500 dark:text-neutral-400">{description}</p>
     </a>
+  );
+}
+
+// Custom Tooltip Component for Charts
+interface CustomTooltipProps {
+  active?: boolean;
+  payload?: Array<{ dataKey?: string; value?: number }>;
+  label?: string;
+}
+
+function CustomTooltip({ active, payload, label }: CustomTooltipProps) {
+  if (!active || !payload || !payload.length) return null;
+
+  const formatValue = (value: number) => {
+    return value.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+  };
+
+  return (
+    <div className="bg-white dark:bg-neutral-800 border border-neutral-200 dark:border-neutral-700 rounded-xl shadow-lg p-3 min-w-[160px]">
+      <p className="text-xs font-medium text-neutral-500 dark:text-neutral-400 mb-2">
+        {label ? new Date(label).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' }) : ''}
+      </p>
+      <div className="space-y-1.5">
+        {payload.map((entry, index: number) => {
+          const name = entry.dataKey === 'moneyIn' ? 'Cash In' :
+                       entry.dataKey === 'moneyOut' ? 'Cash Out' : 'Net Revenue';
+          const color = entry.dataKey === 'moneyIn' ? 'text-green-600 dark:text-green-400' :
+                        entry.dataKey === 'moneyOut' ? 'text-red-600 dark:text-red-400' :
+                        'text-yellow-600 dark:text-yellow-400';
+          const dotColor = entry.dataKey === 'moneyIn' ? 'bg-green-500' :
+                           entry.dataKey === 'moneyOut' ? 'bg-red-500' : 'bg-yellow-500';
+          return (
+            <div key={index} className="flex items-center justify-between gap-4">
+              <div className="flex items-center gap-1.5">
+                <div className={`w-2 h-2 rounded-full ${dotColor}`} />
+                <span className="text-xs text-neutral-600 dark:text-neutral-300">{name}</span>
+              </div>
+              <span className={`text-xs font-semibold ${color}`}>
+                ${formatValue(entry.value || 0)}
+              </span>
+            </div>
+          );
+        })}
+      </div>
+    </div>
   );
 }
