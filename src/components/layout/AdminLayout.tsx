@@ -24,7 +24,8 @@ import {
   Receipt,
   Send,
   ChevronRight,
-  Gamepad2
+  Gamepad2,
+  UserCheck
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 
@@ -139,6 +140,7 @@ export default function AdminLayout({ children, user: userProp }: AdminLayoutPro
     ...(user?.role === 'super_admin' ? [{ href: '/admin/logs', label: 'Live Logs', icon: FileText }] : []),
     { href: '/admin/stores', label: 'Venues', icon: Store, permissions: ['view_all_stores', 'view_assigned_stores'] },
     { href: '/admin/users', label: 'Users', icon: Users, permissions: ['view_users', 'manage_users'] },
+    { href: '/admin/kyc', label: 'KYC Verify', icon: UserCheck, permissions: ['verify_user_age'] },
     { href: '/admin/settings', label: 'Settings', icon: Settings },
   ];
 
