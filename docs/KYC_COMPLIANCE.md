@@ -250,12 +250,27 @@ Suspicious patterns flagged:
 | Endpoint | Method | Auth | Purpose |
 |----------|--------|------|---------|
 | `/api/kyc/verify` | POST | venue_staff+ | Verify a user |
+| `/api/kyc/venues` | GET | venue_staff+ | List venues for verification dropdown |
 | `/api/kyc/pending` | GET | venue_staff+ | List pending users |
 | `/api/kyc/history` | GET | venue_manager+ | Verification history |
 | `/api/kyc/stats` | GET | gambino_ops+ | KYC statistics |
 | `/api/kyc/reject/:userId` | PUT | venue_manager+ | Reject verification |
 | `/api/kyc/user/:userId` | GET | self/staff | Check status |
 | `/api/kyc/manage/:userId` | PUT | super_admin | Compliance actions |
+
+### Age Verification
+
+Separate from KYC, users can also have age verification status tracked:
+
+| Endpoint | Method | Auth | Purpose |
+|----------|--------|------|---------|
+| `/api/admin/users/:userId` | PUT | MANAGE_USERS | Update user including `isAgeVerified` |
+| `/api/admin/users/:userId/verify-age` | POST | MANAGE_USERS | Toggle age verification |
+
+Age verification fields:
+- `isAgeVerified`: Boolean
+- `ageVerifiedAt`: Date
+- `ageVerifiedBy`: ObjectId (staff who verified)
 
 ---
 
@@ -301,7 +316,7 @@ For compliance questions:
 ---
 
 *Last Updated: 2026-01-13*
-*Version: 1.1*
+*Version: 1.2*
 
 ### Document History
 
@@ -309,3 +324,4 @@ For compliance questions:
 |---------|------|---------|
 | 1.0 | 2026-01-13 | Initial KYC compliance documentation |
 | 1.1 | 2026-01-13 | Added KYC Rewards section with user bonus (25 GG) |
+| 1.2 | 2026-01-13 | Added venues endpoint, age verification section |
