@@ -1,7 +1,7 @@
 'use client';
 
 import { useState, useEffect, useCallback } from 'react';
-import { Search, DollarSign, AlertCircle, CheckCircle2, X, Receipt, Wallet } from 'lucide-react';
+import { Search, DollarSign, AlertCircle, CheckCircle2, X, Receipt, Wallet, ShieldCheck, ShieldX } from 'lucide-react';
 import AdminLayout from '@/components/layout/AdminLayout';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -22,6 +22,9 @@ interface Customer {
   walletAddress?: string;
   balance: number;
   lastActivity?: string;
+  kycStatus?: string;
+  kycVerified?: boolean;
+  kycVerifiedAt?: string;
 }
 
 interface ExchangeRate {
@@ -447,11 +450,24 @@ export default function CashoutPage() {
                   <div
                     key={customer._id}
                     onClick={() => selectCustomer(customer)}
-                    className="p-4 hover:bg-gray-50 dark:hover:bg-gray-900 cursor-pointer transition-colors"
+                    className={`p-4 hover:bg-gray-50 dark:hover:bg-gray-900 cursor-pointer transition-colors ${!customer.kycVerified ? 'border-l-4 border-amber-500' : ''}`}
                   >
                     <div className="flex justify-between items-start gap-4">
                       <div className="flex-1 min-w-0">
-                        <p className="font-semibold truncate">{customer.fullName}</p>
+                        <div className="flex items-center gap-2">
+                          <p className="font-semibold truncate">{customer.fullName}</p>
+                          {customer.kycVerified ? (
+                            <span className="inline-flex items-center gap-1 px-2 py-0.5 bg-green-100 dark:bg-green-900/30 text-green-700 dark:text-green-400 text-xs rounded-full">
+                              <ShieldCheck className="w-3 h-3" />
+                              KYC
+                            </span>
+                          ) : (
+                            <span className="inline-flex items-center gap-1 px-2 py-0.5 bg-amber-100 dark:bg-amber-900/30 text-amber-700 dark:text-amber-400 text-xs rounded-full">
+                              <ShieldX className="w-3 h-3" />
+                              No KYC
+                            </span>
+                          )}
+                        </div>
                         <div className="space-y-0.5 mt-1">
                           <p className="text-sm text-gray-600 dark:text-gray-400 truncate">
                             ✉️ {customer.email}
@@ -492,18 +508,36 @@ export default function CashoutPage() {
 
             {/* Selected Customer Display */}
             {selectedCustomer && (
-              <div className="bg-blue-50 dark:bg-blue-950 border border-blue-200 dark:border-blue-800 rounded-lg p-4">
+              <div className={`rounded-lg p-4 ${selectedCustomer.kycVerified ? 'bg-blue-50 dark:bg-blue-950 border border-blue-200 dark:border-blue-800' : 'bg-amber-50 dark:bg-amber-950 border border-amber-300 dark:border-amber-700'}`}>
                 <div className="flex justify-between items-start">
                   <div>
-                    <p className="font-semibold text-blue-900 dark:text-blue-100">{selectedCustomer.fullName}</p>
-                    <p className="text-sm text-blue-700 dark:text-blue-300">{selectedCustomer.email}</p>
+                    <div className="flex items-center gap-2 mb-1">
+                      <p className={`font-semibold ${selectedCustomer.kycVerified ? 'text-blue-900 dark:text-blue-100' : 'text-amber-900 dark:text-amber-100'}`}>{selectedCustomer.fullName}</p>
+                      {selectedCustomer.kycVerified ? (
+                        <span className="inline-flex items-center gap-1 px-2 py-0.5 bg-green-100 dark:bg-green-900/50 text-green-700 dark:text-green-400 text-xs rounded-full">
+                          <ShieldCheck className="w-3 h-3" />
+                          KYC Verified
+                        </span>
+                      ) : (
+                        <span className="inline-flex items-center gap-1 px-2 py-0.5 bg-amber-200 dark:bg-amber-800/50 text-amber-800 dark:text-amber-300 text-xs rounded-full font-medium">
+                          <ShieldX className="w-3 h-3" />
+                          KYC Required
+                        </span>
+                      )}
+                    </div>
+                    <p className={`text-sm ${selectedCustomer.kycVerified ? 'text-blue-700 dark:text-blue-300' : 'text-amber-700 dark:text-amber-300'}`}>{selectedCustomer.email}</p>
                     {selectedCustomer.phone && (
-                      <p className="text-sm text-blue-700 dark:text-blue-300">📞 {selectedCustomer.phone}</p>
+                      <p className={`text-sm ${selectedCustomer.kycVerified ? 'text-blue-700 dark:text-blue-300' : 'text-amber-700 dark:text-amber-300'}`}>📞 {selectedCustomer.phone}</p>
                     )}
                     {selectedCustomer.walletAddress && selectedCustomer.walletAddress !== 'No wallet' && (
-                      <p className="text-xs text-blue-600 dark:text-blue-400 font-mono mt-1 flex items-center gap-1">
+                      <p className={`text-xs font-mono mt-1 flex items-center gap-1 ${selectedCustomer.kycVerified ? 'text-blue-600 dark:text-blue-400' : 'text-amber-600 dark:text-amber-400'}`}>
                         <Wallet className="w-3 h-3" />
                         {selectedCustomer.walletAddress.slice(0, 12)}...{selectedCustomer.walletAddress.slice(-8)}
+                      </p>
+                    )}
+                    {!selectedCustomer.kycVerified && (
+                      <p className="text-xs text-red-600 dark:text-red-400 mt-2 font-medium">
+                        ⚠️ This customer must complete KYC verification before cashing out. Verify their ID first.
                       </p>
                     )}
                     <p className="text-sm text-blue-700 dark:text-blue-300 mt-2 font-semibold">
