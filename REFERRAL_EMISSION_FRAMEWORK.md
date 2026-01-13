@@ -1,9 +1,9 @@
 # REFERRAL EMISSION FRAMEWORK
 
-**Version**: 1.1
+**Version**: 2.0
 **Created**: 2026-01-12
-**Updated**: 2026-01-12
-**Status**: Draft - Pending Implementation
+**Updated**: 2026-01-13
+**Status**: Implemented - KYC-Based Verification
 
 ---
 
@@ -234,13 +234,71 @@ async function canDistributeReferral() {
 
 ### New User Requirements
 - First-time Gambino registration
-- Complete KYC verification
-- First session within 14 days of registration
+- **In-person KYC verification by venue staff** (REQUIRED)
+- KYC within 14 days of registration
 
 ### Venue Requirements
 - Active venue in good standing
 - Connected to Gambino network
 - Staff trained on referral process
+- Staff have `verify_user_age` permission
+
+---
+
+## 6.1 KYC Verification System (NEW)
+
+### What is KYC Verification?
+
+KYC (Know Your Customer) verification is the process where venue staff verify a user's identity in person by checking their government-issued ID. This replaces the previous session-based verification.
+
+### How It Works
+
+```
+User signs up with referral code
+      │
+      └─→ Referral status: 'pending'
+              │
+              ▼
+User visits venue, staff checks ID
+      │
+      └─→ POST /api/kyc/verify (by venue_staff/venue_manager/gambino_ops)
+              │
+              ├─→ User.kycStatus = 'verified'
+              ├─→ User.gambinoBalance += 25 GG (user KYC bonus)
+              ├─→ Venue gets 25 GG (venue KYC bonus)
+              ├─→ Referral.status = 'verified' (if has pending referral)
+              └─→ If referral: trigger full referral rewards
+```
+
+### KYC Rewards
+
+| Recipient | Amount | Trigger |
+|-----------|--------|---------|
+| **User** | 25 GG | Every KYC verification |
+| **Venue** | 25 GG | Every KYC verification |
+
+These are **base rewards** that apply to ALL users who get KYC verified, regardless of whether they were referred.
+
+### KYC + Referral Combined Rewards
+
+When a KYC'd user also has a pending referral:
+
+| Recipient | KYC Reward | Referral Reward | Total |
+|-----------|------------|-----------------|-------|
+| **New User** | 25 GG | 100 GG | **125 GG** |
+| **Referrer** | - | 150-350 GG (tier) | **150-350 GG** |
+| **Venue** | 25 GG | 50 GG | **75 GG** |
+
+### API Endpoints
+
+| Endpoint | Method | Auth | Purpose |
+|----------|--------|------|---------|
+| `/api/kyc/verify` | POST | venue_staff+ | KYC verify a user |
+| `/api/kyc/pending` | GET | venue_staff+ | List users needing KYC |
+| `/api/kyc/history` | GET | venue_manager+ | Venue's KYC history |
+| `/api/kyc/stats` | GET | gambino_ops+ | KYC statistics |
+
+See `docs/KYC_COMPLIANCE.md` for full compliance documentation
 
 ---
 
@@ -359,12 +417,17 @@ Per Gambino compliance guidelines, all communications must use:
 |---------|------|--------|---------|
 | 1.0 | 2026-01-12 | System | Initial framework based on on-chain treasury analysis |
 | 1.1 | 2026-01-12 | System | Added Budget vs. Payout Separation section, Budget Overflow Handling, `pending_budget` status |
+| 2.0 | 2026-01-13 | System | **KYC-Based Verification**: Replaced session-based verification with in-person KYC by venue staff. Added KYC rewards (25 GG user, 25 GG venue). Backend API implemented. |
 
 ---
 
-**Next Steps**:
-1. [ ] Legal review of referral terms
-2. [ ] Smart contract development
-3. [ ] Backend API implementation
-4. [ ] Pilot venue selection
-5. [ ] Staff training materials
+**Implementation Status**:
+1. [x] Backend API implementation (`/api/kyc/*` routes)
+2. [x] KYC verification model (`VenueKycReward`)
+3. [x] RBAC permissions added
+4. [x] Admin UI (`/admin/kyc` page)
+5. [x] Compliance documentation (`docs/KYC_COMPLIANCE.md`)
+6. [ ] Legal review of referral terms
+7. [ ] Smart contract development (token distribution)
+8. [ ] Pilot venue selection
+9. [ ] Staff training materials

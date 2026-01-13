@@ -23,6 +23,12 @@ interface PendingUser {
   createdAt?: string;
   hasPendingReferral?: boolean;
   referralId?: string;
+  kycStatus?: string;
+  gambinoBalance?: number;
+  referralStatus?: string;
+  acquisitionSource?: string; // 'direct', 'link', 'qr', 'social', 'referral'
+  referrerName?: string;
+  referralVenueId?: string;
 }
 
 interface KycStats {
@@ -119,11 +125,15 @@ export default function KycPage() {
     setVerifyModal(prev => ({ ...prev, submitting: true }));
 
     try {
-      await api.post('/api/kyc/verify', {
+      const res = await api.post('/api/kyc/verify', {
         userId: verifyModal.user._id,
         documentType: verifyModal.documentType,
         notes: verifyModal.notes,
       });
+
+      // Show success message
+      const userBonus = res.data.userKycBonus || 25;
+      alert(`✅ KYC Verified! User received ${userBonus} GG bonus.`);
 
       // Close modal and refresh
       setVerifyModal({
@@ -136,10 +146,24 @@ export default function KycPage() {
 
       // Refresh data
       loadData();
-    } catch (err) {
+    } catch (err: any) {
       console.error('Verification failed:', err);
-      alert(err instanceof Error ? err.message : 'Verification failed');
-      setVerifyModal(prev => ({ ...prev, submitting: false }));
+      const errorMsg = err?.response?.data?.error || err?.response?.data?.message || err?.message || 'Verification failed';
+      alert(`❌ ${errorMsg}`);
+
+      // If already verified, close modal and refresh to update UI
+      if (err?.response?.data?.error?.includes('already')) {
+        setVerifyModal({
+          open: false,
+          user: null,
+          notes: '',
+          documentType: 'id',
+          submitting: false,
+        });
+        loadData();
+      } else {
+        setVerifyModal(prev => ({ ...prev, submitting: false }));
+      }
     }
   };
 
@@ -291,7 +315,7 @@ export default function KycPage() {
                   key={user._id}
                   className="bg-white dark:bg-neutral-900 border border-neutral-200 dark:border-neutral-800 rounded-xl p-4"
                 >
-                  <div className="flex items-center gap-3">
+                  <div className="flex items-start gap-3">
                     {/* Avatar */}
                     <div className="w-10 h-10 rounded-full bg-gradient-to-br from-yellow-400 to-amber-500 flex items-center justify-center text-neutral-900 font-semibold text-sm flex-shrink-0">
                       {user.firstName?.charAt(0) || user.email?.charAt(0)?.toUpperCase() || 'U'}
@@ -299,35 +323,70 @@ export default function KycPage() {
 
                     {/* Content */}
                     <div className="flex-1 min-w-0">
-                      <div className="flex items-center gap-2 mb-1">
+                      <div className="flex items-center gap-2 mb-1 flex-wrap">
                         <span className="font-medium text-neutral-900 dark:text-white truncate">
                           {user.firstName || user.lastName
                             ? `${user.firstName || ''} ${user.lastName || ''}`.trim()
                             : 'No name'}
                         </span>
-                        {user.hasPendingReferral && (
-                          <Badge className="bg-purple-100 dark:bg-purple-950/50 text-purple-700 dark:text-purple-300 text-xs">
-                            Referral
-                          </Badge>
-                        )}
+                        {/* KYC Status Badge */}
+                        <Badge className={`text-xs ${
+                          user.kycStatus === 'verified'
+                            ? 'bg-green-100 dark:bg-green-950/50 text-green-700 dark:text-green-400'
+                            : user.kycStatus === 'rejected'
+                              ? 'bg-red-100 dark:bg-red-950/50 text-red-700 dark:text-red-400'
+                              : 'bg-amber-100 dark:bg-amber-950/50 text-amber-700 dark:text-amber-400'
+                        }`}>
+                          {user.kycStatus === 'verified' ? '✓ KYC\'d' : user.kycStatus === 'rejected' ? '✗ Rejected' : '○ Pending'}
+                        </Badge>
+                        {/* Acquisition Source Badge */}
+                        <Badge className={`text-xs ${
+                          user.acquisitionSource === 'direct'
+                            ? 'bg-gray-100 dark:bg-gray-800 text-gray-600 dark:text-gray-400'
+                            : user.acquisitionSource === 'qr'
+                              ? 'bg-blue-100 dark:bg-blue-950/50 text-blue-700 dark:text-blue-400'
+                              : 'bg-purple-100 dark:bg-purple-950/50 text-purple-700 dark:text-purple-300'
+                        }`}>
+                          {user.acquisitionSource === 'direct' ? 'Direct signup' :
+                           user.acquisitionSource === 'qr' ? 'QR code' :
+                           user.acquisitionSource === 'link' ? 'Referral link' :
+                           user.acquisitionSource === 'social' ? 'Social share' : 'Referred'}
+                        </Badge>
                       </div>
                       <p className="text-sm text-neutral-500 dark:text-neutral-400 truncate">
                         {user.email}
                       </p>
-                      <p className="text-xs text-neutral-400 dark:text-neutral-500 truncate mt-1">
-                        {user.walletAddress ? `${user.walletAddress.slice(0, 8)}...${user.walletAddress.slice(-6)}` : 'No wallet'}
-                      </p>
+                      {/* Referrer info */}
+                      {user.referrerName && (
+                        <p className="text-xs text-purple-600 dark:text-purple-400 mt-0.5">
+                          Referred by: {user.referrerName}
+                        </p>
+                      )}
+                      <div className="flex items-center gap-3 mt-1 text-xs text-neutral-400 dark:text-neutral-500">
+                        <span>{user.walletAddress ? `${user.walletAddress.slice(0, 6)}...${user.walletAddress.slice(-4)}` : 'No wallet'}</span>
+                        <span>•</span>
+                        <span className="text-yellow-600 dark:text-yellow-500 font-medium">{user.gambinoBalance?.toLocaleString() || 0} GG</span>
+                        <span>•</span>
+                        <span>{user.createdAt ? new Date(user.createdAt).toLocaleDateString() : 'N/A'}</span>
+                      </div>
                     </div>
 
-                    {/* Verify Button */}
-                    <Button
-                      onClick={() => openVerifyModal(user)}
-                      size="sm"
-                      className="bg-green-600 hover:bg-green-700 text-white flex-shrink-0"
-                    >
-                      <CheckCircle className="w-4 h-4 mr-1" />
-                      Verify
-                    </Button>
+                    {/* Verify Button - only show if not already verified */}
+                    {user.kycStatus !== 'verified' ? (
+                      <Button
+                        onClick={() => openVerifyModal(user)}
+                        size="sm"
+                        className="bg-green-600 hover:bg-green-700 text-white flex-shrink-0"
+                      >
+                        <CheckCircle className="w-4 h-4 mr-1" />
+                        Verify
+                      </Button>
+                    ) : (
+                      <Badge className="bg-green-100 dark:bg-green-900/50 text-green-700 dark:text-green-400 flex-shrink-0">
+                        <CheckCircle className="w-3 h-3 mr-1" />
+                        Verified
+                      </Badge>
+                    )}
                   </div>
                 </div>
               ))

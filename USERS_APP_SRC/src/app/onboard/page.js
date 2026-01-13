@@ -99,7 +99,7 @@ export default function OnboardPage() {
     <div className="max-w-xl mx-auto">
       <div className="text-center mb-6">
         <h1 className="text-3xl font-extrabold text-gold">Welcome to Gambino</h1>
-        <p className="text-zinc-400">Farm Luck. Mine Destiny.</p>
+        <p className="text-zinc-400">Prove Your Luck.</p>
       </div>
 
       {/* Progress Bar */}
@@ -177,8 +177,8 @@ export default function OnboardPage() {
                   />
                   <span className="text-sm text-zinc-300">
                     I agree to the{' '}
-                    <a href="/terms" target="_blank" className="text-gold hover:text-yellow-400 underline">
-                      Terms of Service
+                    <a href="https://gambino.gold/legal/vdv-terms" target="_blank" className="text-gold hover:text-yellow-400 underline">
+                      VDV Terms of Service
                     </a>
                     {' '}and understand the risks of cryptocurrency
                   </span>
@@ -194,8 +194,8 @@ export default function OnboardPage() {
                   />
                   <span className="text-sm text-zinc-300">
                     I agree to the{' '}
-                    <a href="/privacy" target="_blank" className="text-gold hover:text-yellow-400 underline">
-                      Privacy Policy
+                    <a href="https://gambino.gold/legal/vdv-privacy" target="_blank" className="text-gold hover:text-yellow-400 underline">
+                      VDV Privacy Policy
                     </a>
                     {' '}and data collection practices
                   </span>
