@@ -121,6 +121,10 @@ export default function UserEditPage() {
       const rawUserData = data.user || data;
       // Anonymize user data in demo mode
       const userData = anonymizeUser(rawUserData);
+      // Map isAgeVerified to ageVerified for frontend consistency
+      userData.ageVerified = rawUserData.isAgeVerified || rawUserData.ageVerified || false;
+      userData.ageVerifiedAt = rawUserData.ageVerifiedAt;
+      userData.ageVerifiedBy = rawUserData.ageVerifiedBy;
       setUser(userData);
       setFormData({
         firstName: userData.firstName || '',
@@ -130,7 +134,7 @@ export default function UserEditPage() {
         role: userData.role || 'user',
         isActive: userData.isActive !== false,
         assignedVenues: rawUserData.assignedVenues || [], // Keep real venue IDs for internal use
-        ageVerified: userData.ageVerified || false,
+        ageVerified: userData.isAgeVerified || userData.ageVerified || false,
       });
     } catch (err) {
       console.error('Failed to load user:', err);
