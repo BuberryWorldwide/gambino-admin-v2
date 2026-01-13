@@ -2,10 +2,11 @@
 
 import { useEffect, useState } from 'react';
 import { useRouter, useParams } from 'next/navigation';
-import { 
-  ArrowLeft, Save, X, Mail, Phone, User as UserIcon, 
-  CheckCircle, XCircle, Search, Wallet, Coins, Calendar, 
-  Clock, Copy, Check 
+import {
+  ArrowLeft, Save, X, Mail, Phone, User as UserIcon,
+  CheckCircle, XCircle, Search, Wallet, Coins, Calendar,
+  Clock, Copy, Check, Shield, ShieldCheck, ShieldX,
+  Building, Gift, AlertTriangle, FileText
 } from 'lucide-react';
 import api from '@/lib/api';
 import { anonymizeUser, anonymizeStores } from '@/lib/demoAnonymizer';
@@ -45,6 +46,25 @@ interface User {
   ageVerified?: boolean;
   ageVerifiedAt?: string;
   ageVerifiedBy?: string;
+  // KYC fields
+  kycStatus?: 'pending' | 'verified' | 'rejected' | 'expired';
+  kycVerifiedAt?: string;
+  kycVerifiedBy?: { firstName?: string; lastName?: string; email?: string };
+  kycVerifiedAtVenue?: string;
+  kycVerificationMethod?: string;
+  kycNotes?: string;
+  // Referral info
+  referredBy?: string;
+  referralCode?: string;
+}
+
+interface ReferralInfo {
+  _id: string;
+  referrerId: { firstName?: string; lastName?: string; email?: string };
+  status: string;
+  code: string;
+  createdAt: string;
+  kycCompletedAt?: string;
 }
 
 interface Store {
@@ -63,6 +83,7 @@ export default function UserEditPage() {
   
   const [user, setUser] = useState<User | null>(null);
   const [stores, setStores] = useState<Store[]>([]);
+  const [referralInfo, setReferralInfo] = useState<ReferralInfo | null>(null);
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [activeTab, setActiveTab] = useState('details');
@@ -70,6 +91,12 @@ export default function UserEditPage() {
   const [error, setError] = useState('');
   const [copied, setCopied] = useState(false);
   const [verifyingAge, setVerifyingAge] = useState(false);
+  const [kycVerifying, setKycVerifying] = useState(false);
+  const [kycModal, setKycModal] = useState({
+    open: false,
+    notes: '',
+    documentType: 'id'
+  });
   
   const [formData, setFormData] = useState({
     firstName: '',
@@ -85,6 +112,7 @@ export default function UserEditPage() {
   useEffect(() => {
     loadUser();
     loadStores();
+    loadReferralInfo();
   }, [userId]);
 
   const loadUser = async () => {
@@ -120,6 +148,43 @@ export default function UserEditPage() {
       setStores(storeData);
     } catch (err) {
       console.error('Failed to load stores:', err);
+    }
+  };
+
+  const loadReferralInfo = async () => {
+    try {
+      const { data } = await api.get(`/api/admin/users/${userId}/referral`);
+      if (data.referral) {
+        setReferralInfo(data.referral);
+      }
+    } catch (err) {
+      // User might not have a referral, that's ok
+      console.log('No referral info found');
+    }
+  };
+
+  const handleKycVerify = async () => {
+    if (!user) return;
+    setKycVerifying(true);
+    setError('');
+    try {
+      await api.post('/api/kyc/verify', {
+        userId: user._id,
+        documentType: kycModal.documentType,
+        notes: kycModal.notes
+      });
+      // Reload user data
+      await loadUser();
+      await loadReferralInfo();
+      setKycModal({ open: false, notes: '', documentType: 'id' });
+    } catch (err: unknown) {
+      if (axios.isAxiosError(err)) {
+        setError(err.response?.data?.error || 'Failed to verify KYC');
+      } else {
+        setError('Failed to verify KYC');
+      }
+    } finally {
+      setKycVerifying(false);
     }
   };
 
@@ -411,6 +476,20 @@ export default function UserEditPage() {
           >
             Profile Details
           </button>
+          <button
+            onClick={() => setActiveTab('kyc')}
+            className={`px-4 py-2 font-medium transition-colors flex items-center gap-2 ${
+              activeTab === 'kyc'
+                ? 'text-yellow-600 dark:text-yellow-400 border-b-2 border-yellow-600 dark:border-yellow-400'
+                : 'text-gray-600 dark:text-gray-400 hover:text-gray-900 dark:hover:text-gray-100'
+            }`}
+          >
+            <Shield className="w-4 h-4" />
+            KYC & Verification
+            {user?.kycStatus !== 'verified' && (
+              <span className="w-2 h-2 rounded-full bg-yellow-500 animate-pulse" />
+            )}
+          </button>
           {showStoreTab && (
             <button
               onClick={() => setActiveTab('stores')}
@@ -621,6 +700,296 @@ export default function UserEditPage() {
               </div>
             </div>
           </Card>
+        )}
+
+        {/* KYC & Verification Tab */}
+        {activeTab === 'kyc' && (
+          <div className="space-y-6">
+            {/* KYC Status Card - Prominent */}
+            <Card className={`p-6 border-2 ${
+              user?.kycStatus === 'verified'
+                ? 'bg-green-50 dark:bg-green-900/20 border-green-500'
+                : user?.kycStatus === 'rejected'
+                ? 'bg-red-50 dark:bg-red-900/20 border-red-500'
+                : 'bg-yellow-50 dark:bg-yellow-900/20 border-yellow-500'
+            }`}>
+              <div className="flex items-start justify-between">
+                <div className="flex items-center gap-4">
+                  <div className={`p-4 rounded-full ${
+                    user?.kycStatus === 'verified'
+                      ? 'bg-green-500/20'
+                      : user?.kycStatus === 'rejected'
+                      ? 'bg-red-500/20'
+                      : 'bg-yellow-500/20'
+                  }`}>
+                    {user?.kycStatus === 'verified' ? (
+                      <ShieldCheck className="w-8 h-8 text-green-600 dark:text-green-400" />
+                    ) : user?.kycStatus === 'rejected' ? (
+                      <ShieldX className="w-8 h-8 text-red-600 dark:text-red-400" />
+                    ) : (
+                      <Shield className="w-8 h-8 text-yellow-600 dark:text-yellow-400" />
+                    )}
+                  </div>
+                  <div>
+                    <h3 className="text-2xl font-bold text-gray-900 dark:text-white">
+                      {user?.kycStatus === 'verified' ? 'KYC Verified' :
+                       user?.kycStatus === 'rejected' ? 'KYC Rejected' :
+                       'KYC Pending'}
+                    </h3>
+                    <p className="text-gray-600 dark:text-gray-400 mt-1">
+                      {user?.kycStatus === 'verified'
+                        ? 'Identity has been verified in person'
+                        : user?.kycStatus === 'rejected'
+                        ? 'Identity verification was rejected'
+                        : 'User has not been KYC verified yet'}
+                    </p>
+                    {user?.kycVerifiedAt && (
+                      <p className="text-sm text-gray-500 mt-2">
+                        Verified on {new Date(user.kycVerifiedAt).toLocaleDateString('en-US', {
+                          month: 'long', day: 'numeric', year: 'numeric', hour: '2-digit', minute: '2-digit'
+                        })}
+                      </p>
+                    )}
+                  </div>
+                </div>
+                {user?.kycStatus !== 'verified' && (
+                  <Button
+                    onClick={() => setKycModal({ ...kycModal, open: true })}
+                    className="bg-green-600 hover:bg-green-700 text-white"
+                  >
+                    <ShieldCheck className="w-4 h-4 mr-2" />
+                    Verify KYC Now
+                  </Button>
+                )}
+              </div>
+            </Card>
+
+            {/* Verification Details */}
+            {user?.kycStatus === 'verified' && (
+              <Card className="bg-white dark:bg-gray-900 border-gray-200 dark:border-gray-800">
+                <div className="p-6">
+                  <h4 className="text-lg font-semibold text-gray-900 dark:text-white mb-4 flex items-center gap-2">
+                    <FileText className="w-5 h-5" />
+                    Verification Details
+                  </h4>
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                    <div className="p-4 bg-gray-50 dark:bg-gray-800 rounded-lg">
+                      <p className="text-sm text-gray-500 dark:text-gray-400">Verified By</p>
+                      <p className="font-medium text-gray-900 dark:text-white mt-1">
+                        {user.kycVerifiedBy?.firstName} {user.kycVerifiedBy?.lastName}
+                      </p>
+                      {user.kycVerifiedBy?.email && (
+                        <p className="text-sm text-gray-500">{user.kycVerifiedBy.email}</p>
+                      )}
+                    </div>
+                    <div className="p-4 bg-gray-50 dark:bg-gray-800 rounded-lg">
+                      <p className="text-sm text-gray-500 dark:text-gray-400">Verified At Venue</p>
+                      <p className="font-medium text-gray-900 dark:text-white mt-1 flex items-center gap-2">
+                        <Building className="w-4 h-4" />
+                        {user.kycVerifiedAtVenue || 'Unknown venue'}
+                      </p>
+                    </div>
+                    <div className="p-4 bg-gray-50 dark:bg-gray-800 rounded-lg">
+                      <p className="text-sm text-gray-500 dark:text-gray-400">Verification Method</p>
+                      <p className="font-medium text-gray-900 dark:text-white mt-1">
+                        {user.kycVerificationMethod === 'in_person' ? 'In-Person ID Check' : user.kycVerificationMethod || 'In-Person'}
+                      </p>
+                    </div>
+                    {user.kycNotes && (
+                      <div className="p-4 bg-gray-50 dark:bg-gray-800 rounded-lg">
+                        <p className="text-sm text-gray-500 dark:text-gray-400">Notes</p>
+                        <p className="font-medium text-gray-900 dark:text-white mt-1">{user.kycNotes}</p>
+                      </div>
+                    )}
+                  </div>
+                </div>
+              </Card>
+            )}
+
+            {/* Referral Information */}
+            <Card className="bg-white dark:bg-gray-900 border-gray-200 dark:border-gray-800">
+              <div className="p-6">
+                <h4 className="text-lg font-semibold text-gray-900 dark:text-white mb-4 flex items-center gap-2">
+                  <Gift className="w-5 h-5 text-purple-500" />
+                  Referral Information
+                </h4>
+                {referralInfo ? (
+                  <div className="space-y-4">
+                    <div className="p-4 bg-purple-50 dark:bg-purple-900/20 rounded-lg border border-purple-200 dark:border-purple-800">
+                      <div className="flex items-center justify-between">
+                        <div>
+                          <p className="text-sm text-gray-500 dark:text-gray-400">Referred By</p>
+                          <p className="font-medium text-gray-900 dark:text-white mt-1">
+                            {referralInfo.referrerId?.firstName} {referralInfo.referrerId?.lastName}
+                          </p>
+                          <p className="text-sm text-gray-500">{referralInfo.referrerId?.email}</p>
+                        </div>
+                        <Badge className={
+                          referralInfo.status === 'distributed' ? 'bg-green-500/10 text-green-600 border-green-500/20' :
+                          referralInfo.status === 'verified' ? 'bg-blue-500/10 text-blue-600 border-blue-500/20' :
+                          'bg-yellow-500/10 text-yellow-600 border-yellow-500/20'
+                        }>
+                          {referralInfo.status}
+                        </Badge>
+                      </div>
+                    </div>
+                    <div className="grid grid-cols-2 gap-4">
+                      <div className="p-4 bg-gray-50 dark:bg-gray-800 rounded-lg">
+                        <p className="text-sm text-gray-500">Referral Code Used</p>
+                        <p className="font-mono font-medium text-gray-900 dark:text-white mt-1">{referralInfo.code}</p>
+                      </div>
+                      <div className="p-4 bg-gray-50 dark:bg-gray-800 rounded-lg">
+                        <p className="text-sm text-gray-500">Referred On</p>
+                        <p className="font-medium text-gray-900 dark:text-white mt-1">
+                          {new Date(referralInfo.createdAt).toLocaleDateString()}
+                        </p>
+                      </div>
+                    </div>
+                    {referralInfo.status === 'pending' && user?.kycStatus !== 'verified' && (
+                      <div className="p-4 bg-yellow-50 dark:bg-yellow-900/20 rounded-lg border border-yellow-200 dark:border-yellow-800">
+                        <div className="flex items-start gap-3">
+                          <AlertTriangle className="w-5 h-5 text-yellow-600 mt-0.5" />
+                          <div>
+                            <p className="font-medium text-yellow-800 dark:text-yellow-200">Referral Pending KYC</p>
+                            <p className="text-sm text-yellow-700 dark:text-yellow-300 mt-1">
+                              This user was referred but hasn&apos;t been KYC verified yet. Once KYC is verified,
+                              the referrer will receive their reward and this user will receive 25 GG welcome bonus.
+                            </p>
+                          </div>
+                        </div>
+                      </div>
+                    )}
+                  </div>
+                ) : (
+                  <div className="p-6 bg-gray-50 dark:bg-gray-800 rounded-lg text-center">
+                    <Gift className="w-12 h-12 text-gray-400 mx-auto mb-3" />
+                    <p className="text-gray-600 dark:text-gray-400">No referral information</p>
+                    <p className="text-sm text-gray-500 mt-1">This user signed up without a referral code</p>
+                  </div>
+                )}
+              </div>
+            </Card>
+
+            {/* User's Referral Code */}
+            <Card className="bg-white dark:bg-gray-900 border-gray-200 dark:border-gray-800">
+              <div className="p-6">
+                <h4 className="text-lg font-semibold text-gray-900 dark:text-white mb-4">User&apos;s Referral Code</h4>
+                {user?.referralCode ? (
+                  <div className="flex items-center gap-4">
+                    <code className="px-4 py-2 bg-gray-100 dark:bg-gray-800 rounded-lg font-mono text-lg">
+                      {user.referralCode}
+                    </code>
+                    <p className="text-gray-500 text-sm">Others can use this code to sign up</p>
+                  </div>
+                ) : (
+                  <p className="text-gray-500">User doesn&apos;t have a referral code yet</p>
+                )}
+              </div>
+            </Card>
+          </div>
+        )}
+
+        {/* KYC Verification Modal */}
+        {kycModal.open && (
+          <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50">
+            <Card className="w-full max-w-md mx-4 bg-white dark:bg-gray-900">
+              <div className="p-6">
+                <div className="flex items-center justify-between mb-6">
+                  <h3 className="text-xl font-bold text-gray-900 dark:text-white flex items-center gap-2">
+                    <ShieldCheck className="w-6 h-6 text-green-600" />
+                    Verify KYC
+                  </h3>
+                  <button
+                    onClick={() => setKycModal({ open: false, notes: '', documentType: 'id' })}
+                    className="text-gray-500 hover:text-gray-700"
+                  >
+                    <X className="w-5 h-5" />
+                  </button>
+                </div>
+
+                <div className="space-y-4">
+                  <div className="p-4 bg-gray-50 dark:bg-gray-800 rounded-lg">
+                    <p className="font-medium text-gray-900 dark:text-white">
+                      {user?.firstName} {user?.lastName}
+                    </p>
+                    <p className="text-sm text-gray-500">{user?.email}</p>
+                  </div>
+
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+                      Document Type
+                    </label>
+                    <select
+                      value={kycModal.documentType}
+                      onChange={(e) => setKycModal({ ...kycModal, documentType: e.target.value })}
+                      className="w-full px-3 py-2 bg-gray-50 dark:bg-gray-800 border border-gray-300 dark:border-gray-700 rounded-lg"
+                    >
+                      <option value="id">Driver&apos;s License</option>
+                      <option value="passport">Passport</option>
+                      <option value="state_id">State ID</option>
+                      <option value="military">Military ID</option>
+                    </select>
+                  </div>
+
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+                      Notes (optional)
+                    </label>
+                    <textarea
+                      value={kycModal.notes}
+                      onChange={(e) => setKycModal({ ...kycModal, notes: e.target.value })}
+                      placeholder="e.g., TN Driver's License verified"
+                      className="w-full px-3 py-2 bg-gray-50 dark:bg-gray-800 border border-gray-300 dark:border-gray-700 rounded-lg"
+                      rows={3}
+                    />
+                  </div>
+
+                  <div className="p-4 bg-green-50 dark:bg-green-900/20 rounded-lg border border-green-200 dark:border-green-800">
+                    <p className="text-sm text-green-800 dark:text-green-200 font-medium">Rewards on verification:</p>
+                    <ul className="text-sm text-green-700 dark:text-green-300 mt-1 space-y-1">
+                      <li>• User receives: 25 GG welcome bonus</li>
+                      <li>• Your venue receives: 25 GG</li>
+                      {referralInfo && <li>• Referrer receives: tier-based reward</li>}
+                    </ul>
+                  </div>
+
+                  <div className="p-4 bg-yellow-50 dark:bg-yellow-900/20 rounded-lg border border-yellow-200 dark:border-yellow-800">
+                    <p className="text-xs text-yellow-800 dark:text-yellow-200">
+                      By clicking Verify, you confirm that you have physically checked this user&apos;s
+                      government-issued ID and verified they are who they claim to be and are 18+ years old.
+                    </p>
+                  </div>
+                </div>
+
+                <div className="flex gap-3 mt-6">
+                  <Button
+                    onClick={() => setKycModal({ open: false, notes: '', documentType: 'id' })}
+                    variant="outline"
+                    className="flex-1"
+                  >
+                    Cancel
+                  </Button>
+                  <Button
+                    onClick={handleKycVerify}
+                    disabled={kycVerifying}
+                    className="flex-1 bg-green-600 hover:bg-green-700 text-white"
+                  >
+                    {kycVerifying ? (
+                      <>
+                        <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white mr-2" />
+                        Verifying...
+                      </>
+                    ) : (
+                      <>
+                        <ShieldCheck className="w-4 h-4 mr-2" />
+                        Verify KYC
+                      </>
+                    )}
+                  </Button>
+                </div>
+              </div>
+            </Card>
+          </div>
         )}
 
         {/* Wallet & Account Tab */}
