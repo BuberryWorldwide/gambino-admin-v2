@@ -6,7 +6,7 @@ import {
   ArrowLeft, Save, X, Mail, Phone, User as UserIcon,
   CheckCircle, XCircle, Search, Wallet, Coins, Calendar,
   Clock, Copy, Check, Shield, ShieldCheck, ShieldX,
-  Building, Gift, AlertTriangle, FileText
+  Building, Gift, AlertTriangle, FileText, RefreshCw
 } from 'lucide-react';
 import api from '@/lib/api';
 import { anonymizeUser, anonymizeStores } from '@/lib/demoAnonymizer';
@@ -80,7 +80,7 @@ export default function UserEditPage() {
   const router = useRouter();
   const params = useParams();
   const userId = params.id as string;
-  
+
   const [user, setUser] = useState<User | null>(null);
   const [stores, setStores] = useState<Store[]>([]);
   const [referralInfo, setReferralInfo] = useState<ReferralInfo | null>(null);
@@ -97,7 +97,7 @@ export default function UserEditPage() {
     notes: '',
     documentType: 'id'
   });
-  
+
   const [formData, setFormData] = useState({
     firstName: '',
     lastName: '',
@@ -194,22 +194,22 @@ export default function UserEditPage() {
 
   const handleSave = async () => {
     setError('');
-    
+
     if (!formData.firstName || !formData.lastName) {
       setError('First and last name are required');
       return;
     }
-    
+
     if (!formData.email || !formData.email.includes('@')) {
       setError('Valid email is required');
       return;
     }
-    
+
     if (['venue_manager', 'venue_staff'].includes(formData.role) && formData.assignedVenues.length === 0) {
       setError(`${formData.role === 'venue_manager' ? 'Venue managers' : 'Venue staff'} must be assigned to at least one venue`);
       return;
     }
-    
+
     setSaving(true);
     try {
       await api.put(`/api/admin/users/${userId}`, formData);
@@ -279,11 +279,11 @@ export default function UserEditPage() {
 
   const getRoleColor = (role: string) => {
     const colors: Record<string, string> = {
-      super_admin: 'bg-purple-500/10 text-purple-600 dark:bg-purple-500/20 dark:text-purple-400 border-purple-500/20',
-      gambino_ops: 'bg-blue-500/10 text-blue-600 dark:bg-blue-500/20 dark:text-blue-400 border-blue-500/20',
-      venue_manager: 'bg-green-500/10 text-green-600 dark:bg-green-500/20 dark:text-green-400 border-green-500/20',
-      venue_staff: 'bg-yellow-500/10 text-yellow-600 dark:bg-yellow-500/20 dark:text-yellow-400 border-yellow-500/20',
-      user: 'bg-gray-500/10 text-gray-600 dark:bg-gray-500/20 dark:text-gray-400 border-gray-500/20',
+      super_admin: 'bg-purple-100 dark:bg-purple-950/50 text-purple-700 dark:text-purple-400',
+      gambino_ops: 'bg-blue-100 dark:bg-blue-950/50 text-blue-700 dark:text-blue-400',
+      venue_manager: 'bg-green-100 dark:bg-green-950/50 text-green-700 dark:text-green-400',
+      venue_staff: 'bg-yellow-100 dark:bg-yellow-950/50 text-yellow-700 dark:text-yellow-400',
+      user: 'bg-neutral-100 dark:bg-neutral-800 text-neutral-600 dark:text-neutral-400',
     };
     return colors[role] || colors.user;
   };
@@ -302,10 +302,10 @@ export default function UserEditPage() {
   if (loading) {
     return (
       <AdminLayout>
-        <div className="flex items-center justify-center min-h-[60vh]">
+        <div className="flex items-center justify-center h-[calc(100vh-200px)]">
           <div className="text-center">
-            <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-yellow-500 dark:border-yellow-400 mx-auto mb-4"></div>
-            <p className="text-gray-600 dark:text-gray-400">Loading user...</p>
+            <RefreshCw className="w-8 h-8 text-neutral-400 animate-spin mx-auto mb-4" />
+            <p className="text-sm text-neutral-500 dark:text-neutral-400">Loading user...</p>
           </div>
         </div>
       </AdminLayout>
@@ -315,11 +315,14 @@ export default function UserEditPage() {
   if (!user) {
     return (
       <AdminLayout>
-        <div className="flex items-center justify-center min-h-[60vh]">
-          <div className="text-center">
-            <XCircle className="w-16 h-16 text-red-500 mx-auto mb-4" />
-            <p className="text-gray-600 dark:text-gray-400 text-lg mb-4">User not found</p>
-            <Button onClick={() => router.push('/admin/users')}>
+        <div className="flex items-center justify-center h-[calc(100vh-200px)]">
+          <div className="bg-white dark:bg-neutral-900 rounded-2xl border border-neutral-200 dark:border-neutral-800 p-8 text-center max-w-md">
+            <div className="w-12 h-12 rounded-full bg-red-100 dark:bg-red-950 flex items-center justify-center mx-auto mb-4">
+              <XCircle className="w-6 h-6 text-red-600 dark:text-red-400" />
+            </div>
+            <h2 className="text-lg font-semibold text-neutral-900 dark:text-white mb-2">User Not Found</h2>
+            <p className="text-sm text-neutral-500 dark:text-neutral-400 mb-6">The user you&apos;re looking for doesn&apos;t exist or has been removed.</p>
+            <Button onClick={() => router.push('/admin/users')} className="bg-neutral-900 dark:bg-white text-white dark:text-neutral-900">
               Back to Users
             </Button>
           </div>
@@ -330,275 +333,194 @@ export default function UserEditPage() {
 
   return (
     <AdminLayout>
-      <div className="p-4 sm:p-6 lg:p-8 bg-gray-50 dark:bg-gray-950 min-h-screen">
+      <div className="p-4 lg:p-6 max-w-6xl mx-auto">
         {/* Header */}
-        <div className="mb-8">
-          <div className="flex flex-col sm:flex-row sm:items-start sm:justify-between gap-4 mb-6">
-            <div className="flex items-start gap-4">
-              <Button
-                onClick={() => router.push('/admin/users')}
-                variant="outline"
-                size="sm"
-                className="mt-1 border-gray-300 dark:border-gray-700"
-              >
-                <ArrowLeft className="w-4 h-4 mr-1.5" />
-                Back
-              </Button>
-              <div>
-                <h1 className="text-3xl lg:text-4xl font-bold text-gray-900 dark:text-white mb-2">
-                  Edit User
-                </h1>
-                <div className="flex items-center gap-3">
-                  <Badge className={`${getRoleColor(user.role)} border`}>
-                    {getRoleLabel(user.role)}
+        <div className="mb-6">
+          <button
+            onClick={() => router.push('/admin/users')}
+            className="text-neutral-500 dark:text-neutral-400 hover:text-neutral-900 dark:hover:text-white flex items-center gap-2 mb-4 text-sm transition-colors"
+          >
+            <ArrowLeft className="w-4 h-4" />
+            Back to Users
+          </button>
+
+          <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
+            <div>
+              <h1 className="text-2xl font-semibold text-neutral-900 dark:text-white mb-2">
+                {user.firstName || user.lastName
+                  ? `${user.firstName || ''} ${user.lastName || ''}`.trim()
+                  : 'Edit User'}
+              </h1>
+              <div className="flex items-center gap-2 flex-wrap">
+                <Badge className={getRoleColor(user.role)}>
+                  {getRoleLabel(user.role)}
+                </Badge>
+                <Badge className={
+                  user.isActive !== false
+                    ? 'bg-green-100 dark:bg-green-950/50 text-green-700 dark:text-green-400'
+                    : 'bg-red-100 dark:bg-red-950/50 text-red-700 dark:text-red-400'
+                }>
+                  {user.isActive !== false ? 'Active' : 'Inactive'}
+                </Badge>
+                {user.kycStatus === 'verified' && (
+                  <Badge className="bg-green-100 dark:bg-green-950/50 text-green-700 dark:text-green-400">
+                    <ShieldCheck className="w-3 h-3 mr-1" />
+                    KYC Verified
                   </Badge>
-                  <Badge className={
-                    user.isActive !== false
-                      ? 'bg-green-500/10 text-green-600 dark:bg-green-500/20 dark:text-green-400 border border-green-500/20'
-                      : 'bg-red-500/10 text-red-600 dark:bg-red-500/20 dark:text-red-400 border border-red-500/20'
-                  }>
-                    {user.isActive !== false ? 'Active' : 'Inactive'}
-                  </Badge>
-                </div>
+                )}
               </div>
             </div>
           </div>
+        </div>
 
-          {/* User Stats Cards */}
-          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 mb-6">
-            <Card className="p-4 bg-white dark:bg-gray-900 border-gray-200 dark:border-gray-800">
-              <div className="flex items-center gap-3">
-                <div className="p-2 rounded-lg bg-yellow-500/10 dark:bg-yellow-500/20">
-                  <Coins className="w-5 h-5 text-yellow-600 dark:text-yellow-400" />
-                </div>
-                <div>
-                  <p className="text-sm text-gray-600 dark:text-gray-400">Balance</p>
-                  <p className="text-xl font-bold text-gray-900 dark:text-white">
-                    {(user.cachedGambinoBalance || user.gambinoBalance || 0).toLocaleString()}
-                  </p>
-                </div>
-              </div>
-            </Card>
-
-            <Card className="p-4 bg-white dark:bg-gray-900 border-gray-200 dark:border-gray-800">
-              <div className="flex items-center gap-3">
-                <div className="p-2 rounded-lg bg-blue-500/10 dark:bg-blue-500/20">
-                  <Wallet className="w-5 h-5 text-blue-600 dark:text-blue-400" />
-                </div>
-                <div>
-                  <p className="text-sm text-gray-600 dark:text-gray-400">Wallet</p>
-                  <p className="text-sm font-mono text-gray-900 dark:text-white">
-                    {user.walletAddress ? `${user.walletAddress.slice(0, 6)}...${user.walletAddress.slice(-4)}` : 'None'}
-                  </p>
-                </div>
-              </div>
-            </Card>
-
-            <Card className="p-4 bg-white dark:bg-gray-900 border-gray-200 dark:border-gray-800">
-              <div className="flex items-center gap-3">
-                <div className="p-2 rounded-lg bg-green-500/10 dark:bg-green-500/20">
-                  <Calendar className="w-5 h-5 text-green-600 dark:text-green-400" />
-                </div>
-                <div>
-                  <p className="text-sm text-gray-600 dark:text-gray-400">Member Since</p>
-                  <p className="text-sm font-medium text-gray-900 dark:text-white">
-                    {user.createdAt ? new Date(user.createdAt).toLocaleDateString('en-US', { 
-                      month: 'short', 
-                      year: 'numeric' 
-                    }) : 'Unknown'}
-                  </p>
-                </div>
-              </div>
-            </Card>
-
-            <Card className="p-4 bg-white dark:bg-gray-900 border-gray-200 dark:border-gray-800">
-              <div className="flex items-center gap-3">
-                <div className="p-2 rounded-lg bg-purple-500/10 dark:bg-purple-500/20">
-                  <Clock className="w-5 h-5 text-purple-600 dark:text-purple-400" />
-                </div>
-                <div>
-                  <p className="text-sm text-gray-600 dark:text-gray-400">Account Age</p>
-                  <p className="text-sm font-medium text-gray-900 dark:text-white">
-                    {user.createdAt ? Math.floor((Date.now() - new Date(user.createdAt).getTime()) / (1000 * 60 * 60 * 24)) : 0} days
-                  </p>
-                </div>
-              </div>
-            </Card>
-
-            <Card className={`p-4 border ${user.dateOfBirth ? 'bg-white dark:bg-gray-900 border-gray-200 dark:border-gray-800' : 'bg-yellow-50 dark:bg-yellow-900/20 border-yellow-200 dark:border-yellow-800'}`}>
-              <div className="flex items-center gap-3">
-                <div className={`p-2 rounded-lg ${user.dateOfBirth ? 'bg-pink-500/10 dark:bg-pink-500/20' : 'bg-yellow-500/10 dark:bg-yellow-500/20'}`}>
-                  <Calendar className={`w-5 h-5 ${user.dateOfBirth ? 'text-pink-600 dark:text-pink-400' : 'text-yellow-600 dark:text-yellow-400'}`} />
-                </div>
-                <div>
-                  <p className="text-sm text-gray-600 dark:text-gray-400">Date of Birth</p>
-                  <p className={`text-sm font-medium ${user.dateOfBirth ? 'text-gray-900 dark:text-white' : 'text-yellow-700 dark:text-yellow-400'}`}>
-                    {user.dateOfBirth
-                      ? new Date(user.dateOfBirth).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })
-                      : 'Not provided'}
-                  </p>
-                </div>
-              </div>
-            </Card>
-
-            <Card className={`p-4 border ${user.ageVerified ? 'bg-green-50 dark:bg-green-900/20 border-green-200 dark:border-green-800' : 'bg-yellow-50 dark:bg-yellow-900/20 border-yellow-200 dark:border-yellow-800'}`}>
-              <div className="flex items-center gap-3">
-                <div className={`p-2 rounded-lg ${user.ageVerified ? 'bg-green-500/10 dark:bg-green-500/20' : 'bg-yellow-500/10 dark:bg-yellow-500/20'}`}>
-                  {user.ageVerified ? (
-                    <CheckCircle className="w-5 h-5 text-green-600 dark:text-green-400" />
-                  ) : (
-                    <XCircle className="w-5 h-5 text-yellow-600 dark:text-yellow-400" />
-                  )}
-                </div>
-                <div>
-                  <p className="text-sm text-gray-600 dark:text-gray-400">Age Verified</p>
-                  <p className={`text-sm font-medium ${user.ageVerified ? 'text-green-700 dark:text-green-400' : 'text-yellow-700 dark:text-yellow-400'}`}>
-                    {user.ageVerified ? 'Verified' : 'Not Verified'}
-                  </p>
-                </div>
-              </div>
-            </Card>
-          </div>
+        {/* User Stats Cards */}
+        <div className="grid grid-cols-2 lg:grid-cols-4 gap-3 mb-6">
+          <StatCard
+            label="Balance"
+            value={`${(user.cachedGambinoBalance || user.gambinoBalance || 0).toLocaleString()} GG`}
+            icon={<Coins className="w-4 h-4" />}
+            color="yellow"
+          />
+          <StatCard
+            label="Wallet"
+            value={user.walletAddress ? `${user.walletAddress.slice(0, 6)}...${user.walletAddress.slice(-4)}` : 'None'}
+            icon={<Wallet className="w-4 h-4" />}
+            color="blue"
+          />
+          <StatCard
+            label="Member Since"
+            value={user.createdAt ? new Date(user.createdAt).toLocaleDateString('en-US', { month: 'short', year: 'numeric' }) : 'Unknown'}
+            icon={<Calendar className="w-4 h-4" />}
+            color="green"
+          />
+          <StatCard
+            label="Account Age"
+            value={`${user.createdAt ? Math.floor((Date.now() - new Date(user.createdAt).getTime()) / (1000 * 60 * 60 * 24)) : 0} days`}
+            icon={<Clock className="w-4 h-4" />}
+            color="purple"
+          />
         </div>
 
         {/* Error Alert */}
         {error && (
-          <div className="mb-6 p-4 bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800 rounded-lg">
-            <p className="text-red-800 dark:text-red-200 text-sm font-medium">{error}</p>
+          <div className="mb-6 bg-red-50 dark:bg-red-950/30 border border-red-200 dark:border-red-800 rounded-xl p-4 flex items-center gap-3">
+            <AlertTriangle className="w-5 h-5 text-red-600 dark:text-red-400 flex-shrink-0" />
+            <p className="text-sm text-red-700 dark:text-red-300">{error}</p>
+            <button onClick={() => setError('')} className="ml-auto text-red-500 hover:text-red-700">
+              <X className="w-4 h-4" />
+            </button>
           </div>
         )}
 
         {/* Tabs */}
-        <div className="flex gap-2 mb-6 border-b border-gray-200 dark:border-gray-800">
-          <button
-            onClick={() => setActiveTab('details')}
-            className={`px-4 py-2 font-medium transition-colors ${
-              activeTab === 'details'
-                ? 'text-yellow-600 dark:text-yellow-400 border-b-2 border-yellow-600 dark:border-yellow-400'
-                : 'text-gray-600 dark:text-gray-400 hover:text-gray-900 dark:hover:text-gray-100'
-            }`}
-          >
+        <div className="flex gap-1 mb-6 border-b border-neutral-200 dark:border-neutral-800 overflow-x-auto">
+          <TabButton active={activeTab === 'details'} onClick={() => setActiveTab('details')}>
             Profile Details
-          </button>
-          <button
-            onClick={() => setActiveTab('kyc')}
-            className={`px-4 py-2 font-medium transition-colors flex items-center gap-2 ${
-              activeTab === 'kyc'
-                ? 'text-yellow-600 dark:text-yellow-400 border-b-2 border-yellow-600 dark:border-yellow-400'
-                : 'text-gray-600 dark:text-gray-400 hover:text-gray-900 dark:hover:text-gray-100'
-            }`}
-          >
-            <Shield className="w-4 h-4" />
+          </TabButton>
+          <TabButton active={activeTab === 'kyc'} onClick={() => setActiveTab('kyc')}>
+            <Shield className="w-4 h-4 mr-1.5" />
             KYC & Verification
             {user?.kycStatus !== 'verified' && (
-              <span className="w-2 h-2 rounded-full bg-yellow-500 animate-pulse" />
+              <span className="w-2 h-2 rounded-full bg-yellow-500 animate-pulse ml-2" />
             )}
-          </button>
+          </TabButton>
           {showStoreTab && (
-            <button
-              onClick={() => setActiveTab('stores')}
-              className={`px-4 py-2 font-medium transition-colors ${
-                activeTab === 'stores'
-                  ? 'text-yellow-600 dark:text-yellow-400 border-b-2 border-yellow-600 dark:border-yellow-400'
-                  : 'text-gray-600 dark:text-gray-400 hover:text-gray-900 dark:hover:text-gray-100'
-              }`}
-            >
+            <TabButton active={activeTab === 'stores'} onClick={() => setActiveTab('stores')}>
+              <Building className="w-4 h-4 mr-1.5" />
               Store Access
-            </button>
+            </TabButton>
           )}
-          <button
-            onClick={() => setActiveTab('wallet')}
-            className={`px-4 py-2 font-medium transition-colors ${
-              activeTab === 'wallet'
-                ? 'text-yellow-600 dark:text-yellow-400 border-b-2 border-yellow-600 dark:border-yellow-400'
-                : 'text-gray-600 dark:text-gray-400 hover:text-gray-900 dark:hover:text-gray-100'
-            }`}
-          >
+          <TabButton active={activeTab === 'wallet'} onClick={() => setActiveTab('wallet')}>
+            <Wallet className="w-4 h-4 mr-1.5" />
             Wallet & Account
-          </button>
+          </TabButton>
         </div>
 
         {/* Profile Details Tab */}
         {activeTab === 'details' && (
-          <Card className="bg-white dark:bg-gray-900 border-gray-200 dark:border-gray-800">
-            <div className="p-6 space-y-6">
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                <div className="space-y-2">
-                  <Label htmlFor="firstName" className="text-gray-700 dark:text-gray-300">
+          <div className="bg-white dark:bg-neutral-900 border border-neutral-200 dark:border-neutral-800 rounded-xl">
+            <div className="p-5 border-b border-neutral-200 dark:border-neutral-800">
+              <h3 className="font-semibold text-neutral-900 dark:text-white">Personal Information</h3>
+              <p className="text-sm text-neutral-500 dark:text-neutral-400 mt-1">Update user profile details</p>
+            </div>
+            <div className="p-5 space-y-6">
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
+                <div>
+                  <Label htmlFor="firstName" className="text-sm font-medium text-neutral-700 dark:text-neutral-300 mb-2 block">
                     First Name <span className="text-red-500">*</span>
                   </Label>
                   <div className="relative">
-                    <UserIcon className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400" />
+                    <UserIcon className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-neutral-400" />
                     <Input
                       id="firstName"
                       value={formData.firstName}
                       onChange={(e) => setFormData({...formData, firstName: e.target.value})}
-                      className="pl-10 bg-gray-50 dark:bg-gray-800 border-gray-300 dark:border-gray-700 text-gray-900 dark:text-white"
+                      className="pl-10 h-10 bg-neutral-50 dark:bg-neutral-800 border-neutral-200 dark:border-neutral-700"
                       placeholder="John"
                     />
                   </div>
                 </div>
-                <div className="space-y-2">
-                  <Label htmlFor="lastName" className="text-gray-700 dark:text-gray-300">
+                <div>
+                  <Label htmlFor="lastName" className="text-sm font-medium text-neutral-700 dark:text-neutral-300 mb-2 block">
                     Last Name <span className="text-red-500">*</span>
                   </Label>
                   <div className="relative">
-                    <UserIcon className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400" />
+                    <UserIcon className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-neutral-400" />
                     <Input
                       id="lastName"
                       value={formData.lastName}
                       onChange={(e) => setFormData({...formData, lastName: e.target.value})}
-                      className="pl-10 bg-gray-50 dark:bg-gray-800 border-gray-300 dark:border-gray-700 text-gray-900 dark:text-white"
+                      className="pl-10 h-10 bg-neutral-50 dark:bg-neutral-800 border-neutral-200 dark:border-neutral-700"
                       placeholder="Doe"
                     />
                   </div>
                 </div>
               </div>
 
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                <div className="space-y-2">
-                  <Label htmlFor="email" className="text-gray-700 dark:text-gray-300">
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
+                <div>
+                  <Label htmlFor="email" className="text-sm font-medium text-neutral-700 dark:text-neutral-300 mb-2 block">
                     Email <span className="text-red-500">*</span>
                   </Label>
                   <div className="relative">
-                    <Mail className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400" />
+                    <Mail className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-neutral-400" />
                     <Input
                       id="email"
                       type="email"
                       value={formData.email}
                       onChange={(e) => setFormData({...formData, email: e.target.value})}
-                      className="pl-10 bg-gray-50 dark:bg-gray-800 border-gray-300 dark:border-gray-700 text-gray-900 dark:text-white"
+                      className="pl-10 h-10 bg-neutral-50 dark:bg-neutral-800 border-neutral-200 dark:border-neutral-700"
                       placeholder="user@example.com"
                     />
                   </div>
                 </div>
-                <div className="space-y-2">
-                  <Label htmlFor="phone" className="text-gray-700 dark:text-gray-300">
+                <div>
+                  <Label htmlFor="phone" className="text-sm font-medium text-neutral-700 dark:text-neutral-300 mb-2 block">
                     Phone
                   </Label>
                   <div className="relative">
-                    <Phone className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400" />
+                    <Phone className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-neutral-400" />
                     <Input
                       id="phone"
                       value={formData.phone}
                       onChange={(e) => setFormData({...formData, phone: e.target.value})}
-                      className="pl-10 bg-gray-50 dark:bg-gray-800 border-gray-300 dark:border-gray-700 text-gray-900 dark:text-white"
+                      className="pl-10 h-10 bg-neutral-50 dark:bg-neutral-800 border-neutral-200 dark:border-neutral-700"
                       placeholder="(555) 123-4567"
                     />
                   </div>
                 </div>
               </div>
 
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                <div className="space-y-2">
-                  <Label htmlFor="role" className="text-gray-700 dark:text-gray-300">
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
+                <div>
+                  <Label htmlFor="role" className="text-sm font-medium text-neutral-700 dark:text-neutral-300 mb-2 block">
                     Role <span className="text-red-500">*</span>
                   </Label>
                   <Select
                     value={formData.role}
                     onValueChange={(value) => setFormData({...formData, role: value})}
                   >
-                    <SelectTrigger className="bg-gray-50 dark:bg-gray-800 border-gray-300 dark:border-gray-700">
+                    <SelectTrigger className="h-10 bg-neutral-50 dark:bg-neutral-800 border-neutral-200 dark:border-neutral-700">
                       <SelectValue />
                     </SelectTrigger>
                     <SelectContent>
@@ -610,16 +532,16 @@ export default function UserEditPage() {
                     </SelectContent>
                   </Select>
                 </div>
-                <div className="space-y-2">
-                  <Label className="text-gray-700 dark:text-gray-300">Account Status</Label>
-                  <div className="flex items-center justify-between p-4 rounded-lg border border-gray-300 dark:border-gray-700 bg-gray-50 dark:bg-gray-800">
-                    <div className="flex items-center gap-3">
+                <div>
+                  <Label className="text-sm font-medium text-neutral-700 dark:text-neutral-300 mb-2 block">Account Status</Label>
+                  <div className="flex items-center justify-between h-10 px-3 rounded-lg border border-neutral-200 dark:border-neutral-700 bg-neutral-50 dark:bg-neutral-800">
+                    <div className="flex items-center gap-2">
                       {formData.isActive ? (
-                        <CheckCircle className="w-5 h-5 text-green-500" />
+                        <CheckCircle className="w-4 h-4 text-green-500" />
                       ) : (
-                        <XCircle className="w-5 h-5 text-red-500" />
+                        <XCircle className="w-4 h-4 text-red-500" />
                       )}
-                      <span className="font-medium text-gray-900 dark:text-white">
+                      <span className="text-sm font-medium text-neutral-900 dark:text-white">
                         {formData.isActive ? 'Active' : 'Inactive'}
                       </span>
                     </div>
@@ -632,115 +554,114 @@ export default function UserEditPage() {
               </div>
 
               {/* Age Verification Section */}
-              <div className="mt-6 pt-6 border-t border-gray-200 dark:border-gray-700">
-                <h3 className="text-lg font-semibold text-gray-900 dark:text-white mb-4">Age Verification</h3>
+              <div className="pt-5 border-t border-neutral-200 dark:border-neutral-800">
+                <h4 className="font-semibold text-neutral-900 dark:text-white mb-4">Age Verification</h4>
 
-                {/* Date of Birth Display */}
-                {user?.dateOfBirth && (
-                  <div className="mb-4 p-4 bg-gray-50 dark:bg-gray-800 rounded-lg border border-gray-200 dark:border-gray-700">
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                  {/* Date of Birth Card */}
+                  <div className={`p-4 rounded-xl border ${user?.dateOfBirth ? 'bg-neutral-50 dark:bg-neutral-800/50 border-neutral-200 dark:border-neutral-700' : 'bg-yellow-50 dark:bg-yellow-950/20 border-yellow-200 dark:border-yellow-800'}`}>
                     <div className="flex items-center gap-3">
-                      <Calendar className="w-5 h-5 text-gray-500" />
+                      <div className={`w-10 h-10 rounded-lg flex items-center justify-center ${user?.dateOfBirth ? 'bg-neutral-200 dark:bg-neutral-700' : 'bg-yellow-100 dark:bg-yellow-900/50'}`}>
+                        <Calendar className={`w-5 h-5 ${user?.dateOfBirth ? 'text-neutral-600 dark:text-neutral-400' : 'text-yellow-600 dark:text-yellow-400'}`} />
+                      </div>
                       <div>
-                        <p className="text-sm text-gray-600 dark:text-gray-400">Date of Birth</p>
-                        <p className="font-medium text-gray-900 dark:text-white">
-                          {new Date(user.dateOfBirth).toLocaleDateString('en-US', {
-                            month: 'long',
-                            day: 'numeric',
-                            year: 'numeric'
-                          })}
+                        <p className="text-xs text-neutral-500 dark:text-neutral-400 uppercase tracking-wide font-medium">Date of Birth</p>
+                        <p className={`font-medium mt-0.5 ${user?.dateOfBirth ? 'text-neutral-900 dark:text-white' : 'text-yellow-700 dark:text-yellow-400'}`}>
+                          {user?.dateOfBirth
+                            ? new Date(user.dateOfBirth).toLocaleDateString('en-US', { month: 'long', day: 'numeric', year: 'numeric' })
+                            : 'Not provided'}
                         </p>
                       </div>
                     </div>
                   </div>
-                )}
 
-                {/* Age Verification Toggle */}
-                <div className={`p-4 rounded-lg border ${
-                  formData.ageVerified
-                    ? 'bg-green-50 dark:bg-green-900/20 border-green-200 dark:border-green-800'
-                    : 'bg-yellow-50 dark:bg-yellow-900/20 border-yellow-200 dark:border-yellow-800'
-                }`}>
-                  <div className="flex items-center justify-between">
-                    <div className="flex items-center gap-3">
-                      {formData.ageVerified ? (
-                        <CheckCircle className="w-6 h-6 text-green-600 dark:text-green-400" />
-                      ) : (
-                        <XCircle className="w-6 h-6 text-yellow-600 dark:text-yellow-400" />
-                      )}
-                      <div>
-                        <p className="font-semibold text-gray-900 dark:text-white">
-                          {formData.ageVerified ? 'Age Verified' : 'Age Not Verified'}
-                        </p>
-                        <p className="text-sm text-gray-600 dark:text-gray-400">
-                          {formData.ageVerified
-                            ? 'ID has been physically verified by staff'
-                            : 'User has not been ID verified in person'}
-                        </p>
-                        {user?.ageVerifiedAt && formData.ageVerified && (
-                          <p className="text-xs text-gray-500 dark:text-gray-500 mt-1">
-                            Verified on {new Date(user.ageVerifiedAt).toLocaleDateString()}
-                            {user.ageVerifiedBy && ` by ${user.ageVerifiedBy}`}
+                  {/* Age Verification Status Card */}
+                  <div className={`p-4 rounded-xl border ${
+                    formData.ageVerified
+                      ? 'bg-green-50 dark:bg-green-950/20 border-green-200 dark:border-green-800'
+                      : 'bg-yellow-50 dark:bg-yellow-950/20 border-yellow-200 dark:border-yellow-800'
+                  }`}>
+                    <div className="flex items-center justify-between">
+                      <div className="flex items-center gap-3">
+                        <div className={`w-10 h-10 rounded-lg flex items-center justify-center ${formData.ageVerified ? 'bg-green-100 dark:bg-green-900/50' : 'bg-yellow-100 dark:bg-yellow-900/50'}`}>
+                          {formData.ageVerified ? (
+                            <CheckCircle className="w-5 h-5 text-green-600 dark:text-green-400" />
+                          ) : (
+                            <XCircle className="w-5 h-5 text-yellow-600 dark:text-yellow-400" />
+                          )}
+                        </div>
+                        <div>
+                          <p className="text-xs text-neutral-500 dark:text-neutral-400 uppercase tracking-wide font-medium">Status</p>
+                          <p className={`font-medium mt-0.5 ${formData.ageVerified ? 'text-green-700 dark:text-green-400' : 'text-yellow-700 dark:text-yellow-400'}`}>
+                            {formData.ageVerified ? 'Verified' : 'Not Verified'}
                           </p>
-                        )}
+                        </div>
                       </div>
+                      <Switch
+                        checked={formData.ageVerified}
+                        onCheckedChange={(checked) => handleVerifyAge(checked)}
+                        disabled={verifyingAge || !user?.dateOfBirth}
+                      />
                     </div>
-                    <Switch
-                      checked={formData.ageVerified}
-                      onCheckedChange={(checked) => handleVerifyAge(checked)}
-                      disabled={verifyingAge || !user?.dateOfBirth}
-                    />
                   </div>
-                  {!user?.dateOfBirth && (
-                    <p className="mt-3 text-xs text-red-700 dark:text-red-300 bg-red-100 dark:bg-red-900/30 p-2 rounded">
-                      Cannot verify age - user has not provided their date of birth yet
-                    </p>
-                  )}
-                  {user?.dateOfBirth && !formData.ageVerified && (
-                    <p className="mt-3 text-xs text-yellow-700 dark:text-yellow-300 bg-yellow-100 dark:bg-yellow-900/30 p-2 rounded">
-                      Toggle this ON after physically verifying the user&apos;s government-issued ID confirms they are 18+
-                    </p>
-                  )}
                 </div>
+
+                {!user?.dateOfBirth && (
+                  <p className="mt-3 text-xs text-red-600 dark:text-red-400 bg-red-50 dark:bg-red-950/30 p-3 rounded-lg">
+                    Cannot verify age - user has not provided their date of birth yet
+                  </p>
+                )}
+                {user?.dateOfBirth && !formData.ageVerified && (
+                  <p className="mt-3 text-xs text-yellow-700 dark:text-yellow-300 bg-yellow-50 dark:bg-yellow-950/30 p-3 rounded-lg">
+                    Toggle verification ON after physically checking user&apos;s government-issued ID confirms they are 18+
+                  </p>
+                )}
+                {user?.ageVerifiedAt && formData.ageVerified && (
+                  <p className="mt-3 text-xs text-neutral-500 dark:text-neutral-400">
+                    Verified on {new Date(user.ageVerifiedAt).toLocaleDateString()}
+                    {user.ageVerifiedBy && ` by ${user.ageVerifiedBy}`}
+                  </p>
+                )}
               </div>
             </div>
-          </Card>
+          </div>
         )}
 
         {/* KYC & Verification Tab */}
         {activeTab === 'kyc' && (
-          <div className="space-y-6">
-            {/* KYC Status Card - Prominent */}
-            <Card className={`p-6 border-2 ${
+          <div className="space-y-5">
+            {/* KYC Status Card */}
+            <div className={`rounded-xl p-5 ${
               user?.kycStatus === 'verified'
-                ? 'bg-green-50 dark:bg-green-900/20 border-green-500'
+                ? 'bg-gradient-to-br from-green-50 to-emerald-50 dark:from-green-950/30 dark:to-emerald-950/30 border-2 border-green-200 dark:border-green-800'
                 : user?.kycStatus === 'rejected'
-                ? 'bg-red-50 dark:bg-red-900/20 border-red-500'
-                : 'bg-yellow-50 dark:bg-yellow-900/20 border-yellow-500'
+                ? 'bg-gradient-to-br from-red-50 to-rose-50 dark:from-red-950/30 dark:to-rose-950/30 border-2 border-red-200 dark:border-red-800'
+                : 'bg-gradient-to-br from-yellow-50 to-amber-50 dark:from-yellow-950/30 dark:to-amber-950/30 border-2 border-yellow-200 dark:border-yellow-800'
             }`}>
-              <div className="flex items-start justify-between">
+              <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
                 <div className="flex items-center gap-4">
-                  <div className={`p-4 rounded-full ${
+                  <div className={`w-14 h-14 rounded-2xl flex items-center justify-center ${
                     user?.kycStatus === 'verified'
-                      ? 'bg-green-500/20'
+                      ? 'bg-green-100 dark:bg-green-900/50'
                       : user?.kycStatus === 'rejected'
-                      ? 'bg-red-500/20'
-                      : 'bg-yellow-500/20'
+                      ? 'bg-red-100 dark:bg-red-900/50'
+                      : 'bg-yellow-100 dark:bg-yellow-900/50'
                   }`}>
                     {user?.kycStatus === 'verified' ? (
-                      <ShieldCheck className="w-8 h-8 text-green-600 dark:text-green-400" />
+                      <ShieldCheck className="w-7 h-7 text-green-600 dark:text-green-400" />
                     ) : user?.kycStatus === 'rejected' ? (
-                      <ShieldX className="w-8 h-8 text-red-600 dark:text-red-400" />
+                      <ShieldX className="w-7 h-7 text-red-600 dark:text-red-400" />
                     ) : (
-                      <Shield className="w-8 h-8 text-yellow-600 dark:text-yellow-400" />
+                      <Shield className="w-7 h-7 text-yellow-600 dark:text-yellow-400" />
                     )}
                   </div>
                   <div>
-                    <h3 className="text-2xl font-bold text-gray-900 dark:text-white">
+                    <h3 className="text-xl font-bold text-neutral-900 dark:text-white">
                       {user?.kycStatus === 'verified' ? 'KYC Verified' :
                        user?.kycStatus === 'rejected' ? 'KYC Rejected' :
                        'KYC Pending'}
                     </h3>
-                    <p className="text-gray-600 dark:text-gray-400 mt-1">
+                    <p className="text-sm text-neutral-600 dark:text-neutral-400 mt-0.5">
                       {user?.kycStatus === 'verified'
                         ? 'Identity has been verified in person'
                         : user?.kycStatus === 'rejected'
@@ -748,7 +669,7 @@ export default function UserEditPage() {
                         : 'User has not been KYC verified yet'}
                     </p>
                     {user?.kycVerifiedAt && (
-                      <p className="text-sm text-gray-500 mt-2">
+                      <p className="text-xs text-neutral-500 mt-1">
                         Verified on {new Date(user.kycVerifiedAt).toLocaleDateString('en-US', {
                           month: 'long', day: 'numeric', year: 'numeric', hour: '2-digit', minute: '2-digit'
                         })}
@@ -766,93 +687,95 @@ export default function UserEditPage() {
                   </Button>
                 )}
               </div>
-            </Card>
+            </div>
 
             {/* Verification Details */}
             {user?.kycStatus === 'verified' && (
-              <Card className="bg-white dark:bg-gray-900 border-gray-200 dark:border-gray-800">
-                <div className="p-6">
-                  <h4 className="text-lg font-semibold text-gray-900 dark:text-white mb-4 flex items-center gap-2">
-                    <FileText className="w-5 h-5" />
+              <div className="bg-white dark:bg-neutral-900 border border-neutral-200 dark:border-neutral-800 rounded-xl">
+                <div className="p-5 border-b border-neutral-200 dark:border-neutral-800">
+                  <h4 className="font-semibold text-neutral-900 dark:text-white flex items-center gap-2">
+                    <FileText className="w-5 h-5 text-neutral-500" />
                     Verification Details
                   </h4>
-                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                    <div className="p-4 bg-gray-50 dark:bg-gray-800 rounded-lg">
-                      <p className="text-sm text-gray-500 dark:text-gray-400">Verified By</p>
-                      <p className="font-medium text-gray-900 dark:text-white mt-1">
-                        {user.kycVerifiedBy?.firstName} {user.kycVerifiedBy?.lastName}
-                      </p>
-                      {user.kycVerifiedBy?.email && (
-                        <p className="text-sm text-gray-500">{user.kycVerifiedBy.email}</p>
-                      )}
-                    </div>
-                    <div className="p-4 bg-gray-50 dark:bg-gray-800 rounded-lg">
-                      <p className="text-sm text-gray-500 dark:text-gray-400">Verified At Venue</p>
-                      <p className="font-medium text-gray-900 dark:text-white mt-1 flex items-center gap-2">
-                        <Building className="w-4 h-4" />
-                        {user.kycVerifiedAtVenue || 'Unknown venue'}
-                      </p>
-                    </div>
-                    <div className="p-4 bg-gray-50 dark:bg-gray-800 rounded-lg">
-                      <p className="text-sm text-gray-500 dark:text-gray-400">Verification Method</p>
-                      <p className="font-medium text-gray-900 dark:text-white mt-1">
-                        {user.kycVerificationMethod === 'in_person' ? 'In-Person ID Check' : user.kycVerificationMethod || 'In-Person'}
-                      </p>
-                    </div>
-                    {user.kycNotes && (
-                      <div className="p-4 bg-gray-50 dark:bg-gray-800 rounded-lg">
-                        <p className="text-sm text-gray-500 dark:text-gray-400">Notes</p>
-                        <p className="font-medium text-gray-900 dark:text-white mt-1">{user.kycNotes}</p>
-                      </div>
+                </div>
+                <div className="p-5 grid grid-cols-1 md:grid-cols-2 gap-4">
+                  <div className="bg-neutral-50 dark:bg-neutral-800/50 rounded-lg p-4">
+                    <p className="text-xs text-neutral-500 dark:text-neutral-400 uppercase tracking-wide font-medium">Verified By</p>
+                    <p className="font-medium text-neutral-900 dark:text-white mt-1">
+                      {user.kycVerifiedBy?.firstName} {user.kycVerifiedBy?.lastName}
+                    </p>
+                    {user.kycVerifiedBy?.email && (
+                      <p className="text-sm text-neutral-500 mt-0.5">{user.kycVerifiedBy.email}</p>
                     )}
                   </div>
+                  <div className="bg-neutral-50 dark:bg-neutral-800/50 rounded-lg p-4">
+                    <p className="text-xs text-neutral-500 dark:text-neutral-400 uppercase tracking-wide font-medium">Venue</p>
+                    <p className="font-medium text-neutral-900 dark:text-white mt-1 flex items-center gap-2">
+                      <Building className="w-4 h-4 text-neutral-400" />
+                      {user.kycVerifiedAtVenue || 'Unknown venue'}
+                    </p>
+                  </div>
+                  <div className="bg-neutral-50 dark:bg-neutral-800/50 rounded-lg p-4">
+                    <p className="text-xs text-neutral-500 dark:text-neutral-400 uppercase tracking-wide font-medium">Method</p>
+                    <p className="font-medium text-neutral-900 dark:text-white mt-1">
+                      {user.kycVerificationMethod === 'in_person' ? 'In-Person ID Check' : user.kycVerificationMethod || 'In-Person'}
+                    </p>
+                  </div>
+                  {user.kycNotes && (
+                    <div className="bg-neutral-50 dark:bg-neutral-800/50 rounded-lg p-4">
+                      <p className="text-xs text-neutral-500 dark:text-neutral-400 uppercase tracking-wide font-medium">Notes</p>
+                      <p className="font-medium text-neutral-900 dark:text-white mt-1">{user.kycNotes}</p>
+                    </div>
+                  )}
                 </div>
-              </Card>
+              </div>
             )}
 
             {/* Referral Information */}
-            <Card className="bg-white dark:bg-gray-900 border-gray-200 dark:border-gray-800">
-              <div className="p-6">
-                <h4 className="text-lg font-semibold text-gray-900 dark:text-white mb-4 flex items-center gap-2">
+            <div className="bg-white dark:bg-neutral-900 border border-neutral-200 dark:border-neutral-800 rounded-xl">
+              <div className="p-5 border-b border-neutral-200 dark:border-neutral-800">
+                <h4 className="font-semibold text-neutral-900 dark:text-white flex items-center gap-2">
                   <Gift className="w-5 h-5 text-purple-500" />
                   Referral Information
                 </h4>
+              </div>
+              <div className="p-5">
                 {referralInfo ? (
                   <div className="space-y-4">
-                    <div className="p-4 bg-purple-50 dark:bg-purple-900/20 rounded-lg border border-purple-200 dark:border-purple-800">
+                    <div className="bg-purple-50 dark:bg-purple-950/20 rounded-xl p-4 border border-purple-200 dark:border-purple-800">
                       <div className="flex items-center justify-between">
                         <div>
-                          <p className="text-sm text-gray-500 dark:text-gray-400">Referred By</p>
-                          <p className="font-medium text-gray-900 dark:text-white mt-1">
+                          <p className="text-xs text-neutral-500 dark:text-neutral-400 uppercase tracking-wide font-medium">Referred By</p>
+                          <p className="font-medium text-neutral-900 dark:text-white mt-1">
                             {referralInfo.referrerId?.firstName} {referralInfo.referrerId?.lastName}
                           </p>
-                          <p className="text-sm text-gray-500">{referralInfo.referrerId?.email}</p>
+                          <p className="text-sm text-neutral-500">{referralInfo.referrerId?.email}</p>
                         </div>
                         <Badge className={
-                          referralInfo.status === 'distributed' ? 'bg-green-500/10 text-green-600 border-green-500/20' :
-                          referralInfo.status === 'verified' ? 'bg-blue-500/10 text-blue-600 border-blue-500/20' :
-                          'bg-yellow-500/10 text-yellow-600 border-yellow-500/20'
+                          referralInfo.status === 'distributed' ? 'bg-green-100 dark:bg-green-950/50 text-green-700 dark:text-green-400' :
+                          referralInfo.status === 'verified' ? 'bg-blue-100 dark:bg-blue-950/50 text-blue-700 dark:text-blue-400' :
+                          'bg-yellow-100 dark:bg-yellow-950/50 text-yellow-700 dark:text-yellow-400'
                         }>
                           {referralInfo.status}
                         </Badge>
                       </div>
                     </div>
                     <div className="grid grid-cols-2 gap-4">
-                      <div className="p-4 bg-gray-50 dark:bg-gray-800 rounded-lg">
-                        <p className="text-sm text-gray-500">Referral Code Used</p>
-                        <p className="font-mono font-medium text-gray-900 dark:text-white mt-1">{referralInfo.code}</p>
+                      <div className="bg-neutral-50 dark:bg-neutral-800/50 rounded-lg p-4">
+                        <p className="text-xs text-neutral-500 uppercase tracking-wide font-medium">Referral Code Used</p>
+                        <p className="font-mono font-medium text-neutral-900 dark:text-white mt-1">{referralInfo.code}</p>
                       </div>
-                      <div className="p-4 bg-gray-50 dark:bg-gray-800 rounded-lg">
-                        <p className="text-sm text-gray-500">Referred On</p>
-                        <p className="font-medium text-gray-900 dark:text-white mt-1">
+                      <div className="bg-neutral-50 dark:bg-neutral-800/50 rounded-lg p-4">
+                        <p className="text-xs text-neutral-500 uppercase tracking-wide font-medium">Referred On</p>
+                        <p className="font-medium text-neutral-900 dark:text-white mt-1">
                           {new Date(referralInfo.createdAt).toLocaleDateString()}
                         </p>
                       </div>
                     </div>
                     {referralInfo.status === 'pending' && user?.kycStatus !== 'verified' && (
-                      <div className="p-4 bg-yellow-50 dark:bg-yellow-900/20 rounded-lg border border-yellow-200 dark:border-yellow-800">
+                      <div className="bg-yellow-50 dark:bg-yellow-950/20 rounded-xl p-4 border border-yellow-200 dark:border-yellow-800">
                         <div className="flex items-start gap-3">
-                          <AlertTriangle className="w-5 h-5 text-yellow-600 mt-0.5" />
+                          <AlertTriangle className="w-5 h-5 text-yellow-600 mt-0.5 flex-shrink-0" />
                           <div>
                             <p className="font-medium text-yellow-800 dark:text-yellow-200">Referral Pending KYC</p>
                             <p className="text-sm text-yellow-700 dark:text-yellow-300 mt-1">
@@ -865,295 +788,270 @@ export default function UserEditPage() {
                     )}
                   </div>
                 ) : (
-                  <div className="p-6 bg-gray-50 dark:bg-gray-800 rounded-lg text-center">
-                    <Gift className="w-12 h-12 text-gray-400 mx-auto mb-3" />
-                    <p className="text-gray-600 dark:text-gray-400">No referral information</p>
-                    <p className="text-sm text-gray-500 mt-1">This user signed up without a referral code</p>
+                  <div className="text-center py-8">
+                    <div className="w-12 h-12 rounded-full bg-neutral-100 dark:bg-neutral-800 flex items-center justify-center mx-auto mb-3">
+                      <Gift className="w-6 h-6 text-neutral-400" />
+                    </div>
+                    <p className="text-neutral-600 dark:text-neutral-400 font-medium">No referral information</p>
+                    <p className="text-sm text-neutral-500 mt-1">This user signed up without a referral code</p>
                   </div>
                 )}
               </div>
-            </Card>
+            </div>
 
             {/* User's Referral Code */}
-            <Card className="bg-white dark:bg-gray-900 border-gray-200 dark:border-gray-800">
-              <div className="p-6">
-                <h4 className="text-lg font-semibold text-gray-900 dark:text-white mb-4">User&apos;s Referral Code</h4>
+            <div className="bg-white dark:bg-neutral-900 border border-neutral-200 dark:border-neutral-800 rounded-xl">
+              <div className="p-5 border-b border-neutral-200 dark:border-neutral-800">
+                <h4 className="font-semibold text-neutral-900 dark:text-white">User&apos;s Referral Code</h4>
+              </div>
+              <div className="p-5">
                 {user?.referralCode ? (
                   <div className="flex items-center gap-4">
-                    <code className="px-4 py-2 bg-gray-100 dark:bg-gray-800 rounded-lg font-mono text-lg">
+                    <code className="px-4 py-2.5 bg-neutral-100 dark:bg-neutral-800 rounded-lg font-mono text-lg text-neutral-900 dark:text-white">
                       {user.referralCode}
                     </code>
-                    <p className="text-gray-500 text-sm">Others can use this code to sign up</p>
+                    <p className="text-neutral-500 text-sm">Others can use this code to sign up</p>
                   </div>
                 ) : (
-                  <p className="text-gray-500">User doesn&apos;t have a referral code yet</p>
+                  <p className="text-neutral-500">User doesn&apos;t have a referral code yet</p>
                 )}
               </div>
-            </Card>
+            </div>
           </div>
         )}
 
         {/* KYC Verification Modal */}
         {kycModal.open && (
-          <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50">
-            <Card className="w-full max-w-md mx-4 bg-white dark:bg-gray-900">
-              <div className="p-6">
-                <div className="flex items-center justify-between mb-6">
-                  <h3 className="text-xl font-bold text-gray-900 dark:text-white flex items-center gap-2">
-                    <ShieldCheck className="w-6 h-6 text-green-600" />
-                    Verify KYC
-                  </h3>
-                  <button
-                    onClick={() => setKycModal({ open: false, notes: '', documentType: 'id' })}
-                    className="text-gray-500 hover:text-gray-700"
-                  >
-                    <X className="w-5 h-5" />
-                  </button>
+          <div className="fixed inset-0 bg-black/50 backdrop-blur-sm flex items-center justify-center z-50 p-4">
+            <div className="bg-white dark:bg-neutral-900 rounded-2xl w-full max-w-md shadow-2xl">
+              <div className="flex items-center justify-between p-5 border-b border-neutral-200 dark:border-neutral-800">
+                <h3 className="text-lg font-bold text-neutral-900 dark:text-white flex items-center gap-2">
+                  <ShieldCheck className="w-5 h-5 text-green-600" />
+                  Verify KYC
+                </h3>
+                <button
+                  onClick={() => setKycModal({ open: false, notes: '', documentType: 'id' })}
+                  className="text-neutral-400 hover:text-neutral-600 dark:hover:text-neutral-300 transition-colors"
+                >
+                  <X className="w-5 h-5" />
+                </button>
+              </div>
+
+              <div className="p-5 space-y-4">
+                <div className="bg-neutral-50 dark:bg-neutral-800 rounded-xl p-4">
+                  <p className="font-medium text-neutral-900 dark:text-white">
+                    {user?.firstName} {user?.lastName}
+                  </p>
+                  <p className="text-sm text-neutral-500">{user?.email}</p>
                 </div>
 
-                <div className="space-y-4">
-                  <div className="p-4 bg-gray-50 dark:bg-gray-800 rounded-lg">
-                    <p className="font-medium text-gray-900 dark:text-white">
-                      {user?.firstName} {user?.lastName}
-                    </p>
-                    <p className="text-sm text-gray-500">{user?.email}</p>
-                  </div>
-
-                  <div>
-                    <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
-                      Document Type
-                    </label>
-                    <select
-                      value={kycModal.documentType}
-                      onChange={(e) => setKycModal({ ...kycModal, documentType: e.target.value })}
-                      className="w-full px-3 py-2 bg-gray-50 dark:bg-gray-800 border border-gray-300 dark:border-gray-700 rounded-lg"
-                    >
-                      <option value="id">Driver&apos;s License</option>
-                      <option value="passport">Passport</option>
-                      <option value="state_id">State ID</option>
-                      <option value="military">Military ID</option>
-                    </select>
-                  </div>
-
-                  <div>
-                    <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
-                      Notes (optional)
-                    </label>
-                    <textarea
-                      value={kycModal.notes}
-                      onChange={(e) => setKycModal({ ...kycModal, notes: e.target.value })}
-                      placeholder="e.g., TN Driver's License verified"
-                      className="w-full px-3 py-2 bg-gray-50 dark:bg-gray-800 border border-gray-300 dark:border-gray-700 rounded-lg"
-                      rows={3}
-                    />
-                  </div>
-
-                  <div className="p-4 bg-green-50 dark:bg-green-900/20 rounded-lg border border-green-200 dark:border-green-800">
-                    <p className="text-sm text-green-800 dark:text-green-200 font-medium">Rewards on verification:</p>
-                    <ul className="text-sm text-green-700 dark:text-green-300 mt-1 space-y-1">
-                      <li>• User receives: 25 GG welcome bonus</li>
-                      <li>• Your venue receives: 25 GG</li>
-                      {referralInfo && <li>• Referrer receives: tier-based reward</li>}
-                    </ul>
-                  </div>
-
-                  <div className="p-4 bg-yellow-50 dark:bg-yellow-900/20 rounded-lg border border-yellow-200 dark:border-yellow-800">
-                    <p className="text-xs text-yellow-800 dark:text-yellow-200">
-                      By clicking Verify, you confirm that you have physically checked this user&apos;s
-                      government-issued ID and verified they are who they claim to be and are 18+ years old.
-                    </p>
-                  </div>
+                <div>
+                  <label className="block text-sm font-medium text-neutral-700 dark:text-neutral-300 mb-2">
+                    Document Type
+                  </label>
+                  <select
+                    value={kycModal.documentType}
+                    onChange={(e) => setKycModal({ ...kycModal, documentType: e.target.value })}
+                    className="w-full h-10 px-3 bg-neutral-50 dark:bg-neutral-800 border border-neutral-200 dark:border-neutral-700 rounded-lg text-neutral-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-yellow-500"
+                  >
+                    <option value="id">Driver&apos;s License</option>
+                    <option value="passport">Passport</option>
+                    <option value="state_id">State ID</option>
+                    <option value="military">Military ID</option>
+                  </select>
                 </div>
 
-                <div className="flex gap-3 mt-6">
-                  <Button
-                    onClick={() => setKycModal({ open: false, notes: '', documentType: 'id' })}
-                    variant="outline"
-                    className="flex-1"
-                  >
-                    Cancel
-                  </Button>
-                  <Button
-                    onClick={handleKycVerify}
-                    disabled={kycVerifying}
-                    className="flex-1 bg-green-600 hover:bg-green-700 text-white"
-                  >
-                    {kycVerifying ? (
-                      <>
-                        <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white mr-2" />
-                        Verifying...
-                      </>
-                    ) : (
-                      <>
-                        <ShieldCheck className="w-4 h-4 mr-2" />
-                        Verify KYC
-                      </>
-                    )}
-                  </Button>
+                <div>
+                  <label className="block text-sm font-medium text-neutral-700 dark:text-neutral-300 mb-2">
+                    Notes (optional)
+                  </label>
+                  <textarea
+                    value={kycModal.notes}
+                    onChange={(e) => setKycModal({ ...kycModal, notes: e.target.value })}
+                    placeholder="e.g., TN Driver's License verified"
+                    className="w-full px-3 py-2 bg-neutral-50 dark:bg-neutral-800 border border-neutral-200 dark:border-neutral-700 rounded-lg text-neutral-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-yellow-500"
+                    rows={3}
+                  />
+                </div>
+
+                <div className="bg-green-50 dark:bg-green-950/30 rounded-xl p-4 border border-green-200 dark:border-green-800">
+                  <p className="text-sm text-green-800 dark:text-green-200 font-medium">Rewards on verification:</p>
+                  <ul className="text-sm text-green-700 dark:text-green-300 mt-2 space-y-1">
+                    <li>• User receives: 25 GG welcome bonus</li>
+                    <li>• Your venue receives: 25 GG</li>
+                    {referralInfo && <li>• Referrer receives: tier-based reward</li>}
+                  </ul>
+                </div>
+
+                <div className="bg-yellow-50 dark:bg-yellow-950/30 rounded-xl p-4 border border-yellow-200 dark:border-yellow-800">
+                  <p className="text-xs text-yellow-800 dark:text-yellow-200">
+                    By clicking Verify, you confirm that you have physically checked this user&apos;s
+                    government-issued ID and verified they are who they claim to be and are 18+ years old.
+                  </p>
                 </div>
               </div>
-            </Card>
+
+              <div className="flex gap-3 p-5 border-t border-neutral-200 dark:border-neutral-800">
+                <Button
+                  onClick={() => setKycModal({ open: false, notes: '', documentType: 'id' })}
+                  variant="outline"
+                  className="flex-1 border-neutral-200 dark:border-neutral-700"
+                >
+                  Cancel
+                </Button>
+                <Button
+                  onClick={handleKycVerify}
+                  disabled={kycVerifying}
+                  className="flex-1 bg-green-600 hover:bg-green-700 text-white"
+                >
+                  {kycVerifying ? (
+                    <>
+                      <RefreshCw className="w-4 h-4 mr-2 animate-spin" />
+                      Verifying...
+                    </>
+                  ) : (
+                    <>
+                      <ShieldCheck className="w-4 h-4 mr-2" />
+                      Verify KYC
+                    </>
+                  )}
+                </Button>
+              </div>
+            </div>
           </div>
         )}
 
         {/* Wallet & Account Tab */}
         {activeTab === 'wallet' && (
-          <Card className="bg-white dark:bg-gray-900 border-gray-200 dark:border-gray-800">
-            <div className="p-6">
-              <h3 className="text-lg font-semibold text-gray-900 dark:text-white mb-6">
-                Wallet & Blockchain Information
-              </h3>
-              
-              <div className="space-y-6">
-                {/* Wallet Address */}
-                <div className="p-6 bg-gray-50 dark:bg-gray-800 rounded-lg border border-gray-200 dark:border-gray-700">
-                  <div className="flex items-start justify-between mb-4">
-                    <div className="flex items-center gap-3">
-                      <div className="p-2 rounded-lg bg-blue-500/10 dark:bg-blue-500/20">
-                        <Wallet className="w-5 h-5 text-blue-600 dark:text-blue-400" />
-                      </div>
-                      <div>
-                        <p className="text-sm font-medium text-gray-700 dark:text-gray-300">Wallet Address</p>
-                        <p className="text-xs text-gray-500 dark:text-gray-400 mt-1">Solana blockchain address</p>
-                      </div>
-                    </div>
+          <div className="space-y-5">
+            {/* Wallet Address */}
+            <div className="bg-white dark:bg-neutral-900 border border-neutral-200 dark:border-neutral-800 rounded-xl">
+              <div className="p-5 border-b border-neutral-200 dark:border-neutral-800">
+                <div className="flex items-center gap-3">
+                  <div className="w-10 h-10 rounded-lg bg-blue-100 dark:bg-blue-950/50 flex items-center justify-center">
+                    <Wallet className="w-5 h-5 text-blue-600 dark:text-blue-400" />
                   </div>
-                  {user.walletAddress ? (
-                    <div className="flex items-center gap-2">
-                      <code className="flex-1 px-4 py-3 bg-white dark:bg-gray-900 rounded-lg text-sm font-mono text-gray-900 dark:text-white border border-gray-200 dark:border-gray-700 break-all">
-                        {user.walletAddress}
-                      </code>
-                      <Button
-                        onClick={copyWalletAddress}
-                        variant="outline"
-                        size="sm"
-                        className="border-gray-300 dark:border-gray-700"
-                      >
-                        {copied ? (
-                          <>
-                            <Check className="w-4 h-4 mr-1.5 text-green-600" />
-                            Copied
-                          </>
-                        ) : (
-                          <>
-                            <Copy className="w-4 h-4 mr-1.5" />
-                            Copy
-                          </>
-                        )}
-                      </Button>
-                    </div>
-                  ) : (
-                    <div className="px-4 py-3 bg-white dark:bg-gray-900 rounded-lg border border-dashed border-gray-300 dark:border-gray-700 text-center">
-                      <p className="text-sm text-gray-500 dark:text-gray-400">No wallet connected yet</p>
-                    </div>
-                  )}
-                </div>
-
-                {/* Token Balance */}
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                  <div className="p-6 bg-yellow-50 dark:bg-yellow-900/10 rounded-lg border border-yellow-200 dark:border-yellow-800">
-                    <div className="flex items-center gap-3 mb-3">
-                      <div className="p-2 rounded-lg bg-yellow-500/20 dark:bg-yellow-500/20">
-                        <Coins className="w-5 h-5 text-yellow-600 dark:text-yellow-400" />
-                      </div>
-                      <p className="text-sm font-medium text-gray-700 dark:text-gray-300">GG Token Balance</p>
-                    </div>
-                    <p className="text-3xl font-bold text-yellow-600 dark:text-yellow-400">
-                      {(user.cachedGambinoBalance || user.gambinoBalance || 0).toLocaleString()}
-                    </p>
-                    <p className="text-xs text-gray-500 dark:text-gray-400 mt-2">GAMBINO Tokens</p>
-                  </div>
-
-                  <div className="p-6 bg-gray-50 dark:bg-gray-800 rounded-lg border border-gray-200 dark:border-gray-700">
-                    <div className="flex items-center gap-3 mb-3">
-                      <div className="p-2 rounded-lg bg-gray-500/10 dark:bg-gray-500/20">
-                        <Calendar className="w-5 h-5 text-gray-600 dark:text-gray-400" />
-                      </div>
-                      <p className="text-sm font-medium text-gray-700 dark:text-gray-300">Last Activity</p>
-                    </div>
-                    <p className="text-lg font-semibold text-gray-900 dark:text-white">
-                      {user.lastActivity 
-                        ? new Date(user.lastActivity).toLocaleDateString('en-US', { 
-                            month: 'short', 
-                            day: 'numeric',
-                            year: 'numeric'
-                          })
-                        : 'Never'
-                      }
-                    </p>
-                    <p className="text-xs text-gray-500 dark:text-gray-400 mt-2">
-                      {user.lastActivity 
-                        ? `${Math.floor((Date.now() - new Date(user.lastActivity).getTime()) / (1000 * 60 * 60 * 24))} days ago`
-                        : 'No recent activity'
-                      }
-                    </p>
-                  </div>
-                </div>
-
-                {/* Account Timeline */}
-                <div className="p-6 bg-gray-50 dark:bg-gray-800 rounded-lg border border-gray-200 dark:border-gray-700">
-                  <h4 className="text-sm font-semibold text-gray-700 dark:text-gray-300 mb-4">Account Timeline</h4>
-                  <div className="space-y-3">
-                    <div className="flex items-center justify-between">
-                      <div className="flex items-center gap-3">
-                        <div className="w-2 h-2 rounded-full bg-green-500"></div>
-                        <span className="text-sm text-gray-700 dark:text-gray-300">Account Created</span>
-                      </div>
-                      <span className="text-sm font-medium text-gray-900 dark:text-white">
-                        {user.createdAt 
-                          ? new Date(user.createdAt).toLocaleDateString('en-US', { 
-                              month: 'short', 
-                              day: 'numeric',
-                              year: 'numeric'
-                            })
-                          : 'Unknown'
-                        }
-                      </span>
-                    </div>
-                    <div className="flex items-center justify-between">
-                      <div className="flex items-center gap-3">
-                        <div className="w-2 h-2 rounded-full bg-purple-500"></div>
-                        <span className="text-sm text-gray-700 dark:text-gray-300">Wallet Connected</span>
-                      </div>
-                      <span className="text-sm font-medium text-gray-900 dark:text-white">
-                        {user.walletCreatedAt 
-                          ? new Date(user.walletCreatedAt).toLocaleDateString('en-US', { 
-                              month: 'short', 
-                              day: 'numeric',
-                              year: 'numeric'
-                            })
-                          : 'Unknown'
-                        }
-                      </span>
-                    </div>
-                    <div className="flex items-center justify-between">
-                      <div className="flex items-center gap-3">
-                        <div className="w-2 h-2 rounded-full bg-orange-500"></div>
-                        <span className="text-sm text-gray-700 dark:text-gray-300">Wallet Type</span>
-                      </div>
-                      <Badge className="bg-orange-500/10 text-orange-600 dark:bg-orange-500/20 dark:text-orange-400 border border-orange-500/20">
-                        {user.walletType === 'generated' ? 'Platform Generated' : 
-                         user.walletType === 'connected' ? 'External Connected' : 'None'}
-                      </Badge>
-                    </div>
-                    
-                      
-                   
+                  <div>
+                    <h3 className="font-semibold text-neutral-900 dark:text-white">Wallet Address</h3>
+                    <p className="text-sm text-neutral-500 dark:text-neutral-400">Solana blockchain address</p>
                   </div>
                 </div>
               </div>
+              <div className="p-5">
+                {user.walletAddress ? (
+                  <div className="flex items-center gap-3">
+                    <code className="flex-1 px-4 py-3 bg-neutral-50 dark:bg-neutral-800 rounded-lg text-sm font-mono text-neutral-900 dark:text-white border border-neutral-200 dark:border-neutral-700 break-all">
+                      {user.walletAddress}
+                    </code>
+                    <Button
+                      onClick={copyWalletAddress}
+                      variant="outline"
+                      size="sm"
+                      className="border-neutral-200 dark:border-neutral-700 flex-shrink-0"
+                    >
+                      {copied ? (
+                        <>
+                          <Check className="w-4 h-4 mr-1.5 text-green-600" />
+                          Copied
+                        </>
+                      ) : (
+                        <>
+                          <Copy className="w-4 h-4 mr-1.5" />
+                          Copy
+                        </>
+                      )}
+                    </Button>
+                  </div>
+                ) : (
+                  <div className="text-center py-6 border-2 border-dashed border-neutral-200 dark:border-neutral-700 rounded-lg">
+                    <Wallet className="w-8 h-8 text-neutral-300 dark:text-neutral-600 mx-auto mb-2" />
+                    <p className="text-sm text-neutral-500 dark:text-neutral-400">No wallet connected yet</p>
+                  </div>
+                )}
+              </div>
             </div>
-          </Card>
+
+            {/* Token Balance & Last Activity */}
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
+              <div className="bg-gradient-to-br from-yellow-50 to-amber-50 dark:from-yellow-950/30 dark:to-amber-950/30 border border-yellow-200 dark:border-yellow-800 rounded-xl p-5">
+                <div className="flex items-center gap-3 mb-4">
+                  <div className="w-10 h-10 rounded-lg bg-yellow-100 dark:bg-yellow-900/50 flex items-center justify-center">
+                    <Coins className="w-5 h-5 text-yellow-600 dark:text-yellow-400" />
+                  </div>
+                  <p className="text-sm font-medium text-neutral-700 dark:text-neutral-300">GG Token Balance</p>
+                </div>
+                <p className="text-4xl font-bold text-yellow-600 dark:text-yellow-400">
+                  {(user.cachedGambinoBalance || user.gambinoBalance || 0).toLocaleString()}
+                </p>
+                <p className="text-xs text-neutral-500 dark:text-neutral-400 mt-2">GAMBINO Tokens</p>
+              </div>
+
+              <div className="bg-white dark:bg-neutral-900 border border-neutral-200 dark:border-neutral-800 rounded-xl p-5">
+                <div className="flex items-center gap-3 mb-4">
+                  <div className="w-10 h-10 rounded-lg bg-neutral-100 dark:bg-neutral-800 flex items-center justify-center">
+                    <Calendar className="w-5 h-5 text-neutral-600 dark:text-neutral-400" />
+                  </div>
+                  <p className="text-sm font-medium text-neutral-700 dark:text-neutral-300">Last Activity</p>
+                </div>
+                <p className="text-2xl font-bold text-neutral-900 dark:text-white">
+                  {user.lastActivity
+                    ? new Date(user.lastActivity).toLocaleDateString('en-US', {
+                        month: 'short',
+                        day: 'numeric',
+                        year: 'numeric'
+                      })
+                    : 'Never'
+                  }
+                </p>
+                <p className="text-xs text-neutral-500 dark:text-neutral-400 mt-2">
+                  {user.lastActivity
+                    ? `${Math.floor((Date.now() - new Date(user.lastActivity).getTime()) / (1000 * 60 * 60 * 24))} days ago`
+                    : 'No recent activity'
+                  }
+                </p>
+              </div>
+            </div>
+
+            {/* Account Timeline */}
+            <div className="bg-white dark:bg-neutral-900 border border-neutral-200 dark:border-neutral-800 rounded-xl">
+              <div className="p-5 border-b border-neutral-200 dark:border-neutral-800">
+                <h4 className="font-semibold text-neutral-900 dark:text-white">Account Timeline</h4>
+              </div>
+              <div className="p-5 space-y-4">
+                <TimelineItem
+                  color="green"
+                  label="Account Created"
+                  value={user.createdAt
+                    ? new Date(user.createdAt).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })
+                    : 'Unknown'}
+                />
+                <TimelineItem
+                  color="purple"
+                  label="Wallet Connected"
+                  value={user.walletCreatedAt
+                    ? new Date(user.walletCreatedAt).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })
+                    : 'Not connected'}
+                />
+                <TimelineItem
+                  color="yellow"
+                  label="Wallet Type"
+                  value={user.walletType === 'generated' ? 'Platform Generated' :
+                         user.walletType === 'connected' ? 'External Connected' : 'None'}
+                  badge
+                />
+              </div>
+            </div>
+          </div>
         )}
 
         {/* Store Assignment Tab */}
         {activeTab === 'stores' && showStoreTab && (
-          <Card className="bg-white dark:bg-gray-900 border-gray-200 dark:border-gray-800">
-            <div className="p-6 border-b border-gray-200 dark:border-gray-800">
-              <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4 mb-4">
+          <div className="bg-white dark:bg-neutral-900 border border-neutral-200 dark:border-neutral-800 rounded-xl">
+            <div className="p-5 border-b border-neutral-200 dark:border-neutral-800">
+              <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
                 <div>
-                  <h3 className="text-lg font-semibold text-gray-900 dark:text-white">Assigned Stores</h3>
-                  <p className="text-sm text-gray-600 dark:text-gray-400 mt-1">
+                  <h3 className="font-semibold text-neutral-900 dark:text-white">Assigned Stores</h3>
+                  <p className="text-sm text-neutral-500 dark:text-neutral-400 mt-1">
                     {formData.assignedVenues.length} of {stores.length} stores selected
                   </p>
                 </div>
@@ -1162,7 +1060,7 @@ export default function UserEditPage() {
                     onClick={selectAllStores}
                     variant="outline"
                     size="sm"
-                    className="border-gray-300 dark:border-gray-700"
+                    className="border-neutral-200 dark:border-neutral-700"
                   >
                     Select All
                   </Button>
@@ -1170,52 +1068,52 @@ export default function UserEditPage() {
                     onClick={clearAllStores}
                     variant="outline"
                     size="sm"
-                    className="border-gray-300 dark:border-gray-700"
+                    className="border-neutral-200 dark:border-neutral-700"
                   >
                     Clear All
                   </Button>
                 </div>
               </div>
-              <div className="relative">
-                <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-5 h-5 text-gray-400" />
+              <div className="relative mt-4">
+                <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-neutral-400" />
                 <Input
                   placeholder="Search stores..."
                   value={searchTerm}
                   onChange={(e) => setSearchTerm(e.target.value)}
-                  className="pl-10 bg-gray-50 dark:bg-gray-800 border-gray-300 dark:border-gray-700 text-gray-900 dark:text-white"
+                  className="pl-10 h-10 bg-neutral-50 dark:bg-neutral-800 border-neutral-200 dark:border-neutral-700"
                 />
               </div>
             </div>
-            <div className="p-6 space-y-2 max-h-[500px] overflow-y-auto">
+            <div className="p-5 space-y-2 max-h-[500px] overflow-y-auto">
               {filteredStores.map((store) => {
                 const isAssigned = formData.assignedVenues.includes(store.storeId);
                 return (
                   <label
                     key={store.storeId}
-                    className={`flex items-center p-4 rounded-lg border cursor-pointer transition-all ${
+                    className={`flex items-center p-4 rounded-xl border cursor-pointer transition-all ${
                       isAssigned
-                        ? 'bg-yellow-500/10 dark:bg-yellow-400/10 border-yellow-500/30 dark:border-yellow-400/30'
-                        : 'bg-gray-50 dark:bg-gray-800/50 border-gray-200 dark:border-gray-700 hover:border-gray-300 dark:hover:border-gray-600'
+                        ? 'bg-yellow-50 dark:bg-yellow-950/20 border-yellow-300 dark:border-yellow-800'
+                        : 'bg-neutral-50 dark:bg-neutral-800/50 border-neutral-200 dark:border-neutral-700 hover:border-neutral-300 dark:hover:border-neutral-600'
                     }`}
                   >
                     <input
                       type="checkbox"
                       checked={isAssigned}
                       onChange={() => toggleStore(store.storeId)}
-                      className="w-5 h-5 text-yellow-600 dark:text-yellow-400 bg-gray-50 dark:bg-gray-800 border-gray-300 dark:border-gray-600 rounded focus:ring-yellow-500 dark:focus:ring-yellow-400"
+                      className="w-5 h-5 text-yellow-600 dark:text-yellow-400 bg-white dark:bg-neutral-800 border-neutral-300 dark:border-neutral-600 rounded focus:ring-yellow-500 dark:focus:ring-yellow-400"
                     />
                     <div className="ml-4 flex-1">
                       <div className="flex items-center justify-between">
                         <div>
-                          <p className="font-medium text-gray-900 dark:text-white">{store.storeName}</p>
-                          <p className="text-sm text-gray-600 dark:text-gray-400">
+                          <p className="font-medium text-neutral-900 dark:text-white">{store.storeName}</p>
+                          <p className="text-sm text-neutral-500 dark:text-neutral-400">
                             {store.storeId} • {store.city}, {store.state}
                           </p>
                         </div>
                         <Badge className={
                           store.status === 'active'
-                            ? 'bg-green-500/10 text-green-600 dark:bg-green-500/20 dark:text-green-400 border border-green-500/20'
-                            : 'bg-red-500/10 text-red-600 dark:bg-red-500/20 dark:text-red-400 border border-red-500/20'
+                            ? 'bg-green-100 dark:bg-green-950/50 text-green-700 dark:text-green-400'
+                            : 'bg-red-100 dark:bg-red-950/50 text-red-700 dark:text-red-400'
                         }>
                           {store.status}
                         </Badge>
@@ -1225,32 +1123,32 @@ export default function UserEditPage() {
                 );
               })}
               {filteredStores.length === 0 && (
-                <div className="text-center py-12 text-gray-500 dark:text-gray-400">
+                <div className="text-center py-12 text-neutral-500 dark:text-neutral-400">
                   {searchTerm ? 'No stores found matching your search' : 'No stores available'}
                 </div>
               )}
             </div>
-          </Card>
+          </div>
         )}
 
-        {/* Save Button */}
-        <div className="mt-8 flex justify-end gap-3 sticky bottom-4">
-          <Button 
-            onClick={() => router.push('/admin/users')} 
+        {/* Save Button - Sticky Footer */}
+        <div className="sticky bottom-4 mt-8 flex justify-end gap-3 bg-neutral-50/80 dark:bg-neutral-950/80 backdrop-blur-sm p-4 -mx-4 rounded-xl border border-neutral-200 dark:border-neutral-800">
+          <Button
+            onClick={() => router.push('/admin/users')}
             variant="outline"
-            className="border-gray-300 dark:border-gray-700"
+            className="border-neutral-200 dark:border-neutral-700"
           >
             <X className="w-4 h-4 mr-2" />
             Cancel
           </Button>
-          <Button 
-            onClick={handleSave} 
-            disabled={saving} 
-            className="bg-yellow-500 hover:bg-yellow-600 dark:bg-yellow-400 dark:hover:bg-yellow-500 text-gray-900 shadow-md"
+          <Button
+            onClick={handleSave}
+            disabled={saving}
+            className="bg-yellow-500 hover:bg-yellow-600 text-black font-medium shadow-lg shadow-yellow-500/20"
           >
             {saving ? (
               <>
-                <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-gray-900 mr-2"></div>
+                <RefreshCw className="w-4 h-4 mr-2 animate-spin" />
                 Saving...
               </>
             ) : (
@@ -1263,5 +1161,96 @@ export default function UserEditPage() {
         </div>
       </div>
     </AdminLayout>
+  );
+}
+
+// Stat Card Component
+interface StatCardProps {
+  label: string;
+  value: string;
+  icon: React.ReactNode;
+  color: 'yellow' | 'blue' | 'green' | 'purple';
+}
+
+function StatCard({ label, value, icon, color }: StatCardProps) {
+  const colorClasses = {
+    yellow: 'bg-yellow-100 dark:bg-yellow-950/50 text-yellow-600 dark:text-yellow-400',
+    blue: 'bg-blue-100 dark:bg-blue-950/50 text-blue-600 dark:text-blue-400',
+    green: 'bg-green-100 dark:bg-green-950/50 text-green-600 dark:text-green-400',
+    purple: 'bg-purple-100 dark:bg-purple-950/50 text-purple-600 dark:text-purple-400',
+  };
+
+  return (
+    <div className="bg-white dark:bg-neutral-900 border border-neutral-200 dark:border-neutral-800 rounded-xl p-4">
+      <div className="flex items-center gap-3">
+        <div className={`w-10 h-10 rounded-lg flex items-center justify-center ${colorClasses[color]}`}>
+          {icon}
+        </div>
+        <div className="min-w-0 flex-1">
+          <p className="text-xs text-neutral-500 dark:text-neutral-400 uppercase tracking-wide font-medium">{label}</p>
+          <p className="text-lg font-bold text-neutral-900 dark:text-white truncate mt-0.5">{value}</p>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+// Tab Button Component
+interface TabButtonProps {
+  active: boolean;
+  onClick: () => void;
+  children: React.ReactNode;
+}
+
+function TabButton({ active, onClick, children }: TabButtonProps) {
+  return (
+    <button
+      onClick={onClick}
+      className={`px-4 py-3 text-sm font-medium border-b-2 -mb-px transition-colors whitespace-nowrap flex items-center ${
+        active
+          ? 'border-yellow-500 text-yellow-600 dark:text-yellow-400'
+          : 'border-transparent text-neutral-500 hover:text-neutral-700 dark:hover:text-neutral-300'
+      }`}
+    >
+      {children}
+    </button>
+  );
+}
+
+// Timeline Item Component
+interface TimelineItemProps {
+  color: 'green' | 'purple' | 'yellow';
+  label: string;
+  value: string;
+  badge?: boolean;
+}
+
+function TimelineItem({ color, label, value, badge }: TimelineItemProps) {
+  const dotColors = {
+    green: 'bg-green-500',
+    purple: 'bg-purple-500',
+    yellow: 'bg-yellow-500',
+  };
+
+  const badgeColors = {
+    green: 'bg-green-100 dark:bg-green-950/50 text-green-700 dark:text-green-400',
+    purple: 'bg-purple-100 dark:bg-purple-950/50 text-purple-700 dark:text-purple-400',
+    yellow: 'bg-yellow-100 dark:bg-yellow-950/50 text-yellow-700 dark:text-yellow-400',
+  };
+
+  return (
+    <div className="flex items-center justify-between">
+      <div className="flex items-center gap-3">
+        <div className={`w-2.5 h-2.5 rounded-full ${dotColors[color]}`}></div>
+        <span className="text-sm text-neutral-700 dark:text-neutral-300">{label}</span>
+      </div>
+      {badge ? (
+        <Badge className={badgeColors[color]}>
+          {value}
+        </Badge>
+      ) : (
+        <span className="text-sm font-medium text-neutral-900 dark:text-white">{value}</span>
+      )}
+    </div>
   );
 }
