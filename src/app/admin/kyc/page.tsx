@@ -31,6 +31,12 @@ interface PendingUser {
   referralVenueId?: string;
 }
 
+interface Venue {
+  id: string;
+  name: string;
+  location?: string;
+}
+
 interface KycStats {
   overall: {
     totalVerifications: number;
@@ -68,6 +74,7 @@ export default function KycPage() {
   const [pendingUsers, setPendingUsers] = useState<PendingUser[]>([]);
   const [history, setHistory] = useState<HistoryItem[]>([]);
   const [stats, setStats] = useState<KycStats | null>(null);
+  const [venues, setVenues] = useState<Venue[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [searchTerm, setSearchTerm] = useState('');
@@ -78,22 +85,35 @@ export default function KycPage() {
     user: PendingUser | null;
     notes: string;
     documentType: string;
+    venueId: string;
     submitting: boolean;
   }>({
     open: false,
     user: null,
     notes: '',
     documentType: 'id',
+    venueId: '',
     submitting: false,
   });
 
   useEffect(() => {
     setMounted(true);
+    // Fetch venues on mount
+    loadVenues();
   }, []);
 
   useEffect(() => {
     loadData();
   }, [activeTab]);
+
+  const loadVenues = async () => {
+    try {
+      const res = await api.get('/api/kyc/venues');
+      setVenues(res.data.venues || []);
+    } catch (err) {
+      console.error('Failed to load venues:', err);
+    }
+  };
 
   const loadData = async () => {
     try {
@@ -122,6 +142,11 @@ export default function KycPage() {
   const handleVerify = async () => {
     if (!verifyModal.user) return;
 
+    if (!verifyModal.venueId) {
+      alert('Please select a venue');
+      return;
+    }
+
     setVerifyModal(prev => ({ ...prev, submitting: true }));
 
     try {
@@ -129,6 +154,7 @@ export default function KycPage() {
         userId: verifyModal.user._id,
         documentType: verifyModal.documentType,
         notes: verifyModal.notes,
+        venueId: verifyModal.venueId,
       });
 
       // Show success message
@@ -141,6 +167,7 @@ export default function KycPage() {
         user: null,
         notes: '',
         documentType: 'id',
+        venueId: '',
         submitting: false,
       });
 
@@ -158,6 +185,7 @@ export default function KycPage() {
           user: null,
           notes: '',
           documentType: 'id',
+          venueId: '',
           submitting: false,
         });
         loadData();
@@ -168,11 +196,14 @@ export default function KycPage() {
   };
 
   const openVerifyModal = (user: PendingUser) => {
+    // Default to first venue if available
+    const defaultVenueId = venues.length > 0 ? venues[0].id : '';
     setVerifyModal({
       open: true,
       user,
       notes: '',
       documentType: 'id',
+      venueId: defaultVenueId,
       submitting: false,
     });
   };
@@ -449,7 +480,7 @@ export default function KycPage() {
                 Verify KYC
               </h2>
               <button
-                onClick={() => setVerifyModal(prev => ({ ...prev, open: false }))}
+                onClick={() => setVerifyModal(prev => ({ ...prev, open: false, venueId: '' }))}
                 className="text-neutral-400 hover:text-neutral-600 dark:hover:text-neutral-300"
               >
                 <X className="w-5 h-5" />
@@ -471,6 +502,32 @@ export default function KycPage() {
                   <Badge className="mt-2 bg-purple-100 dark:bg-purple-950/50 text-purple-700 dark:text-purple-300">
                     Has Pending Referral - Will be verified!
                   </Badge>
+                )}
+              </div>
+
+              {/* Venue selector */}
+              <div>
+                <label className="block text-sm font-medium text-neutral-700 dark:text-neutral-300 mb-2">
+                  <Building className="w-4 h-4 inline mr-1" />
+                  Verification Location *
+                </label>
+                <select
+                  value={verifyModal.venueId}
+                  onChange={(e) => setVerifyModal(prev => ({ ...prev, venueId: e.target.value }))}
+                  className="w-full h-10 px-3 rounded-lg border border-neutral-200 dark:border-neutral-700 bg-white dark:bg-neutral-800 text-neutral-900 dark:text-white"
+                  required
+                >
+                  <option value="">Select venue...</option>
+                  {venues.map((venue) => (
+                    <option key={venue.id} value={venue.id}>
+                      {venue.name}{venue.location ? ` - ${venue.location}` : ''}
+                    </option>
+                  ))}
+                </select>
+                {venues.length === 0 && (
+                  <p className="text-xs text-amber-600 dark:text-amber-400 mt-1">
+                    Loading venues...
+                  </p>
                 )}
               </div>
 
@@ -529,7 +586,7 @@ export default function KycPage() {
 
             <div className="flex gap-3 p-4 border-t border-neutral-200 dark:border-neutral-800">
               <Button
-                onClick={() => setVerifyModal(prev => ({ ...prev, open: false }))}
+                onClick={() => setVerifyModal(prev => ({ ...prev, open: false, venueId: '' }))}
                 variant="outline"
                 className="flex-1 border-neutral-200 dark:border-neutral-700"
               >
