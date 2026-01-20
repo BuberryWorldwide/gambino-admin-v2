@@ -51,7 +51,7 @@ export default function UsersPage() {
   const loadUsers = async () => {
     try {
       setError(null);
-      const { data } = await api.get('/api/admin/users');
+      const { data } = await api.get('/api/admin/users?limit=1000');
       // Anonymize user data in demo mode
       const userData = anonymizeUsers(data.users || []);
       setUsers(userData);
